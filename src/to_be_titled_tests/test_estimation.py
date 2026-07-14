@@ -1,5 +1,6 @@
 # pyright: reportPrivateUsage=false
 import numpy as np
+import pytest
 
 from to_be_titled import estimation
 
@@ -42,3 +43,25 @@ def test_fit_diaconis_ylvisaker_logistic_regression_shrinks_coefficients() -> No
     assert betas_mle.shape == betas_shrunk.shape
     assert abs(betas_shrunk[0, 0]) < abs(betas_mle[0, 0])
     assert betas_shrunk[0, 0] > betas_mle[0, 0]
+
+
+def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses() -> None:
+    x = np.array([0.0, 1.0, 2.0], dtype=np.float64)
+    y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+
+    betas = estimation.fit_diaconis_ylvisaker_logistic_regression(
+        x, y, alpha=0.5, max_iterations=100, epsilon=1e-8
+    )
+
+    assert betas.shape == (1, 1)
+    assert np.isfinite(betas).all()
+
+
+def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha() -> None:
+    x = np.ones((3, 1), dtype=np.float64)
+    y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
+
+    with pytest.raises(ValueError, match=r"alpha must be in \[0, 1\]"):
+        estimation.fit_diaconis_ylvisaker_logistic_regression(
+            x, y, alpha=1.5, max_iterations=100, epsilon=1e-8
+        )
