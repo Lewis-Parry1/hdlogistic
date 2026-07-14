@@ -16,7 +16,6 @@ dev = [
     "ruff>=0.15.18",
     "uv",
     "scipy-stubs",
-    "pre-commit"
 ]
 
 [tool.ruff]
