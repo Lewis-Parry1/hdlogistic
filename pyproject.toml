@@ -15,7 +15,8 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.15.18",
     "uv",
-    "scipy-stubs"
+    "scipy-stubs",
+    "pre-commit"
 ]
 
 [tool.ruff]
@@ -46,4 +47,3 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/to_be_titled"]
-include = ["src/to_be_titled/py.typed"]
