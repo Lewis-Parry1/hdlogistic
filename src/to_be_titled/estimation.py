@@ -115,10 +115,9 @@ def _compute_fisher_scoring_components(
     """
     p = x.shape[1]  # Number of features in the design matrix
 
-    #TODO: Consider making a parameter or from a global variable/config as it is a 
+    # TODO: Consider making a parameter or from a global variable/config as it is a
     # magic number
-    epsilon = 1e-8  # Small ridge for numerical stability 
-
+    epsilon = 1e-8  # Small ridge for numerical stability
 
     etas = x @ betas
     mus = expit(etas)
