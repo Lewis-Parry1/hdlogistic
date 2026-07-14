@@ -15,7 +15,7 @@ dev = [
     "pytest>=9.1.1",
     "ruff>=0.15.18",
     "uv",
-    "scipy-stubs",
+    "scipy-stubs"
 ]
 
 [tool.ruff]
