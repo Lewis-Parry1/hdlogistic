@@ -3,7 +3,7 @@ name: pre-commit
 on:
   push:    
   pull_request:
-
+  
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
@@ -18,11 +18,14 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
+      - name: Ensure pip is available
+        run: uv run python -m ensurepip --upgrade
 
-      - name: Ensure pre-commit is installed
-        run: uv run python -m pip install pre-commit
+      - name: Upgrade pip
+        run: uv run python -m pip install --upgrade pip
+
+      - name: Install development dependencies
+        run: uv run python -m pip install -e .[dev]
 
       - name: Run pre-commit hooks
         run: uv run python -m pre_commit run --all-files
