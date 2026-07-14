@@ -10,7 +10,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_balanced_dataset() -> None:
     y = np.array([[0.0], [0.0], [1.0], [1.0]], dtype=np.float64)
 
     betas = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=1.0, max_iterations=100, epsilon=1e-8
+        x, y, alpha=1.0, max_iterations=100, tolerance=1e-8
     )
 
     assert betas.shape == (1, 1)
@@ -22,7 +22,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_returns_finite_values() -> N
     y = np.array([[0.0], [0.0], [1.0]], dtype=np.float64)
 
     betas = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=0.5, max_iterations=100, epsilon=1e-8
+        x, y, alpha=0.5, max_iterations=100, tolerance=1e-8
     )
 
     assert betas.shape == (1, 1)
@@ -34,10 +34,10 @@ def test_fit_diaconis_ylvisaker_logistic_regression_shrinks_coefficients() -> No
     y = np.array([[0.0], [0.0], [1.0]], dtype=np.float64)
 
     betas_mle = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=1.0, max_iterations=100, epsilon=1e-8
+        x, y, alpha=1.0, max_iterations=100, tolerance=1e-8
     )
     betas_shrunk = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=0.5, max_iterations=100, epsilon=1e-8
+        x, y, alpha=0.5, max_iterations=100, tolerance=1e-8
     )
 
     assert betas_mle.shape == betas_shrunk.shape
@@ -50,7 +50,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses() -> 
     y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
     betas = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=0.5, max_iterations=100, epsilon=1e-8
+        x, y, alpha=0.5, max_iterations=100, tolerance=1e-8
     )
 
     assert betas.shape == (1, 1)
@@ -63,5 +63,8 @@ def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha() -> N
 
     with pytest.raises(ValueError, match=r"alpha must be in \[0, 1\]"):
         estimation.fit_diaconis_ylvisaker_logistic_regression(
-            x, y, alpha=1.5, max_iterations=100, epsilon=1e-8
+            x, y, alpha=1.5, max_iterations=100, tolerance=1e-8
         )
+
+
+# TODO: Test for singular matrix

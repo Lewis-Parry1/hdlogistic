@@ -113,11 +113,21 @@ def _compute_fisher_scoring_components(
         If matrix dimensions between `x`, `y`, and `betas` are incompatible for
         matrix multiplication.
     """
+    p = x.shape[1]  # Number of features in the design matrix
+
+    #TODO: Consider making a parameter or from a global variable/config as it is a 
+    # magic number
+    epsilon = 1e-8  # Small ridge for numerical stability 
+
+
     etas = x @ betas
     mus = expit(etas)
 
     working_weights = mus * (1.0 - mus)
-    info = x.T @ (working_weights * x)
+    wx = np.sqrt(working_weights) * x
+
+    info = wx.T @ wx + np.eye(p) * epsilon  # Add small ridge for numerical stability
+
     score = x.T @ (y - mus)
 
     return info, score
@@ -127,7 +137,7 @@ def _fit_logistic_regression(
     x: NDArray[np.float64],
     y: NDArray[np.float64],
     max_iterations: int = 25,
-    epsilon: float = 1e-6,
+    tolerance: float = 1e-6,
 ) -> NDArray[np.float64]:
     """Fit a logistic regression model using the Fisher scoring method.
 
@@ -144,7 +154,7 @@ def _fit_logistic_regression(
         Validated 2-D response vector of shape (n_samples, 1).
     max_iterations : int, default=25
         Maximum number of Fisher scoring iterations to perform.
-    epsilon : float, default=1e-6
+    tolerance : float, default=1e-6
         Convergence tolerance threshold for the absolute maximum step size.
 
     Returns
@@ -158,8 +168,7 @@ def _fit_logistic_regression(
         If the Fisher information matrix is singular or ill-conditioned and
         cannot be solved during the scoring iteration.
     """
-    # Determine the number of features in the design matrix
-    p = x.shape[1]
+    p = x.shape[1]  # Number of features in the design matrix
 
     # Initialise the coefficient vector to our initial guess
     betas = np.zeros((p, 1), dtype=np.float64)
@@ -170,7 +179,7 @@ def _fit_logistic_regression(
         step = solve(info, score)
 
         # Assess convergence bounds
-        if np.max(np.abs(step)) < epsilon:
+        if np.max(np.abs(step)) < tolerance:
             break
 
         betas += step
@@ -183,7 +192,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     y: NDArray[np.float64],
     alpha: float = 0.5,
     max_iterations: int = 25,
-    epsilon: float = 1e-6,
+    tolerance: float = 1e-6,
 ) -> NDArray[np.float64]:
     """Fit a logistic regression model using a Diaconis-Ylvisaker prior.
 
@@ -204,7 +213,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
         estimate is recovered.
     max_iterations : int, default=25
         Maximum number of Fisher scoring iterations to perform.
-    epsilon : float, default=1e-6
+    tolerance : float, default=1e-6
         Convergence tolerance threshold for the absolute maximum step size.
 
     Returns
@@ -234,4 +243,4 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
-    return _fit_logistic_regression(x_validated, y_adjusted, max_iterations, epsilon)
+    return _fit_logistic_regression(x_validated, y_adjusted, max_iterations, tolerance)
