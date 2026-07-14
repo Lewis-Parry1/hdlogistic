@@ -45,7 +45,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_shrinks_coefficients() -> No
     assert betas_shrunk[0, 0] > betas_mle[0, 0]
 
 
-def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses():
+def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses() -> None:
     x = np.array([0.0, 1.0, 2.0], dtype=np.float64)
     y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
@@ -57,7 +57,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses():
     assert np.isfinite(betas).all()
 
 
-def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha():
+def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha() -> None:
     x = np.ones((3, 1), dtype=np.float64)
     y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
