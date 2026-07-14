@@ -6,7 +6,7 @@ repos:
       - id: end-of-file-fixer
       - id: trailing-whitespace
 
-  - repo: local
+ - repo: local
     hooks:
       - id: ruff
         name: ruff
@@ -27,3 +27,11 @@ repos:
         types: [python]
         require_serial: true
         files: ^src/
+
+      - id: pytest
+        name: pytest
+        entry: pytest
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
