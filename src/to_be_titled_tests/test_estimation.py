@@ -57,7 +57,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses() -> 
     assert np.isfinite(betas).all()
 
 
-def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha() -> None:
+def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha():
     x = np.ones((3, 1), dtype=np.float64)
     y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
 
