@@ -80,7 +80,7 @@ def _se0(
     return np.array([res1, res2, res3])
 
 
-def prox(
+def _prox(
     x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 200
 ) -> float | NDArray[np.float64]:
     """
