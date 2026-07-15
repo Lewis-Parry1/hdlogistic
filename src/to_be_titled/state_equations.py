@@ -81,8 +81,8 @@ def _se0(
 
 
 def prox(
-    x: NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 200
-) -> NDArray[np.float64]:
+    x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 200
+) -> float | NDArray[np.float64]:
     """
 
     Vectorised version (in x and b) of the proximal operator.
@@ -93,8 +93,8 @@ def prox(
 
     Parameters
     ----------
-    x : NDArray[np.float64]
-        grid of x values for proximal operator to be evaluated on
+    x : float | NDArray[np.float64]
+        scalar or vector of x values for proximal operator to be evaluated on
     b : float
         parameter 'b' in state evolution functions
     tol : float, optional
@@ -104,14 +104,16 @@ def prox(
 
     Returns
     -------
-    NDArray[np.float64]
-        vector of approximations of proximal operator for each x.
+    float | NDArray[np.float64]
+        scalar (or vector) of approximation(s) of proximal operator for each x.
     """
 
-    u = np.zeros_like(x, dtype=float)
+    x_arr = np.asarray(x, dtype=float)
+
+    u = np.zeros_like(x_arr, dtype=float)
 
     # First derivative when u = 0
-    g0 = x - b / 2
+    g0 = x_arr - b / 2
 
     for _ in range(max_iter):
         if np.all(np.abs(g0) < tol):
@@ -119,9 +121,9 @@ def prox(
 
         pr = expit(u)
 
-        g0 = (x - u) - b * pr
+        g0 = (x_arr - u) - b * pr
         step = g0 / (b * pr * (1 - pr) + 1)
 
         u = u + step
 
-    return u
+    return float(u) if x_arr.ndim == 0 else u
