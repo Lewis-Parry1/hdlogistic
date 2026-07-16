@@ -69,7 +69,7 @@ def _se0(
 
     w2p = (2 / np.pi) * w2 * expit(q1)
 
-    p_prox = expit(prox(q2 + a_frac * b, b, prox_tol))
+    p_prox = expit(_prox(q2 + a_frac * b, b, prox_tol))
 
     prox_resid = a_frac - p_prox
 
