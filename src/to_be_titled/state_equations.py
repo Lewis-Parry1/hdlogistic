@@ -10,7 +10,7 @@ def _se0(
     kappa: float,
     gamma: float,
     alpha: float,
-    gh: NDArray[np.float64] | None = None,
+    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     prox_tol: float = 1e-10,
 ) -> NDArray[np.float64]:
     """
