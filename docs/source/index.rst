@@ -15,11 +15,10 @@ documentation for details.
 
    This project is under active development.
 
-   
+
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    api
-
