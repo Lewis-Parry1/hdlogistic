@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import minimize
+from scipy.optimize import minimize, root
 from scipy.special import roots_hermite
 
 from to_be_titled import state_equations
@@ -16,8 +16,33 @@ def se_funcs(
     alpha: float,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]],
     prox_tol: float = 1e-10,
-    transform: bool = True,
+    transform: bool = False,
 ) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
+    """_summary_
+
+    Parameters
+    ----------
+    kappa : float
+        asymptotic ratio of the columns/rows of the design matrix.
+        kappa should be in (0,1).
+    gamma : float
+        square root of signal strength.
+    alpha : float
+        shrinkage parameter of the MDYPL estimator. alpha should be in (0,1).
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]]
+        a tuple of gauss hermite quadrature nodes and weights.
+    prox_tol : float, optional
+        tolerance for the computation of the proximal operator,
+        by default 1e-10
+    transform : bool, optional
+        true if parameters have been log transformed, by default False.
+
+    Returns
+    -------
+    Callable[[NDArray[np.float64]], NDArray[np.float64]]
+        returns function which evaluates state equations for given
+        kappa, gamma, alpha and gauss-hermite nodes and weights.
+    """
 
     def g(pars: NDArray[np.float64]) -> NDArray[np.float64]:
         if transform:
@@ -56,7 +81,7 @@ def init_solver(
     init_method: str = "Nelder-Mead",
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     prox_tol: float = 1e-10,
-    **init_kwargs: Any,
+    **minimize_kwargs: Any,
 ) -> SolverResult:
     """
 
@@ -70,7 +95,7 @@ def init_solver(
         asymptotic ratio of the columns/rows of the design matrix.
         kappa should be in (0,1).
     gamma : float
-        square root of signal strength
+        square root of signal strength.
     alpha : float
         shrinkage parameter of the MDYPL estimator. alpha should be in (0,1).
     start : NDArray[np.float64]
@@ -102,9 +127,72 @@ def init_solver(
         return float(np.dot(r, r))
 
     # TODO: Lewis see comment needed for this to pass mypy test
-    res = minimize(objective, start_log, method=init_method, **init_kwargs)  # type: ignore[call-overload]
+    res = minimize(objective, start_log, method=init_method, **minimize_kwargs)  # type: ignore[call-overload]
 
     soln = np.exp(res.x)
+
+    return SolverResult(
+        solution=soln,
+        func_value=g(res.x),
+        iterations=res.nit,
+        message=res.message,
+        termination_code=res.status,
+    )
+
+
+def nleqslv_se(
+    kappa: float,
+    gamma: float,
+    alpha: float,
+    start: NDArray[np.float64],
+    main_method: str = "hybr",
+    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
+    prox_tol: float = 1e-10,
+    transform: bool = False,
+    **root_kwargs: Any,
+) -> SolverResult:
+    """
+    Main solver which uses scipy.optimize.root to find the root of the
+    state equation.
+
+    Parameters
+    ----------
+    kappa : float
+        asymptotic ratio of the columns/rows of the design matrix.
+        kappa should be in (0,1).
+    gamma : float
+        square root of signal strength.
+    alpha : float
+        shrinkage parameter of the MDYPL estimator. alpha should be in (0,1).
+    start : NDArray[np.float64]
+        vector with starting values for `mu`, `b` and `sigma`.
+    main_method : str, optional
+        the method to be passed into scipy.root to find the roots of the state
+        equations, by default "hybr"
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, optional
+         a tuple of gauss hermite quadrature nodes and weights as returned by
+        scipy.special.roots_hermite(), by default None in which case `gh`
+        is set to scipy.special.roots_hermite(200)., by default None
+    prox_tol : float, optional
+        tolerance for the computation of the proximal operator, by default 1e-10
+
+    Returns
+    -------
+    SolverResult
+        Dataclass containing the solution, the residual vector at the solution,
+        the number of iterations, and the solver's convergence message/status.
+    """
+
+    if gh is None:
+        gh = roots_hermite(200)
+
+    g = se_funcs(kappa, gamma, alpha, gh, prox_tol, transform)
+
+    start = np.log(start) if transform else start
+
+    res = root(g, start, method=main_method, **root_kwargs)  #  type: ignore[call-overload]
+
+    soln = np.exp(res.x) if transform else res.x  # Return in original space
 
     return SolverResult(
         solution=soln,
