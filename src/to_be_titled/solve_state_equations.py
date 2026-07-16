@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -140,7 +140,7 @@ def init_solver(
     )
 
 
-def nleqslv_se(
+def root_solver(
     kappa: float,
     gamma: float,
     alpha: float,
@@ -201,3 +201,97 @@ def nleqslv_se(
         message=res.message,
         termination_code=res.status,
     )
+
+
+def solve_se(
+    kappa: float,
+    gamma: float,
+    alpha: float,
+    start: NDArray[np.float64],
+    root_kwargs: Any,
+    minimize_kwargs: Any,
+    transform: bool = True,
+    init_iter: int | Literal["only"] = 50,
+    init_method: str = "Nelder-Mead",
+    main_method: str = "hybr",
+    prox_tol: float = 1e-10,
+    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
+) -> SolverResult:
+    """_summary_
+
+    Parameters
+    ----------
+    kappa : float
+        _description_
+    gamma : float
+        _description_
+    alpha : float
+        _description_
+    start : NDArray[np.float64]
+        _description_
+    root_kwarg : Any
+        _description_
+    minimize_kwarg : Any
+        _description_
+    transform : bool, optional
+        _description_, by default True
+    init_iter : int, optional
+        _description_, by default 50
+    init_method : str, optional
+        _description_, by default "Nelder-Mead"
+    main_method : str, optional
+        _description_, by default 'hybr'
+    prox_tol : float, optional
+        _description_, by default 1e-10
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, optional
+        _description_, by default None
+
+    Returns
+    -------
+    _type_
+        _description_
+
+    Raises
+    ------
+    TypeError
+        _description_
+    ValueError
+        _description_
+    """
+
+    npar = 3
+
+    try:
+        start_len = len(start)
+    except TypeError:
+        raise TypeError("`start` must be a sequence with a length")
+    if start_len != npar:
+        raise ValueError(f"start must have length {npar}; got {start_len}")
+
+    root_kwargs = root_kwargs or {}
+    minimize_kwargs = minimize_kwargs or {}
+
+    if init_iter == "only":
+        result = init_solver(
+            kappa, gamma, alpha, start, init_method, gh, prox_tol, **minimize_kwargs
+        )
+    else:
+        if init_iter > 0:
+            init_result = init_solver(
+                kappa, gamma, alpha, start, init_method, gh, prox_tol, **minimize_kwargs
+            )
+            warm_start = init_result.solution
+
+        result = root_solver(
+            kappa,
+            gamma,
+            alpha,
+            warm_start,
+            main_method,
+            gh,
+            prox_tol,
+            transform,
+            **root_kwargs,
+        )
+
+    return result
