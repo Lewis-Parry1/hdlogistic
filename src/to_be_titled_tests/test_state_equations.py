@@ -31,7 +31,7 @@ def test_prox_zero_point(b: float) -> None:
     np.testing.assert_allclose(estimated_u, 0.0, atol=1e-9)
 
 
-def test_prox_asymptotoics() -> None:
+def test_prox_asymptotics() -> None:
     b = 5.0
 
     # For large positive u values; expit(u) tends to 1,
@@ -52,8 +52,8 @@ def test_se0_shape_and_reproducibility() -> None:
     mu, b, sigma, kappa, gamma = 0.5, 1.0, 1.0, 0.4, 2.0
     alpha = 1 / (1 + kappa)
 
-    res1 = state_equations._se0(mu, b, sigma, kappa, gamma, alpha)
-    res2 = state_equations._se0(mu, b, sigma, kappa, gamma, alpha)
+    res1 = state_equations._se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+    res2 = state_equations._se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
 
     assert isinstance(res1, np.ndarray)
     assert res1.shape == (3,)
@@ -61,21 +61,23 @@ def test_se0_shape_and_reproducibility() -> None:
     np.testing.assert_array_equal(res1, res2)
 
 
-def test_se0_gh_caching() -> None:
+def test_se0_gh_reproducibility() -> None:
     mu, b, sigma, kappa, gamma = 0.5, 1.0, 1.0, 0.4, 2.0
     alpha = 1 / (1 + kappa)
 
-    res_gh_internal = state_equations._se0(mu, b, sigma, kappa, gamma, alpha, gh=None)
+    res_gh_internal = state_equations._se_no_intercept(
+        mu, b, sigma, kappa, gamma, alpha, gh=None
+    )
 
     gh_precomputed = roots_hermite(200)
-    res_gh_external = state_equations._se0(
+    res_gh_external = state_equations._se_no_intercept(
         mu, b, sigma, kappa, gamma, alpha, gh=gh_precomputed
     )
 
     np.testing.assert_allclose(res_gh_internal, res_gh_external, atol=1e-12)
 
 
-def test_se0_numerical_stability() -> None:
+def test_se0_no_nan_or_inf() -> None:
     # Test extreme kappa gamma pairs which push mu to zero
     mu_tiny = 1e-100
     b, sigma, kappa, gamma, alpha = 50.0, 5.0, 0.9, 15.0, 1 / (1 + 0.9)
@@ -83,7 +85,9 @@ def test_se0_numerical_stability() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         try:
-            res = state_equations._se0(mu_tiny, b, sigma, kappa, gamma, alpha)
+            res = state_equations._se_no_intercept(
+                mu_tiny, b, sigma, kappa, gamma, alpha
+            )
             assert not np.any(np.isnan(res))
         except RuntimeWarning as e:
             pytest.fail(f"Mathematical instability detected: {e}")
