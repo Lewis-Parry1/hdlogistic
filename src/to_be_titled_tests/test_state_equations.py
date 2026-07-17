@@ -6,7 +6,8 @@ from scipy.special import expit, roots_hermite
 
 from to_be_titled import state_equations
 
-# TODO: doctrings explaining all tests 
+# TODO: doctrings explaining all tests
+
 
 def test_prox_inverse_identity() -> None:
     b = 2.5
@@ -17,7 +18,7 @@ def test_prox_inverse_identity() -> None:
     # Calculate the corresponding 'x' inputs
     x_input = b * expit(true_u) + true_u
 
-    estimated_u = state_equations._prox(x_input, b)
+    estimated_u = state_equations._proximal_operator(x_input, b)
 
     np.testing.assert_allclose(true_u, estimated_u, atol=1e-9)
 
@@ -27,7 +28,7 @@ def test_prox_zero_point(b: float) -> None:
     # If x = b / 2 then the true root 'u' must be exactly 0
     x_input = b / 2
 
-    estimated_u = state_equations._prox(x_input, b)
+    estimated_u = state_equations._proximal_operator(x_input, b)
 
     np.testing.assert_allclose(estimated_u, 0.0, atol=1e-9)
 
@@ -38,14 +39,14 @@ def test_prox_asymptotics() -> None:
     # For large positive u values; expit(u) tends to 1,
     # u \approx x - b
     x_pos = np.array([500.0, 1000.0])
-    u_pos = state_equations._prox(x_pos, b)
+    u_pos = state_equations._proximal_operator(x_pos, b)
 
     np.testing.assert_allclose(u_pos, x_pos - b, rtol=1e-5)
 
     # For large negative u values; expit(u) tends to 0
     # u approx x
     x_neg = np.array([-500.0, -1000.0])
-    u_neg = state_equations._prox(x_neg, b)
+    u_neg = state_equations._proximal_operator(x_neg, b)
     np.testing.assert_allclose(u_neg, x_neg, rtol=1e-5)
 
 
@@ -77,6 +78,7 @@ def test_se0_gh_reproducibility() -> None:
 
     np.testing.assert_allclose(res_gh_internal, res_gh_external, atol=1e-12)
 
+
 # TODO: more rigorously test extreme parameter values
 def test_se0_no_nan_or_inf() -> None:
     # Test extreme kappa gamma pairs which push mu to zero
@@ -94,10 +96,9 @@ def test_se0_no_nan_or_inf() -> None:
             pytest.fail(f"Mathematical instability detected: {e}")
 
 
-# TODO: test for cancellation precision when (kappa**2 * sigma**2) - b**2 
-# are large and similar in magnitude  
+# TODO: test for cancellation precision when (kappa**2 * sigma**2) - b**2
+# are large and similar in magnitude
 
 # TODO: test se0 evaluates similarly across difference prox_tols
 
 # TODO : add exact values obtained from brglm2 se0 and compare
-
