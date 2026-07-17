@@ -1,9 +1,13 @@
+from warnings import warn
+
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import expit, roots_hermite
+from scipy.special import expit
+
+from .utils import _get_hermite_roots_weights
 
 
-def _se0(
+def _se_no_intercept(
     mu: float,
     b: float,
     sigma: float,
@@ -20,29 +24,99 @@ def _se0(
     Parameters
     ----------
     mu : float
-        aggregate bias parameter.
+        Aggregate bias parameter.
     b : float
-        parameter 'b' in state evolution functions.
+        Parameter 'b' in state evolution functions.
     sigma : float
-        square root of aggregate variance of the MDYPL estimator.
+        Square root of aggregate variance of the MDYPL estimator.
     kappa : float
-        kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
+        Kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
         in `(0,1)`
     gamma : float
-        square root of the limit of the variance of the linear predictor.
+        Square root of the limit of the variance of the linear predictor.
     alpha : float
-        the shrinkage parameter of the MDUPL estimator. `alpha` should be in `(0,1)`.
-    gh : NDArray[np.float64], default = None
-        a list with gauss-hermite quadrature nodes and weights as returned from by
+        The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, default = None
+        A list with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
         roots_hermite(200).
     prox_tol : float, optional
-        tolerance for the computation of the proximal operator, by default 1e-10
+        Tolerance for the computation of the proximal operator, by default 1e-10
 
     Returns
     -------
     NDArray[np.float64]
-        Returns the estimates of the three state evolution equations with no intercept.
+        A 1D array containing the evaluated residuals of the three state evolution
+        equations.
+
+    References
+    -------
+
+    .. [1] Sterzinger, P., & Kosmidis, I. (2026). Diaconis-Ylvisaker prior
+        penalized likelihood for p/n -> kappa in (0,1) logistic regression.
+        https://arxiv.org/abs/2311.07419
+
+    """
+
+    xi, wi = gh if gh is not None else _get_hermite_roots_weights(200)
+
+    n_nodes = len(xi)
+
+    # Compute 2D grid of Hermite polynomial nodes and 2D grid of weights
+    x_grid = np.tile(xi, n_nodes)
+    y_grid = np.repeat(xi, n_nodes)
+    w_grid = np.tile(wi, n_nodes) * np.repeat(wi, n_nodes)
+
+    # Precompute needed quantities to evaluate input to expectation in state equations
+    a_frac = 0.5 * (1 + alpha)
+    q1 = np.sqrt(2) * gamma * x_grid
+    q2 = (q1 * mu) + np.sqrt(2) * (np.sqrt(kappa) * sigma * y_grid)
+
+    # Precompute needed quantity to approximate expectation in state evolution
+    # equations
+    w_pi2_q1 = (2 / np.pi) * w_grid * expit(q1)
+
+    # Evaluate proximal operator for x = q2 + a_frac * b and b = b as inputs
+    prox_input = _proximal_operator(q2 + a_frac * b, b, prox_tol)
+
+    # Precompute quantities related to proximal operator needed for
+    # evaluation of expectations in state evolution equations
+    prox_expit = expit(prox_input)
+    prox_resid = a_frac - prox_expit
+
+    # Compute evaluation of three state equations given parameters
+    res1 = np.sum(w_pi2_q1 * q1 * prox_resid)
+    res2 = 1 - kappa - np.sum(w_pi2_q1 / (1 + b * prox_expit * (1 - prox_expit)))
+    res3 = (kappa**2 * sigma**2) - b**2 * np.sum(w_pi2_q1 * prox_expit**2)
+
+    return np.array([res1, res2, res3])
+
+
+def _proximal_operator(
+    x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 10_000
+) -> float | NDArray[np.float64]:
+    """
+    The function finds the scalar u which minimises (b * log (1 + e^u) + (x-u)^2 /2).
+    This is known as the proximal operator [1]. The function is vectorised to take
+    a vector of nodes (x) and scalar b, and return corresponding minimums. The
+    Newton-Raphson algorithm is utilised in order to approximate the
+    minimum of the function.
+
+    Parameters
+    ----------
+    x : float | NDArray[np.float64]
+        Scalar or vector of x values for proximal operator to be evaluated on.
+    b : float
+        Parameter 'b' in state evolution functions.
+    tol : float, optional
+        Convergence threshold for newton raphson step size, by default 1e-10.
+    max_iter : int, optional
+        Maximum number of Newton-Raphson updates, by default 10000.
+
+    Returns
+    -------
+    float | NDArray[np.float64]
+        Scalar (or vector) of approximation(s) of proximal operator for each x.
 
     References
     -------
@@ -50,80 +124,26 @@ def _se0(
     .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
         penalized likelihood for p/n -> kappa in (0,1) logistic regression.
         https://arxiv.org/abs/2311.07419
-
-    """
-
-    xi, wi = gh if gh is not None else roots_hermite(200)
-
-    n_nodes = len(xi)
-
-    x_grid = np.tile(xi, n_nodes)
-    y_grid = np.repeat(xi, n_nodes)
-
-    a_frac = 0.5 * (1 + alpha)
-
-    q1 = np.sqrt(2) * gamma * x_grid
-    q2 = (q1 * mu) + np.sqrt(2) * (np.sqrt(kappa) * sigma * y_grid)
-
-    w2 = np.tile(wi, n_nodes) * np.repeat(wi, n_nodes)
-
-    w2p = (2 / np.pi) * w2 * expit(q1)
-
-    p_prox = expit(_prox(q2 + a_frac * b, b, prox_tol))
-
-    prox_resid = a_frac - p_prox
-
-    res1 = np.sum(w2p * q1 * prox_resid)
-    res2 = 1 - kappa - np.sum(w2p / (1 + b * p_prox * (1 - p_prox)))
-    res3 = (kappa**2 * sigma**2) - b**2 * np.sum(w2p * p_prox**2)
-
-    return np.array([res1, res2, res3])
-
-
-def _prox(
-    x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 200
-) -> float | NDArray[np.float64]:
-    """
-
-    Vectorised version (in x and b) of the proximal operator.
-
-    arg min _ u (b * log (1 + e^u) + (x-u)^2 /2)
-
-    is minimised using Newton-Raphson.
-
-    Parameters
-    ----------
-    x : float | NDArray[np.float64]
-        scalar or vector of x values for proximal operator to be evaluated on
-    b : float
-        parameter 'b' in state evolution functions
-    tol : float, optional
-        convergence threshold for newton raphson step size, by default 1e-10
-    max_iter : int, optional
-        maximum number of Newton-Raphson updates, by default 200.
-
-    Returns
-    -------
-    float | NDArray[np.float64]
-        scalar (or vector) of approximation(s) of proximal operator for each x.
+    .. [2] Naumann, U. (2020). Newton's Method I.
+        https://www.stce.rwth-aachen.de/files/elearning/Newton_I.pdf
     """
 
     x_arr = np.asarray(x, dtype=float)
-
     u = np.zeros_like(x_arr, dtype=float)
 
-    # First derivative when u = 0
-    g0 = x_arr - b / 2
-
     for _ in range(max_iter):
+        expit_u = expit(u)
+        g0 = (x_arr - u) - b * expit_u
+
         if np.all(np.abs(g0) < tol):
             break
 
-        pr = expit(u)
-
-        g0 = (x_arr - u) - b * pr
-        step = g0 / (b * pr * (1 - pr) + 1)
-
+        step = g0 / (b * expit_u * (1 - expit_u) + 1)
         u = u + step
+    else:
+        warn(
+            f"Proximal operator did not converge within {max_iter} iterations.",
+            RuntimeWarning,
+        )
 
     return float(u) if x_arr.ndim == 0 else u
