@@ -1,11 +1,16 @@
-from functools import lru_cache
-from scipy.special import roots_hermite
-from numpy.typing import NDArray
+from functools import cache
 
-@lru_cache(maxsize=None)
-def _get_hermite_roots_weights(n: int = 200) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+import numpy as np
+from numpy.typing import NDArray
+from scipy.special import roots_hermite
+
+
+@cache
+def _get_hermite_roots_weights(
+    n: int = 200,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
     """
-    Computes and caches the roots and weights of a Hermite polynomial to be 
+    Computes and caches the roots and weights of a Hermite polynomial to be
     used in Gauss-Hermite quadrature to approximate an integral.
 
     Parameters
@@ -17,5 +22,5 @@ def _get_hermite_roots_weights(n: int = 200) -> tuple[NDArray[np.float64], NDArr
     -------
     tuple[NDArray[np.float64], NDArray[np.float64]]
         Tuple of nodes and corresponding weights to approximate integrals.
-    """    
+    """
     return roots_hermite(n)

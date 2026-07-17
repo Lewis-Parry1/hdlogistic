@@ -6,6 +6,7 @@ from scipy.special import expit, roots_hermite
 
 from to_be_titled import state_equations
 
+# TODO: doctrings explaining all tests 
 
 def test_prox_inverse_identity() -> None:
     b = 2.5
@@ -76,7 +77,7 @@ def test_se0_gh_reproducibility() -> None:
 
     np.testing.assert_allclose(res_gh_internal, res_gh_external, atol=1e-12)
 
-
+# TODO: more rigorously test extreme parameter values
 def test_se0_no_nan_or_inf() -> None:
     # Test extreme kappa gamma pairs which push mu to zero
     mu_tiny = 1e-100
@@ -93,4 +94,10 @@ def test_se0_no_nan_or_inf() -> None:
             pytest.fail(f"Mathematical instability detected: {e}")
 
 
+# TODO: test for cancellation precision when (kappa**2 * sigma**2) - b**2 
+# are large and similar in magnitude  
+
+# TODO: test se0 evaluates similarly across difference prox_tols
+
 # TODO : add exact values obtained from brglm2 se0 and compare
+

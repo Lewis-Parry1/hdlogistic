@@ -33,8 +33,8 @@ def _se_no_intercept(
     gamma : float
         Square root of the limit of the variance of the linear predictor.
     alpha : float
-        The shrinkage parameter of the MDUPL estimator. `alpha` should be in `(0,1)`.
-    gh : NDArray[np.float64], default = None
+        The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, default = None
         A list with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
         roots_hermite(200).
@@ -44,40 +44,48 @@ def _se_no_intercept(
     Returns
     -------
     NDArray[np.float64]
-        Returns the estimates of the three state evolution equations with no intercept.
+        A 1D array containing the evaluated residuals of the three state evolution
+        equations.
 
     References
     -------
 
-    .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
+    .. [1] Sterzinger, P., & Kosmidis, I. (2026). Diaconis-Ylvisaker prior
         penalized likelihood for p/n -> kappa in (0,1) logistic regression.
         https://arxiv.org/abs/2311.07419
 
     """
-    
+
     xi, wi = gh if gh is not None else _get_hermite_roots_weights(200)
 
     n_nodes = len(xi)
 
+    # Compute 2D grid of Hermite polynomial nodes and 2D grid of weights
     x_grid = np.tile(xi, n_nodes)
     y_grid = np.repeat(xi, n_nodes)
+    w_grid = np.tile(wi, n_nodes) * np.repeat(wi, n_nodes)
 
+    # Precompute needed quantities to evaluate input to expectation in state equations
     a_frac = 0.5 * (1 + alpha)
-
     q1 = np.sqrt(2) * gamma * x_grid
     q2 = (q1 * mu) + np.sqrt(2) * (np.sqrt(kappa) * sigma * y_grid)
 
-    w2 = np.tile(wi, n_nodes) * np.repeat(wi, n_nodes)
+    # Precompute needed quantity to approximate expectation in state evolution
+    # equations
+    w_pi2_q1 = (2 / np.pi) * w_grid * expit(q1)
 
-    w2p = (2 / np.pi) * w2 * expit(q1)
+    # Evaluate proximal operator for x = q2 + a_frac * b and b = b as inputs
+    prox_input = _proximal_operator(q2 + a_frac * b, b, prox_tol)
 
-    p_prox = expit(_proximal_operator(q2 + a_frac * b, b, prox_tol))
+    # Precompute quantities related to proximal operator needed for
+    # evaluation of expectations in state evolution equations
+    prox_expit = expit(prox_input)
+    prox_resid = a_frac - prox_expit
 
-    prox_resid = a_frac - p_prox
-
-    res1 = np.sum(w2p * q1 * prox_resid)
-    res2 = 1 - kappa - np.sum(w2p / (1 + b * p_prox * (1 - p_prox)))
-    res3 = (kappa**2 * sigma**2) - b**2 * np.sum(w2p * p_prox**2)
+    # Compute evaluation of three state equations given parameters
+    res1 = np.sum(w_pi2_q1 * q1 * prox_resid)
+    res2 = 1 - kappa - np.sum(w_pi2_q1 / (1 + b * prox_expit * (1 - prox_expit)))
+    res3 = (kappa**2 * sigma**2) - b**2 * np.sum(w_pi2_q1 * prox_expit**2)
 
     return np.array([res1, res2, res3])
 
@@ -89,7 +97,8 @@ def _proximal_operator(
     The function finds the scalar u which minimises (b * log (1 + e^u) + (x-u)^2 /2).
     This is known as the proximal operator [1]. The function is vectorised to take
     a vector of nodes (x) and scalar b, and return corresponding minimums. The
-    Newton-Raphson algorithm is utilised to approximate the minimum of the function.
+    Newton-Raphson algorithm is utilised in order to approximate the
+    minimum of the function.
 
     Parameters
     ----------
@@ -113,8 +122,8 @@ def _proximal_operator(
     .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
         penalized likelihood for p/n -> kappa in (0,1) logistic regression.
         https://arxiv.org/abs/2311.07419
-    .. [2] Naumann, U. (2020). Newton's Method I. 
-        https://www.stce.rwth-aachen.de/files/elearning/Newton_I.pdf        
+    .. [2] Naumann, U. (2020). Newton's Method I.
+        https://www.stce.rwth-aachen.de/files/elearning/Newton_I.pdf
     """
 
     x_arr = np.asarray(x, dtype=float)
