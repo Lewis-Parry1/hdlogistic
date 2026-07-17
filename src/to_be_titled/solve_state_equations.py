@@ -5,9 +5,9 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 from scipy.optimize import minimize, root
-from scipy.special import roots_hermite
 
 from to_be_titled import state_equations
+from .utils import _get_hermite_roots_weights
 
 
 def _se_funcs(
@@ -82,6 +82,9 @@ def _se_funcs(
 
 @dataclass
 class SolverResult:
+    """Dataclass to store solution and function evaluation with solution along with
+    number of iterations needed to converge and convergence messages and status. 
+    """    
     solution: NDArray[np.float64]
     func_value: NDArray[np.float64]
     iterations: int
@@ -147,8 +150,7 @@ def _init_solver(
         of iterations performed (`iterations`), and the solver's termination
         status and message (`message`, `termination_code`).
     """
-    if gh is None:
-        gh = roots_hermite(200)
+    gh = gh if gh is not None else _get_hermite_roots_weights(200)
 
     g = _se_funcs(kappa, gamma, alpha, gh=gh, prox_tol=prox_tol, transform=True)
     start_log = np.asarray(np.log(start), dtype=np.float64)
@@ -235,8 +237,7 @@ def _root_solver(
         status and message (`message`, `termination_code`).
     """
 
-    if gh is None:
-        gh = roots_hermite(200)
+    gh = gh if gh is not None else _get_hermite_roots_weights(200)
 
     g = _se_funcs(kappa, gamma, alpha, gh, prox_tol, transform)
 
