@@ -3,7 +3,7 @@ from numpy.typing import NDArray
 from scipy.special import expit, roots_hermite
 
 
-def _se0(
+def _se_no_intercept(
     mu: float,
     b: float,
     sigma: float,
@@ -20,24 +20,24 @@ def _se0(
     Parameters
     ----------
     mu : float
-        aggregate bias parameter.
+        Aggregate bias parameter.
     b : float
-        parameter 'b' in state evolution functions.
+        Parameter 'b' in state evolution functions.
     sigma : float
-        square root of aggregate variance of the MDYPL estimator.
+        Square root of aggregate variance of the MDYPL estimator.
     kappa : float
-        kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
+        Kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
         in `(0,1)`
     gamma : float
-        square root of the limit of the variance of the linear predictor.
+        Square root of the limit of the variance of the linear predictor.
     alpha : float
-        the shrinkage parameter of the MDUPL estimator. `alpha` should be in `(0,1)`.
+        The shrinkage parameter of the MDUPL estimator. `alpha` should be in `(0,1)`.
     gh : NDArray[np.float64], default = None
-        a list with gauss-hermite quadrature nodes and weights as returned from by
+        A list with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
         roots_hermite(200).
     prox_tol : float, optional
-        tolerance for the computation of the proximal operator, by default 1e-10
+        Tolerance for the computation of the proximal operator, by default 1e-10
 
     Returns
     -------
@@ -52,7 +52,7 @@ def _se0(
         https://arxiv.org/abs/2311.07419
 
     """
-
+    # TODO: Cache
     xi, wi = gh if gh is not None else roots_hermite(200)
 
     n_nodes = len(xi)
@@ -69,7 +69,7 @@ def _se0(
 
     w2p = (2 / np.pi) * w2 * expit(q1)
 
-    p_prox = expit(_prox(q2 + a_frac * b, b, prox_tol))
+    p_prox = expit(_proximal_operator(q2 + a_frac * b, b, prox_tol))
 
     prox_resid = a_frac - p_prox
 
@@ -80,32 +80,39 @@ def _se0(
     return np.array([res1, res2, res3])
 
 
-def _prox(
+def _proximal_operator(
     x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 200
 ) -> float | NDArray[np.float64]:
     """
-
-    Vectorised version (in x and b) of the proximal operator.
-
-    arg min _ u (b * log (1 + e^u) + (x-u)^2 /2)
-
-    is minimised using Newton-Raphson.
+    The function finds the scalar u which minimises (b * log (1 + e^u) + (x-u)^2 /2).
+    This is known as the proximal operator [1]. The function is vectorised to take
+    a vector of nodes (x) and scalar b, and return corresponding minimums. The
+    Newton-Raphson algorithm is utilised to approximate the minimum of the function.
 
     Parameters
     ----------
     x : float | NDArray[np.float64]
-        scalar or vector of x values for proximal operator to be evaluated on
+        Scalar or vector of x values for proximal operator to be evaluated on.
     b : float
-        parameter 'b' in state evolution functions
+        Parameter 'b' in state evolution functions.
     tol : float, optional
-        convergence threshold for newton raphson step size, by default 1e-10
+        Convergence threshold for newton raphson step size, by default 1e-10.
     max_iter : int, optional
-        maximum number of Newton-Raphson updates, by default 200.
+        Maximum number of Newton-Raphson updates, by default 200.
 
     Returns
     -------
     float | NDArray[np.float64]
-        scalar (or vector) of approximation(s) of proximal operator for each x.
+        Scalar (or vector) of approximation(s) of proximal operator for each x.
+
+    References
+    -------
+
+    .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
+        penalized likelihood for p/n -> kappa in (0,1) logistic regression.
+        https://arxiv.org/abs/2311.07419
+
+    .. [2] Article on NR optimisation.
     """
 
     x_arr = np.asarray(x, dtype=float)
