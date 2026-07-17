@@ -1,3 +1,5 @@
+from warnings import warn
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.special import expit
@@ -91,7 +93,7 @@ def _se_no_intercept(
 
 
 def _proximal_operator(
-    x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 200
+    x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 10_000
 ) -> float | NDArray[np.float64]:
     """
     The function finds the scalar u which minimises (b * log (1 + e^u) + (x-u)^2 /2).
@@ -109,7 +111,7 @@ def _proximal_operator(
     tol : float, optional
         Convergence threshold for newton raphson step size, by default 1e-10.
     max_iter : int, optional
-        Maximum number of Newton-Raphson updates, by default 200.
+        Maximum number of Newton-Raphson updates, by default 10000.
 
     Returns
     -------
@@ -127,21 +129,21 @@ def _proximal_operator(
     """
 
     x_arr = np.asarray(x, dtype=float)
-
     u = np.zeros_like(x_arr, dtype=float)
 
-    # First derivative when u = 0
-    g0 = x_arr - b / 2
-
     for _ in range(max_iter):
+        expit_u = expit(u)
+        g0 = (x_arr - u) - b * expit_u
+
         if np.all(np.abs(g0) < tol):
             break
 
-        pr = expit(u)
-
-        g0 = (x_arr - u) - b * pr
-        step = g0 / (b * pr * (1 - pr) + 1)
-
+        step = g0 / (b * expit_u * (1 - expit_u) + 1)
         u = u + step
+    else:
+        warn(
+            f"Proximal operator did not converge within {max_iter} iterations.",
+            RuntimeWarning,
+        )
 
     return float(u) if x_arr.ndim == 0 else u
