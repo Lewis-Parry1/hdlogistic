@@ -1,6 +1,8 @@
 import numpy as np
 from numpy.typing import NDArray
-from scipy.special import expit, roots_hermite
+from scipy.special import expit
+
+from .utils import _get_hermite_roots_weights
 
 
 def _se_no_intercept(
@@ -52,8 +54,8 @@ def _se_no_intercept(
         https://arxiv.org/abs/2311.07419
 
     """
-    # TODO: Cache
-    xi, wi = gh if gh is not None else roots_hermite(200)
+    
+    xi, wi = gh if gh is not None else _get_hermite_roots_weights(200)
 
     n_nodes = len(xi)
 
