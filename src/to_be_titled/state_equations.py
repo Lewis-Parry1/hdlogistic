@@ -113,8 +113,8 @@ def _proximal_operator(
     .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
         penalized likelihood for p/n -> kappa in (0,1) logistic regression.
         https://arxiv.org/abs/2311.07419
-
-    .. [2] Article on NR optimisation.
+    .. [2] Naumann, U. (2020). Newton's Method I. 
+        https://www.stce.rwth-aachen.de/files/elearning/Newton_I.pdf        
     """
 
     x_arr = np.asarray(x, dtype=float)
