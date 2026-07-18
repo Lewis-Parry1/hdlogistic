@@ -84,16 +84,19 @@ def _se_no_intercept(
     prox_expit = expit(prox_input)
     prox_resid = a_frac - prox_expit
 
-    # Compute evaluation of three state equations given parameters
+    # Evaluate the three state equations given parameters
     res1 = np.sum(w_pi2_q1 * q1 * prox_resid)
     res2 = 1 - kappa - np.sum(w_pi2_q1 / (1 + b * prox_expit * (1 - prox_expit)))
-    res3 = (kappa**2 * sigma**2) - b**2 * np.sum(w_pi2_q1 * prox_expit**2)
+    res3 = (kappa**2 * sigma**2) - b**2 * np.sum(w_pi2_q1 * prox_resid**2)
 
     return np.array([res1, res2, res3])
 
 
 def _proximal_operator(
-    x: float | NDArray[np.float64], b: float, tol: float = 1e-10, max_iter: int = 10_000
+    x: float | NDArray[np.float64],
+    b: float,
+    tol: float = 1e-10,
+    max_iter: int = 100_000,
 ) -> float | NDArray[np.float64]:
     """
     The function finds the scalar u which minimises (b * log (1 + e^u) + (x-u)^2 /2).
@@ -135,10 +138,13 @@ def _proximal_operator(
         expit_u = expit(u)
         g0 = (x_arr - u) - b * expit_u
 
-        if np.all(np.abs(g0) < tol):
+        # Use adaptive tolerance; when magnitude of x gets meaningfully
+        # large, convergence tolerance becomes less strict
+        if np.all(np.abs(g0) < tol * (1 + np.abs(x_arr))):
             break
 
         step = g0 / (b * expit_u * (1 - expit_u) + 1)
+
         u = u + step
     else:
         warn(
