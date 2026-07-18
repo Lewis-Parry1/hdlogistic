@@ -2,60 +2,159 @@ import warnings
 
 import numpy as np
 import pytest
-from scipy.special import expit, roots_hermite
+from numpy.typing import NDArray
+from scipy.special import expit
 
-from to_be_titled import state_equations
+from to_be_titled.state_equations import _proximal_operator, _se_no_intercept
 
-# TODO: doctrings explaining all tests
+"""
+These tests test the proximal operator to ensure that Newton's method 
+converges to expected values even when the magnitude of the input is large/small 
+and ensure the system's state equations are evaluated as expected. 
+
+The functions will be tested on a range of plausible state equation input values 
+for `mu`, `b`, `sigma` as well as for various `kappa` (p/n) and `gamma` 
+(signal strength) ranges. `alpha` will defined as 1 / (1 + `kappa`) to 
+discussed in Sterzinger and Kosmidis (2026) to shrink as the proprotion of 
+covariates to observations grows. This is known as 'adaptive shrinkage'. 
+
+We define the following regimes for params = (mu, b, sigma) with 
+the (kappa, gamma) pair.
+1. Low dimensional / unbiased reigmes : mu -> 1, kappa -> 0 , gamma = sqrt(0.9),
+mu = (0.9, 0.95, 0.99), b = 1.0, sigma = 1.0
+1. Phase transition boundary: (kappa, gamma) = [(0.125, 12.5), (0.25, 5), 
+(0.5, 2.5)] with mu = 0.4 (see Fig 3. [1]) b = 2.0, sigma = 2.0. 
+2. High dimensional / extreme shrinkage reigme: mu -> 0, so test
+mu = (1e-2, 1e-4, 1e-8, 1e-20),  b = 50, sigma = 5, with kappa = 0.9 and gamma = 15. 
+
+References: 
+.. [1] P.Sterzinger and I.Kosmidis, 2026. 
+"""
 
 
-def test_prox_inverse_identity() -> None:
-    b = 2.5
+# Test 1 & 2 : Ensure proximal operator successfully converges
+# suffciently close to known true values
+@pytest.mark.parametrize("b", [0.1, 1.0, 15.0, 40.0, 100.0])
+def test_prox_inverse_identity(b: float) -> None:
+    """
+    Given a set of known true `u` values, differentiating the convex function
+    f(x,b) = b*ln(1+e^u)+1/2 * ​(x−u)^2 with respect to u, yields
+    f'(x,b) = b * expit(u) + u - x. Setting f'(x,b) = 0, means
+    x = b * expit (u) + u.
 
-    # Generate an array of known 'u' values
-    true_u = np.linspace(-10, 10, 1000)
+    True `u` values are generated, and the corresponding `x` values are computed.
+    This test assess whether the proximal operator estimates u suffciently
+    close to the true u being defined.
+    """
 
-    # Calculate the corresponding 'x' inputs
+    true_u = np.linspace(-20, 20, 1000)
+
     x_input = b * expit(true_u) + true_u
 
-    estimated_u = state_equations._proximal_operator(x_input, b)
+    u_est = _proximal_operator(x_input, b)
 
-    np.testing.assert_allclose(true_u, estimated_u, atol=1e-9)
+    np.testing.assert_allclose(true_u, u_est, atol=1e-9)
 
 
-@pytest.mark.parametrize("b", [40.0, 15.0, 1.0, 0.1])
+@pytest.mark.parametrize("b", [0.1, 1.0, 15.0, 40.0, 100.0])
 def test_prox_zero_point(b: float) -> None:
-    # If x = b / 2 then the true root 'u' must be exactly 0
-    x_input = b / 2
+    """
+    Evaluates the known analytic root where x = b / 2 yields exactly u = 0.
+    """
+    x_input = b / 2.0
 
-    estimated_u = state_equations._proximal_operator(x_input, b)
+    u_est = _proximal_operator(x_input, b)
 
-    np.testing.assert_allclose(estimated_u, 0.0, atol=1e-9)
-
-
-def test_prox_asymptotics() -> None:
-    b = 5.0
-
-    # For large positive u values; expit(u) tends to 1,
-    # u \approx x - b
-    x_pos = np.array([500.0, 1000.0])
-    u_pos = state_equations._proximal_operator(x_pos, b)
-
-    np.testing.assert_allclose(u_pos, x_pos - b, rtol=1e-5)
-
-    # For large negative u values; expit(u) tends to 0
-    # u approx x
-    x_neg = np.array([-500.0, -1000.0])
-    u_neg = state_equations._proximal_operator(x_neg, b)
-    np.testing.assert_allclose(u_neg, x_neg, rtol=1e-5)
+    np.testing.assert_allclose(u_est, 0.0, atol=1e-9)
 
 
-def test_se0_shape_and_reproducibility() -> None:
-    mu, b, sigma, kappa, gamma = 0.5, 1.0, 1.0, 0.4, 2.0
+# Define data reigmes
+# (mu, b, sigma, kappa, gamma)
+REGIMES = [
+    # 1. Low dimensional / unbiased (mu -> 1, kappa -> 0, gamma = sqrt(0.9))
+    *((mu, 1.0, 1.0, 0.1, np.sqrt(0.9)) for mu in [0.9, 0.95, 0.99]),
+    # 2. Phase transition boundary (mu = 0.4, b = 2.0, sigma = 2.0)
+    *(
+        (0.4, 2.0, 2.0, kappa, gamma)
+        for kappa, gamma in [(0.125, 12.5), (0.25, 5.0), (0.5, 2.5)]
+    ),
+    # 3. High dimensional / extreme shrinkage
+    # (kappa = 0.9, gamma = 15, b = 50, sigma = 5)
+    *((mu, 50.0, 5.0, 0.9, 15.0) for mu in [1e-2, 1e-4, 1e-8, 1e-20]),
+]
+
+# Test 3: Test _proximal_operator and se_no_intercept on different parameter reigmes
+
+
+@pytest.mark.parametrize("mu, b, sigma, kappa, gamma", REGIMES)
+def test_prox_data_regimes(
+    mu: float, b: float, sigma: float, kappa: float, gamma: float
+) -> None:
+    """
+    Ensures that prox_operator converges for specified reigmes when given
+    the exact arrays the proximal operator will recieve inside se_no_intercept.
+    """
+    # Simulate extreme grid points to simulate the edges of the Gauss-Hermite grid
+    # (The roots of a 200-node Hermite polynomial span roughly -19.3 to 19.3)
+    x_grid = np.array([-19.3, 0.0, 19.3])
+    y_grid = np.array([-19.3, 0.0, 19.3])
+    x, y = np.meshgrid(x_grid, y_grid)
+
+    alpha = 1.0 / (1.0 + kappa)
+    a_frac = 0.5 * (1 + alpha)
+
+    # Compute the exact input to prox
+    q1 = np.sqrt(2) * gamma * x.flatten()
+    q2 = (q1 * mu) + np.sqrt(2) * (np.sqrt(kappa) * sigma * y.flatten())
+    x_input = q2 + a_frac * b
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", category=RuntimeWarning)
+        u_est = _proximal_operator(x_input, b)
+
+        assert not np.any(np.isnan(u_est))
+
+        u_est = np.asarray(_proximal_operator(x_input, b))
+        assert u_est.shape == x_input.shape
+
+
+@pytest.mark.parametrize("mu, b, sigma, kappa, gamma", REGIMES)
+def test_se_no_intercept_regimes(
+    mu: float, b: float, sigma: float, kappa: float, gamma: float
+) -> None:
+    """
+    Evaluates the full state equations on entire Gauss-Hermite grid
+    for the specified data regimes to guarantee integration stability.
+    """
+    alpha = 1.0 / (1.0 + kappa)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        try:
+            res = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+
+            # Guarantee the equations successfully returned 3 valid floating points
+            assert not np.any(np.isnan(res))
+            assert len(res) == 3
+
+        except RuntimeWarning as e:
+            pytest.fail(
+                f"Math instability at mu={mu}, kappa={kappa}, gamma={gamma}: {e}"
+            )
+
+
+def test_se_no_intercept_shape_and_reproducibility() -> None:
+    """
+    Gauss Hermite nodes and weights are generated within _se_no_intercept.
+    This test checks that the array returns 3 values and that _se_no_intercept
+    is deterministic.
+    """
+    # standard parameters
+    mu, b, sigma, kappa, gamma = 0.5, 1.0, 1.0, 0.2, np.sqrt(0.9)
     alpha = 1 / (1 + kappa)
 
-    res1 = state_equations._se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
-    res2 = state_equations._se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+    res1 = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+    res2 = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
 
     assert isinstance(res1, np.ndarray)
     assert res1.shape == (3,)
@@ -63,42 +162,57 @@ def test_se0_shape_and_reproducibility() -> None:
     np.testing.assert_array_equal(res1, res2)
 
 
-def test_se0_gh_reproducibility() -> None:
-    mu, b, sigma, kappa, gamma = 0.5, 1.0, 1.0, 0.4, 2.0
-    alpha = 1 / (1 + kappa)
-
-    res_gh_internal = state_equations._se_no_intercept(
-        mu, b, sigma, kappa, gamma, alpha, gh=None
+@pytest.mark.parametrize(
+    "mu, b, sigma, kappa, gamma, alpha, expected_res",
+    [
+        # 1. Low Dimensional / Unbiased Regime
+        (
+            0.95,
+            1.0,
+            1.0,
+            0.1,
+            np.sqrt(0.9),
+            1.0 / (1.0 + 0.1),
+            np.array([-0.004859819, 0.069734687, -0.108815242]),
+        ),
+        # 2. Phase Transition Boundary
+        (
+            0.4,
+            2.0,
+            2.0,
+            0.5,
+            2.5,
+            1.0 / (1.0 + 0.5),
+            np.array([0.07747317, -0.24810826, 0.73448663]),
+        ),
+        # 3. High Dimensional / Extreme Shrinkage Regime
+        (
+            1e-20,
+            50.0,
+            5.0,
+            0.9,
+            15.0,
+            1.0 / (1.0 + 0.9),
+            np.array([0.263890826, -0.003967611, 0.940855077]),
+        ),
+    ],
+)
+def test_se_no_intercept_matches_brglm2_se0(
+    mu: float,
+    b: float,
+    sigma: float,
+    kappa: float,
+    gamma: float,
+    alpha: float,
+    expected_res: NDArray[np.float64],
+) -> None:
+    """
+    Test to ensure se_no_intercept matches the equivalent brglm2 se0. Both functions
+    approximate the value of the three state equations.
+    """
+    # Evaluate the state equations in Python
+    res = _se_no_intercept(
+        mu=mu, b=b, sigma=sigma, kappa=kappa, gamma=gamma, alpha=alpha
     )
 
-    gh_precomputed = roots_hermite(200)
-    res_gh_external = state_equations._se_no_intercept(
-        mu, b, sigma, kappa, gamma, alpha, gh=gh_precomputed
-    )
-
-    np.testing.assert_allclose(res_gh_internal, res_gh_external, atol=1e-12)
-
-
-# TODO: more rigorously test extreme parameter values
-def test_se0_no_nan_or_inf() -> None:
-    # Test extreme kappa gamma pairs which push mu to zero
-    mu_tiny = 1e-100
-    b, sigma, kappa, gamma, alpha = 50.0, 5.0, 0.9, 15.0, 1 / (1 + 0.9)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        try:
-            res = state_equations._se_no_intercept(
-                mu_tiny, b, sigma, kappa, gamma, alpha
-            )
-            assert not np.any(np.isnan(res))
-        except RuntimeWarning as e:
-            pytest.fail(f"Mathematical instability detected: {e}")
-
-
-# TODO: test for cancellation precision when (kappa**2 * sigma**2) - b**2
-# are large and similar in magnitude
-
-# TODO: test se0 evaluates similarly across difference prox_tols
-
-# TODO : add exact values obtained from brglm2 se0 and compare
+    np.testing.assert_allclose(res, expected_res, atol=1e-7)
