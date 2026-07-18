@@ -8,27 +8,27 @@ from scipy.special import expit
 from to_be_titled.state_equations import _proximal_operator, _se_no_intercept
 
 """
-These tests test the proximal operator to ensure that Newton's method 
-converges to expected values even when the magnitude of the input is large/small 
-and ensure the system's state equations are evaluated as expected. 
+These tests test the proximal operator to ensure that Newton's method
+converges to expected values even when the magnitude of the input is large/small
+and ensure the system's state equations are evaluated as expected.
 
-The functions will be tested on a range of plausible state equation input values 
-for `mu`, `b`, `sigma` as well as for various `kappa` (p/n) and `gamma` 
-(signal strength) ranges. `alpha` will defined as 1 / (1 + `kappa`) to 
-discussed in Sterzinger and Kosmidis (2026) to shrink as the proprotion of 
-covariates to observations grows. This is known as 'adaptive shrinkage'. 
+The functions will be tested on a range of plausible state equation input values
+for `mu`, `b`, `sigma` as well as for various `kappa` (p/n) and `gamma`
+(signal strength) ranges. `alpha` will defined as 1 / (1 + `kappa`) to
+discussed in Sterzinger and Kosmidis (2026) to shrink as the proprotion of
+covariates to observations grows. This is known as 'adaptive shrinkage'.
 
-We define the following regimes for params = (mu, b, sigma) with 
+We define the following regimes for params = (mu, b, sigma) with
 the (kappa, gamma) pair.
 1. Low dimensional / unbiased reigmes : mu -> 1, kappa -> 0 , gamma = sqrt(0.9),
 mu = (0.9, 0.95, 0.99), b = 1.0, sigma = 1.0
-1. Phase transition boundary: (kappa, gamma) = [(0.125, 12.5), (0.25, 5), 
-(0.5, 2.5)] with mu = 0.4 (see Fig 3. [1]) b = 2.0, sigma = 2.0. 
+1. Phase transition boundary: (kappa, gamma) = [(0.125, 12.5), (0.25, 5),
+(0.5, 2.5)] with mu = 0.4 (see Fig 3. [1]) b = 2.0, sigma = 2.0.
 2. High dimensional / extreme shrinkage reigme: mu -> 0, so test
-mu = (1e-2, 1e-4, 1e-8, 1e-20),  b = 50, sigma = 5, with kappa = 0.9 and gamma = 15. 
+mu = (1e-2, 1e-4, 1e-8, 1e-20),  b = 50, sigma = 5, with kappa = 0.9 and gamma = 15.
 
-References: 
-.. [1] P.Sterzinger and I.Kosmidis, 2026. 
+References:
+.. [1] P.Sterzinger and I.Kosmidis, 2026.
 """
 
 
