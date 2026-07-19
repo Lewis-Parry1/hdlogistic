@@ -9,6 +9,7 @@ from to_be_titled.utils import _get_hermite_roots_weights
 
 """
 
+
 # Compare solve_se to Candes and Sur results.
 # See Table 13, set alpha = 1, when gamma = np.sqrt(5 + beta0^2)
 @pytest.mark.parametrize(
