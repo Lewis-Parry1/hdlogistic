@@ -17,7 +17,7 @@ def _se_funcs(
     alpha: float,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]],
     prox_tol: float = 1e-10,
-    transform: bool = False,
+    transform: bool = True,
 ) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
     """
 
@@ -64,6 +64,7 @@ def _se_funcs(
     def g(pars: NDArray[np.float64]) -> NDArray[np.float64]:
         if transform:
             # Prevents underflow/overflow when exponentiating
+            # TODO: Check with Ioannis about plausible reigon for parameters
             pars_clipped = np.clip(pars, -20, 20)
             pars = np.exp(pars_clipped)
 
@@ -84,14 +85,13 @@ def _se_funcs(
 @dataclass
 class SolverResult:
     """Dataclass to store solution and function evaluation with solution along with
-    number of iterations needed to converge and convergence messages and status.
+    convergence message and success.
     """
 
     solution: NDArray[np.float64]
     func_value: NDArray[np.float64]
-    iterations: int
     message: str
-    termination_code: int
+    success: bool
 
 
 def _init_solver(
@@ -103,7 +103,7 @@ def _init_solver(
     init_iter: int = 50,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     prox_tol: float = 1e-10,
-    **minimize_kwargs: dict[str, Any] | None,
+    **minimize_kwargs: Any,
 ) -> SolverResult:
     """
     Performs an initial unconstrained minimization to find a robust starting
@@ -149,8 +149,8 @@ def _init_solver(
     SolverResult
         A dataclass containing the optimal real-space parameters (`solution`),
         the evaluated residual vector at the solution (`func_value`), the number
-        of iterations performed (`iterations`), and the solver's termination
-        status and message (`message`, `termination_code`).
+        of iterations performed (`iterations`), and the solver's convergence status
+        (`message`, `success`).
     """
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
 
@@ -161,19 +161,18 @@ def _init_solver(
         r = g(pars_log)
         return float(np.dot(r, r))
 
-    # TODO: Lewis see comment needed for this to pass mypy test
     res = minimize(
-        objective, start_log, method=init_method, maxiter=init_iter, **minimize_kwargs
+        objective,
+        start_log,
+        method=init_method,
+        options={"maxiter": init_iter, **minimize_kwargs.pop("options", {})},
+        **minimize_kwargs,
     )  # type: ignore[call-overload]
 
     soln = np.exp(res.x)
 
     return SolverResult(
-        solution=soln,
-        func_value=g(res.x),
-        iterations=res.nit,
-        message=res.message,
-        termination_code=res.status,
+        solution=soln, func_value=g(res.x), message=res.message, success=res.success
     )
 
 
@@ -186,7 +185,7 @@ def _root_solver(
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     prox_tol: float = 1e-10,
     transform: bool = True,
-    **root_kwargs: dict[str, Any] | None,
+    **root_kwargs: Any,
 ) -> SolverResult:
     """
     Executes the main root-finding algorithm to estimate the stationary point
@@ -236,7 +235,7 @@ def _root_solver(
         A dataclass containing the optimal real-space parameters (`solution`),
         the evaluated residual vector at the solution (`func_value`), the number
         of iterations performed (`iterations`), and the solver's termination
-        status and message (`message`, `termination_code`).
+        status and message (`message`, `success`).
     """
 
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
@@ -250,11 +249,7 @@ def _root_solver(
     soln = np.exp(res.x) if transform else res.x  # Return in original space
 
     return SolverResult(
-        solution=soln,
-        func_value=g(res.x),
-        iterations=res.nit,
-        message=res.message,
-        termination_code=res.status,
+        solution=soln, func_value=g(res.x), message=res.message, success=res.success
     )
 
 
@@ -268,8 +263,8 @@ def _solve_state_equation(
     alpha: float,
     start: NDArray[np.float64],
     gh: tuple[NDArray[np.float64], NDArray[np.float64]],
-    root_kwargs: dict[str, Any] | None,
-    minimize_kwargs: dict[str, Any] | None,
+    root_kwargs: dict[str, Any] | None = None,
+    minimize_kwargs: dict[str, Any] | None = None,
     transform: bool = True,
     init_iter: int = 50,
     init_method: str = "Nelder-Mead",
@@ -330,7 +325,7 @@ def _solve_state_equation(
         A two-element tuple containing:
         - SolverResult: dataclass with the optimal real-space parameters
           (`solution`), the evaluated residual vector (`func_value`), number
-          of iterations, and the main solver's termination status/message.
+          of iterations, and the main solver's converges success/message.
         - str: a summary of the optimization chain used (e.g. which
           initial and main methods were applied).
 
