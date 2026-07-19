@@ -5,7 +5,10 @@ import pytest
 from numpy.typing import NDArray
 from scipy.special import expit
 
-from to_be_titled.state_equations import _proximal_operator, _se_no_intercept
+from to_be_titled.state_equations import (
+    _proximal_operator,
+    _se_no_intercept,
+)
 
 """
 These tests test the proximal operator to ensure that Newton's method
