@@ -13,10 +13,11 @@ from .utils import _get_hermite_roots_weights
 
 def _se_funcs(
     kappa: float,
-    gamma: float,
+    ss: float,
     alpha: float,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]],
     prox_tol: float = 1e-10,
+    corrupted: bool = False,
     transform: bool = True,
 ) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
     """
@@ -35,7 +36,7 @@ def _se_funcs(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         kappa should be in (0,1).
-    gamma : float
+    ss : float
         Square root of asymptotoic signal strength. This is the limit
         of the variance of the linear predictor.
     alpha : float
@@ -46,6 +47,8 @@ def _se_funcs(
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of
         proximal operator, by default 1e-10.
+    corrupted : bool, optional
+        TO DO:
     transform : bool, optional
         If True, the returned function expects the input parameters
         (`mu`, `b`, `sigma`) to be log-transformed. The closure will
@@ -63,11 +66,15 @@ def _se_funcs(
 
     def g(pars: NDArray[np.float64]) -> NDArray[np.float64]:
         if transform:
-            # Prevents underflow/overflow when exponentiating
-            # TODO: Check with Ioannis about plausible reigon for parameters
             pars_clipped = np.clip(pars, -20, 20)
             pars = np.exp(pars_clipped)
 
+        if corrupted:
+            mu, b, sigma = pars[1], pars[2], pars[3]
+            gamma = np.sqrt(ss ^ 2 - kappa * sigma ^ 2) / mu
+            pars = np.array([mu, b, sigma])
+        else:
+            gamma = ss
         return state_equations._se_no_intercept(
             mu=pars[0],
             b=pars[1],
