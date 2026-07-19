@@ -70,8 +70,8 @@ def _se_funcs(
             pars = np.exp(pars_clipped)
 
         if corrupted:
-            mu, b, sigma = pars[1], pars[2], pars[3]
-            gamma = np.sqrt(ss ^ 2 - kappa * sigma ^ 2) / mu
+            mu, b, sigma = pars[0], pars[1], pars[2]
+            gamma = np.sqrt(ss ** 2 - kappa * sigma ^ 2) / mu
             pars = np.array([mu, b, sigma])
         else:
             gamma = ss
@@ -110,6 +110,7 @@ def _init_solver(
     init_iter: int = 50,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     prox_tol: float = 1e-10,
+    corrupted: bool = False,
     **minimize_kwargs: Any,
 ) -> SolverResult:
     """
@@ -148,6 +149,8 @@ def _init_solver(
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
+    corrupted: bool 
+        TODO
     **minimize_kwargs : dict[str, Any], optional
         Additional keyword arguments passed directly to `scipy.optimize.minimize`.
 
@@ -161,7 +164,7 @@ def _init_solver(
     """
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
 
-    g = _se_funcs(kappa, gamma, alpha, gh=gh, prox_tol=prox_tol, transform=True)
+    g = _se_funcs(kappa, gamma, alpha, gh, prox_tol, corrupted, transform=True)
     start_log = np.asarray(np.log(start), dtype=np.float64)
 
     def objective(pars_log: NDArray[np.float64]) -> float:
@@ -191,6 +194,7 @@ def _root_solver(
     main_method: str = "hybr",
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     prox_tol: float = 1e-10,
+    corrupted: bool = False,
     transform: bool = True,
     **root_kwargs: Any,
 ) -> SolverResult:
@@ -246,8 +250,8 @@ def _root_solver(
     """
 
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
-
-    g = _se_funcs(kappa, gamma, alpha, gh, prox_tol, transform)
+  
+    g = _se_funcs(kappa, gamma, alpha, gh, prox_tol, corrupted, transform)
 
     start = np.log(start) if transform else start
 
@@ -273,6 +277,7 @@ def _solve_state_equation(
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
     transform: bool = True,
+    corrupted: bool = False,
     init_iter: int = 50,
     init_method: str = "Nelder-Mead",
     main_method: str = "hybr",
@@ -308,6 +313,8 @@ def _solve_state_equation(
     minimize_kwargs : dict[str, Any] | None, optional
         Additional keyword arguments passed directly to the initial minimizer
         (`scipy.optimize.minimize`).
+    corrupted: bool, optional
+        TO DO 
     transform : bool, optional
         If True, the input parameters (`mu`, `b`, `sigma`) are internally
         log-transformed during the solver exploration to enforce strict positivity
@@ -366,7 +373,8 @@ def _solve_state_equation(
             init_iter,
             gh,
             prox_tol,
-            **minimize_kwargs,
+            corrupted,
+            **minimize_kwargs
         )
         start = init_result.solution
         opt_chain = f"initial_method: {init_method} -> "
@@ -381,8 +389,9 @@ def _solve_state_equation(
         main_method,
         gh,
         prox_tol,
+        corrupted,
         transform,
-        **root_kwargs,
+        **root_kwargs
     )
     opt_chain += f"main_method: {main_method}"
 
