@@ -17,7 +17,7 @@ def _se_funcs(
     alpha: float,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]],
     prox_tol: float = 1e-10,
-    transform: bool = True,
+    transform: bool = False,
 ) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
     """
 
