@@ -37,8 +37,12 @@ def _se_funcs(
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         kappa should be in (0,1).
     ss : float
-        Square root of asymptotoic signal strength. This is the limit
-        of the variance of the linear predictor.
+        Square root of signal strength or of corrupted signal
+        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
+        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
+        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
+        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     gh : tuple[NDArray[np.float64], NDArray[np.float64]]
@@ -48,7 +52,10 @@ def _se_funcs(
         Convergence tolerance for the Newton-Raphson estimation of
         proximal operator, by default 1e-10.
     corrupted : bool, optional
-        TO DO:
+        If False, then `ss` is the square root of the signal strength.
+        If True, then `ss` is the square root of the corrupted signal strength
+        is the limit of the variance of the fitted values computed by mdyplFit()
+        with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
         If True, the returned function expects the input parameters
         (`mu`, `b`, `sigma`) to be log-transformed. The closure will
@@ -71,7 +78,7 @@ def _se_funcs(
 
         if corrupted:
             mu, b, sigma = pars[0], pars[1], pars[2]
-            gamma = np.sqrt(ss ** 2 - kappa * sigma ^ 2) / mu
+            gamma = np.sqrt(ss**2 - kappa * sigma ^ 2) / mu
             pars = np.array([mu, b, sigma])
         else:
             gamma = ss
@@ -103,7 +110,7 @@ class SolverResult:
 
 def _init_solver(
     kappa: float,
-    gamma: float,
+    ss: float,
     alpha: float,
     start: NDArray[np.float64],
     init_method: str = "Nelder-Mead",
@@ -127,9 +134,13 @@ def _init_solver(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
-    gamma : float
-        Square root of the asymptotic signal strength. This is the limit
-        of the variance of the linear predictor.
+    ss : float
+        Square root of signal strength or of corrupted signal
+        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
+        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
+        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
+        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64]
@@ -149,8 +160,11 @@ def _init_solver(
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
-    corrupted: bool 
-        TODO
+    corrupted: bool
+        If False, then `ss` is the square root of the signal strength.
+        If True, then `ss` is the square root of the corrupted signal strength
+        is the limit of the variance of the fitted values computed by mdyplFit()
+        with shrinkage parameter, alpha. By default, False.
     **minimize_kwargs : dict[str, Any], optional
         Additional keyword arguments passed directly to `scipy.optimize.minimize`.
 
@@ -164,7 +178,7 @@ def _init_solver(
     """
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
 
-    g = _se_funcs(kappa, gamma, alpha, gh, prox_tol, corrupted, transform=True)
+    g = _se_funcs(kappa, ss, alpha, gh, prox_tol, corrupted, transform=True)
     start_log = np.asarray(np.log(start), dtype=np.float64)
 
     def objective(pars_log: NDArray[np.float64]) -> float:
@@ -188,7 +202,7 @@ def _init_solver(
 
 def _root_solver(
     kappa: float,
-    gamma: float,
+    ss: float,
     alpha: float,
     start: NDArray[np.float64],
     main_method: str = "hybr",
@@ -212,9 +226,13 @@ def _root_solver(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
-    gamma : float
-        Square root of the asymptotic signal strength. This is the limit
-        of the variance of the linear predictor.
+    ss : float
+        Square root of signal strength or of corrupted signal
+        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
+        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
+        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
+        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64]
@@ -231,6 +249,11 @@ def _root_solver(
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
+    corrupted: bool, optional
+        If False, then `ss` is the square root of the signal strength.
+        If True, then `ss` is the square root of the corrupted signal strength
+        is the limit of the variance of the fitted values computed by mdyplFit()
+        with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
         If True, the input parameters (`mu`, `b`, `sigma`) are internally
         log-transformed before being passed to the objective function. The closure
@@ -250,8 +273,8 @@ def _root_solver(
     """
 
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
-  
-    g = _se_funcs(kappa, gamma, alpha, gh, prox_tol, corrupted, transform)
+
+    g = _se_funcs(kappa, ss, alpha, gh, prox_tol, corrupted, transform)
 
     start = np.log(start) if transform else start
 
@@ -264,13 +287,9 @@ def _root_solver(
     )
 
 
-# TODO: Consider whether it is necessary to store initial solver results, instead
-# of overwriting.
-
-
 def _solve_state_equation(
     kappa: float,
-    gamma: float,
+    ss: float,
     alpha: float,
     start: NDArray[np.float64],
     gh: tuple[NDArray[np.float64], NDArray[np.float64]],
@@ -296,9 +315,13 @@ def _solve_state_equation(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
-    gamma : float
-        Square root of the asymptotic signal strength. This is the limit
-        of the variance of the linear predictor.
+    ss : float
+        Square root of signal strength or of corrupted signal
+        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
+        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
+        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
+        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64]
@@ -314,7 +337,10 @@ def _solve_state_equation(
         Additional keyword arguments passed directly to the initial minimizer
         (`scipy.optimize.minimize`).
     corrupted: bool, optional
-        TO DO 
+        If False, then `ss` is the square root of the signal strength.
+        If True, then `ss` is the square root of the corrupted signal strength
+        is the limit of the variance of the fitted values computed by mdyplFit()
+        with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
         If True, the input parameters (`mu`, `b`, `sigma`) are internally
         log-transformed during the solver exploration to enforce strict positivity
@@ -366,7 +392,7 @@ def _solve_state_equation(
     if init_iter > 0:
         init_result = _init_solver(
             kappa,
-            gamma,
+            ss,
             alpha,
             start,
             init_method,
@@ -374,7 +400,7 @@ def _solve_state_equation(
             gh,
             prox_tol,
             corrupted,
-            **minimize_kwargs
+            **minimize_kwargs,
         )
         start = init_result.solution
         opt_chain = f"initial_method: {init_method} -> "
@@ -383,7 +409,7 @@ def _solve_state_equation(
 
     result = _root_solver(
         kappa,
-        gamma,
+        ss,
         alpha,
         start,
         main_method,
@@ -391,7 +417,7 @@ def _solve_state_equation(
         prox_tol,
         corrupted,
         transform,
-        **root_kwargs
+        **root_kwargs,
     )
     opt_chain += f"main_method: {main_method}"
 
