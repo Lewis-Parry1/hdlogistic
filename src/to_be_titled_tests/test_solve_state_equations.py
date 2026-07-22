@@ -32,10 +32,10 @@ def test_solve_state_equation_compare_candes_sur(
     gh = _get_hermite_roots_weights(200)
 
     # Use default brglm2 starting guess
-    start = np.array([0.5, 1, 1])
+    start = np.array([0.5, gamma, gamma])
 
     solver_result, _ = _solve_state_equation(
-        kappa, gamma, alpha, start, gh, init_iter=0
+        kappa, gamma, alpha, start, gh, init_iter=50
     )
 
     # Ensure solver converged successfully
@@ -47,7 +47,8 @@ def test_solve_state_equation_compare_candes_sur(
 def test_solve_state_equations_against_brglm2() -> None:
     kappa, gamma, alpha = 0.2, 5, 0.88
     true_nelder_mead_50 = np.array([0.5649718, 2.5935673, 2.5376760])
-    start = np.array([0.5, gamma, gamma])
+    # use default, naive guess used in brglm2
+    start = np.array([0.5, 1, 1])
     gh = _get_hermite_roots_weights(200)
 
     est_nelder_mead_50, _ = _solve_state_equation(
