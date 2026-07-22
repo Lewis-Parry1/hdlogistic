@@ -1,7 +1,54 @@
+from dataclasses import dataclass
+
 import numpy as np
 from numpy.typing import NDArray
 from scipy.linalg import solve
 from scipy.special import expit
+
+from to_be_titled.utils import compute_weighted_design_and_info
+
+
+@dataclass
+class LogisticRegressionResult:
+    """
+    A dataclass to hold the results of the logistic regression fit.
+
+    Attributes
+    ----------
+    betas : NDArray[np.float64]
+        Estimated coefficient vector of shape (n_features, 1).
+    mus : NDArray[np.float64]
+        The fitted probabilities of shape (n_samples, 1).
+    linear_predictors : NDArray[np.float64]
+        The fitted linear predictors (eta = X*beta) from the model.
+    """
+
+    betas: NDArray[np.float64]
+    mus: NDArray[np.float64]  # TODO: Rename one letter variable
+    linear_predictors: NDArray[np.float64]
+
+
+@dataclass
+class DiaconisYlvisakerLogisticRegressionResult:
+    """
+    A dataclass to hold the results of the Diaconis-Ylvisaker logistic regression fit.
+
+    Attributes
+    ----------
+    betas : NDArray[np.float64]
+        Estimated coefficient vector of shape (n_features, 1).
+    linear_predictors : NDArray[np.float64]
+        The fitted linear predictors (eta = X*beta) from the model.
+    y_adjusted : NDArray[np.float64]
+        The adjusted or true binary response vector (y).
+    """
+
+    betas: NDArray[np.float64]
+    linear_predictors: NDArray[np.float64]
+    mus: NDArray[np.float64]
+    y_adjusted: NDArray[np.float64]
+    x_validated: NDArray[np.float64]
+    alpha: float
 
 
 def _adjust_response(y: NDArray[np.float64], alpha: float) -> NDArray[np.float64]:
@@ -87,7 +134,9 @@ def _compute_fisher_scoring_components(
     x: NDArray[np.float64],
     y: NDArray[np.float64],
     betas: NDArray[np.float64],
-) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[
+    NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]
+]:
     """Compute the Fisher information matrix and the score vector.
 
     Parameters
@@ -113,23 +162,15 @@ def _compute_fisher_scoring_components(
         If matrix dimensions between `x`, `y`, and `betas` are incompatible for
         matrix multiplication.
     """
-    p = x.shape[1]  # Number of features in the design matrix
-
-    # TODO: Consider making a parameter or from a global variable/config as it is a
-    # magic number
-    epsilon = 1e-8  # Small ridge for numerical stability
-
     etas = x @ betas
     mus = expit(etas)
 
-    working_weights = mus * (1.0 - mus)
-    wx = np.sqrt(working_weights) * x
-
-    info = wx.T @ wx + np.eye(p) * epsilon  # Add small ridge for numerical stability
+    # TODO: Pass in epsilon instead of having a magic number
+    _, info = compute_weighted_design_and_info(x, mus)
 
     score = x.T @ (y - mus)
 
-    return info, score
+    return info, score, mus, etas
 
 
 def _fit_logistic_regression(
@@ -137,7 +178,7 @@ def _fit_logistic_regression(
     y: NDArray[np.float64],
     max_iterations: int = 25,
     tolerance: float = 1e-6,
-) -> NDArray[np.float64]:
+) -> LogisticRegressionResult:
     """Fit a logistic regression model using the Fisher scoring method.
 
     Estimates regression coefficients by iteratively updating the parameter
@@ -158,8 +199,9 @@ def _fit_logistic_regression(
 
     Returns
     -------
-    NDArray[np.float64]
-        Estimated coefficient vector of shape (n_features, 1).
+    LogisticRegressionResult
+        A dataclass containing the estimated coefficient vector, linear predictors,
+        adjusted response, and leverage scores.
 
     Raises
     ------
@@ -172,8 +214,11 @@ def _fit_logistic_regression(
     # Initialise the coefficient vector to our initial guess
     betas = np.zeros((p, 1), dtype=np.float64)
 
+    # Initialize outputs
+    info, score, mus, etas = _compute_fisher_scoring_components(x, y, betas)
+
     for _ in range(max_iterations):
-        info, score = _compute_fisher_scoring_components(x, y, betas)
+        info, score, mus, etas = _compute_fisher_scoring_components(x, y, betas)
 
         step = solve(info, score)
 
@@ -183,7 +228,7 @@ def _fit_logistic_regression(
 
         betas += step
 
-    return betas
+    return LogisticRegressionResult(betas=betas, mus=mus, linear_predictors=etas)
 
 
 def fit_diaconis_ylvisaker_logistic_regression(
@@ -192,7 +237,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     alpha: float = 0.5,
     max_iterations: int = 25,
     tolerance: float = 1e-6,
-) -> NDArray[np.float64]:
+) -> DiaconisYlvisakerLogisticRegressionResult:
     """Fit a logistic regression model using a Diaconis-Ylvisaker prior.
 
     Estimates regression coefficients using a Fisher scoring method. Due to the
@@ -217,8 +262,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     Returns
     -------
-    NDArray[np.float64]
-        Penalized estimated coefficient vector of shape (n_features, 1).
+    DiaconisYlvisakerLogisticRegressionResult
+        A dataclass containing the estimated coefficient vector, linear predictors,
+        adjusted response, and leverage scores.
 
     Raises
     ------
@@ -242,4 +288,14 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
-    return _fit_logistic_regression(x_validated, y_adjusted, max_iterations, tolerance)
+    result = _fit_logistic_regression(
+        x_validated, y_adjusted, max_iterations, tolerance
+    )
+    return DiaconisYlvisakerLogisticRegressionResult(
+        betas=result.betas,
+        linear_predictors=result.linear_predictors,
+        mus=result.mus,
+        y_adjusted=y_adjusted,
+        x_validated=x_validated,
+        alpha=alpha,
+    )
