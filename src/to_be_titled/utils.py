@@ -60,7 +60,7 @@ def compute_sloe_estimator(
     Returns
     -------
     float
-        A scalar estimating the corrupted signal strength limit (nu).
+        A scalar estimating the corrupted signal strength (nu).
 
     References
     ----------
