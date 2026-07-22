@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 from numpy.typing import NDArray
-from scipy.optimize import minimize, root
+from scipy.optimize import OptimizeResult, minimize, root
 
 from to_be_titled import state_equations
 
@@ -21,15 +21,11 @@ def _se_funcs(
     transform: bool = True,
 ) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
     """
-
-    Constructs the objective function for the MDYPL state evolution equations
-    (without intercept) to be minimized by using root-finding
-    and minimisation algorithms.
-
-    This function returns a closure `g(pars)` that evaluates the 2D Gauss-Hermite
-    quadrature approximation of the system of state evolution equations.
-    The roots of this system characterize the asymptotic behavior
-    (aggregate bias, variance, and penalization) of the MDYPL estimator.
+    Construct the system of MDYPL state evolution equations.
+    Returns a closure compatible with scipy.optimize.root and scipy.optimize.minimize.
+    The closure evaluates the three state evolution equations
+    using Gauss–Hermite quadrature and optionally performs a log-transformation
+    of the optimisation variables to enforce positivity.
 
     Parameters
     ----------
@@ -40,9 +36,10 @@ def _se_funcs(
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
         False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
-        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
-        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        corrupted is True, then `ss` is the limit `nu` squared of
+        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
+        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
+        computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     gh : tuple[NDArray[np.float64], NDArray[np.float64]]
@@ -73,12 +70,14 @@ def _se_funcs(
 
     def g(pars: NDArray[np.float64]) -> NDArray[np.float64]:
         if transform:
+            # Limit search to exp(-20) ... exp(20) to avoid numerical overflow
             pars_clipped = np.clip(pars, -20, 20)
             pars = np.exp(pars_clipped)
 
         if corrupted:
             mu, b, sigma = pars[0], pars[1], pars[2]
-            gamma = np.sqrt(ss**2 - kappa * sigma ^ 2) / mu
+            # TODO: Check for 0 error?
+            gamma = np.sqrt(ss**2 - kappa * sigma**2) / mu
             pars = np.array([mu, b, sigma])
         else:
             gamma = ss
@@ -98,8 +97,23 @@ def _se_funcs(
 
 @dataclass
 class SolverResult:
-    """Dataclass to store solution and function evaluation with solution along with
-    convergence message and success.
+    """
+    Container for the outcome of a numerical optimisation or root-finding
+    procedure.
+
+    Attributes
+    ----------
+    solution, NDArray[np.float64]
+        Estimated state evolution parameters.
+
+    func_value, NDArray[np.float64]
+        Residual vector evaluated at ``solution``.
+
+    message, str
+        Solver termination message.
+
+    success, bool
+        Whether the solver reported successful convergence.
     """
 
     solution: NDArray[np.float64]
@@ -112,7 +126,7 @@ def _init_solver(
     kappa: float,
     ss: float,
     alpha: float,
-    start: NDArray[np.float64],
+    start: NDArray[np.float64] | None = None,
     init_method: str = "Nelder-Mead",
     init_iter: int = 50,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
@@ -138,15 +152,17 @@ def _init_solver(
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
         False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
-        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
-        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        corrupted is True, then `ss` is the limit `nu` squared of
+        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
+        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
+        computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : NDArray[np.float64]
+    start : NDArray[np.float64], optional
         A 1D array of starting values for the state evolution parameters
         (`mu`, `b`, and `sigma`). These are internally log-transformed during
-        minimization to enforce strict positivity and prevent underflow.
+        minimization to enforce strict positivity and prevent underflow. If None,
+        the additional starting candidates are only considered.
     init_method : str, optional
         The optimization method to be passed to `scipy.optimize.minimize`
         to minimize the squared residuals, by default 'Nelder-Mead'.
@@ -176,28 +192,56 @@ def _init_solver(
         of iterations performed (`iterations`), and the solver's convergence status
         (`message`, `success`).
     """
-    gh = gh if gh is not None else _get_hermite_roots_weights(200)
+    # define multiple initial starts if user has not defined one
+    candidates: list[NDArray[np.float64]] = []
+    if start is not None:
+        candidates.append(np.asarray(start, dtype=np.float64))
 
+    candidates.extend(
+        [
+            np.array([0.5, ss, ss]),  # state equation-scaled default
+            np.array([0.1, 1.0, 1.0]),  # low-mu fallback
+            np.array([0.9, ss * 2, ss]),  # large mu fallback
+        ]
+    )
+
+    best: tuple[float, OptimizeResult] | None = None
+
+    gh = gh if gh is not None else _get_hermite_roots_weights(200)
     g = _se_funcs(kappa, ss, alpha, gh, prox_tol, corrupted, transform=True)
-    start_log = np.asarray(np.log(start), dtype=np.float64)
 
     def objective(pars_log: NDArray[np.float64]) -> float:
         r = g(pars_log)
         return float(np.dot(r, r))
 
-    res = minimize(
-        objective,
-        start_log,
-        method=init_method,
-        options={"maxiter": init_iter, **minimize_kwargs.pop("options", {})},
-        **minimize_kwargs,
-    )  # type: ignore[call-overload]
+    for cand in candidates:
+        start_log = np.asarray(np.log(cand), dtype=np.float64)
 
-    soln = np.exp(res.x)
+        res = minimize(
+            objective,
+            start_log,
+            method=init_method,
+            options={"maxiter": init_iter, **minimize_kwargs.pop("options", {})},
+            **minimize_kwargs,
+        )  # type: ignore[call-overload]
 
-    return SolverResult(
-        solution=soln, func_value=g(res.x), message=res.message, success=res.success
-    )
+        resid_norm = res.fun
+        if best is None or resid_norm < best[0]:
+            best = (resid_norm, res)
+
+    if best is None:
+        raise RuntimeError(
+            f"No candidate start converged for kappa={kappa}, gamma={ss}"
+        )
+    else:
+        res_final = best[1]
+        soln = np.exp(res_final.x)
+        return SolverResult(
+            solution=soln,
+            func_value=g(res_final.x),
+            message=res_final.message,
+            success=res_final.success,
+        )
 
 
 def _root_solver(
@@ -230,9 +274,10 @@ def _root_solver(
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
         False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
-        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
-        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        corrupted is True, then `ss` is the limit `nu` squared of
+        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
+        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
+        computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64]
@@ -319,9 +364,10 @@ def _solve_state_equation(
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
         False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of var(X * \hat \beta),
-        where \hat\beta is the maximum Diaconis-Ylvisaker prior penalized likelihood
-        (MDYPL) estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        corrupted is True, then `ss` is the limit `nu` squared of
+        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
+        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
+        computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64]
