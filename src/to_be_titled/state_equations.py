@@ -33,7 +33,7 @@ def _se_no_intercept(
         Kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
         in `(0,1)`
     gamma : float
-        Square root of the limit of the variance of the linear predictor.
+        Square root of the limit of the (corrupted) signal strength.
     alpha : float
         The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
     gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, default = None
@@ -90,6 +90,121 @@ def _se_no_intercept(
     res3 = (kappa**2 * sigma**2) - b**2 * np.sum(w_pi2_q1 * prox_resid**2)
 
     return np.array([res1, res2, res3])
+
+
+def _se_with_intercept(
+    mu: float,
+    b: float,
+    sigma: float,
+    iota: float,
+    kappa: float,
+    gamma: float,
+    alpha: float,
+    intercept: float,
+    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
+    prox_tol: float = 1e-10,
+) -> NDArray[np.float64]:
+    """
+
+    MDYPL state evolution functions with an intercept.
+
+    Parameters
+    ----------
+    mu : float
+        Aggregate bias parameter.
+    b : float
+        Parameter 'b' in state evolution functions.
+    sigma : float
+        Square root of aggregate variance of the MDYPL estimator.
+    iota: float
+        limits of the MDYPL estimate for the intercept as the sample
+        size goes to +Inf.
+    kappa : float
+        Kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
+        in `(0,1)`
+    gamma : float
+        Square root of the (corrupted) signal strength.
+    alpha : float
+        The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
+    intercept : float
+        The intercept of a logistic regression model.
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, default = None
+        A list with gauss-hermite quadrature nodes and weights as returned from by
+        scipy.special.roots_hermite, by default is None. If None,`gh` is set to
+        roots_hermite(200).
+    prox_tol : float, optional
+        Tolerance for the computation of the proximal operator, by default 1e-10
+
+    Returns
+    -------
+    NDArray[np.float64]
+        A 1D array containing the evaluated residuals of the four state evolution
+        equations.
+
+    References
+    -------
+
+    .. [1] Sterzinger, P., & Kosmidis, I. (2026). Diaconis-Ylvisaker prior
+        penalized likelihood for p/n -> kappa in (0,1) logistic regression.
+        https://arxiv.org/abs/2311.07419
+
+    """
+
+    xi, wi = gh if gh is not None else _get_hermite_roots_weights(200)
+
+    n_nodes = len(xi)
+
+    # Compute 2D grid of Hermite polynomial nodes and 2D grid of weights
+    x_grid = np.tile(xi, n_nodes)
+    y_grid = np.repeat(xi, n_nodes)
+    w_grid = np.tile(wi, n_nodes) * np.repeat(wi, n_nodes)
+
+    # Precompute needed quantities to evaluate input to expectation in state equations
+    # q1 and q2 are transformed values which allow us to perform GH quadrature
+    a_frac = 0.5 * (1 + alpha)
+
+    q1_no_int = np.sqrt(2) * gamma * x_grid
+
+    q1 = q1_no_int + intercept
+
+    expit_q1_pos = expit(q1)
+    expit_q1_neg = expit(-q1)
+
+    q2 = (q1_no_int * mu) + (np.sqrt(2 * kappa) * sigma * y_grid) + iota
+
+    # Compute Q+ and Q- values
+    prox_input_pos = a_frac * b + q2
+    prox_input_neg = a_frac * b - q2
+
+    prox_pos = _proximal_operator(prox_input_pos, b, prox_tol)
+    prox_neg = _proximal_operator(prox_input_neg, b, prox_tol)
+
+    expit_prox_pos = expit(prox_pos)
+    expit_prox_neg = expit(prox_neg)
+
+    q_pos = a_frac - expit_prox_pos
+    q_neg = a_frac - expit_prox_neg
+
+    # Evaluate the four state equations
+    w_pi = w_grid / np.pi
+
+    res1 = np.sum(w_pi * ((expit_q1_pos * q1 * q_pos) - (expit_q1_neg * q1 * q_neg)))
+
+    denom_pos = 1 + b * expit_prox_pos * (1 - expit_prox_pos)
+    denom_neg = 1 + b * expit_prox_neg * (1 - expit_prox_neg)
+    res2 = (
+        1
+        - kappa
+        - np.sum(w_pi * ((expit_q1_pos / denom_pos) + (expit_q1_neg / denom_neg)))
+    )
+    # TODO : check if inside should be p/m
+    res3 = (kappa**2 * sigma**2) - b**2 * np.sum(
+        w_pi * ((expit_q1_pos * q_pos**2) + (expit_q1_neg * q_neg**2))
+    )
+
+    res4 = np.sum(w_pi * (expit_q1_pos * q_pos - expit_q1_neg * q_neg))
+
+    return np.array([res1, res2, res3, res4])
 
 
 def _proximal_operator(
