@@ -234,4 +234,4 @@ def test_se_with_intercept_matches_brglm2_se1() -> None:
     soln = _se_with_intercept(mu0, b0, sigma0, iota0, kappa0, gamma0, alpha0, theta0)
 
     brglm_results = np.asarray([-0.05090216, -0.11007367, 0.11183220, -0.10479934])
-    np.testing.assert_allclose(brglm_results, soln, atol = 1e-7)
+    np.testing.assert_allclose(brglm_results, soln, atol=1e-7)
