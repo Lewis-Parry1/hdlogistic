@@ -236,13 +236,17 @@ def test_se_with_intercept_matches_brglm2_se1() -> None:
     brglm_results = np.asarray([-0.05090216, -0.11007367, 0.11183220, -0.10479934])
     np.testing.assert_allclose(brglm_results, soln, atol=1e-7)
 
-def test_se0_se1_is_equal() -> None: 
-    kappa, gamma, alpha, theta = 0.2, 5, 0.88, 1.0
-    mu, b, sigma, iota = 0.7, 1.2, 2.3, 2.0
+
+def test_se0_se1_is_equal() -> None:
+    """
+    That the 4-parameter system with an intercept matches the
+    3-parameter system when the intercept terms is nullified.
+    """
+    kappa, gamma, alpha = 0.2, 5, 0.88
+    mu, b, sigma = 0.7, 1.2, 2.3
 
     sol0 = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
-    sol1 = _se_with_intercept(mu, b, sigma, 0, kappa, gamma, 
-                              alpha, intercept = 0)
+    sol1 = _se_with_intercept(mu, b, sigma, 0, kappa, gamma, alpha, intercept=0)
     # Assert, almost equal, a inisgniciant numerical differences
-    # occur 
+    # occur
     np.testing.assert_array_almost_equal(sol0, sol1[0:3])
