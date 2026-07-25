@@ -569,7 +569,7 @@ def _solve_state_equation(
             if not has_intercept
             else np.asarray([0.5, 1, 1, 0], dtype=float)
         )
-        
+
     try:
         start_len = len(start)
     except TypeError as e:
