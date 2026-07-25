@@ -472,8 +472,8 @@ def _solve_state_equation(
     kappa: float,
     ss: float,
     alpha: float,
-    start: NDArray[np.float64],
-    gh: tuple[NDArray[np.float64], NDArray[np.float64]],
+    start: NDArray[np.float64] | None = None,
+    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
     transform: bool = True,
@@ -507,12 +507,12 @@ def _solve_state_equation(
         computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : NDArray[np.float64]
+    start : NDArray[np.float64] | None
         A 1D array of length 3 containing the initial starting values for `mu`, `b`,
-        and `sigma`.
-    gh : tuple[NDArray[np.float64], NDArray[np.float64]]
+        and `sigma`. By default, None.
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
-        used to approximate the system's expected values.
+        used to approximate the system's expected values. By default, None.
     root_kwargs : dict[str, Any] | None, optional
         Additional keyword arguments passed directly to the main root solver
         (`scipy.optimize.root`).
@@ -562,6 +562,14 @@ def _solve_state_equation(
     has_intercept = intercept is not None
     npar = 4 if has_intercept else 3
 
+    # Intialise start as default guesses if None
+    if start is None:
+        start = (
+            np.asarray([0.5, 1, 1], dtype=float)
+            if not has_intercept
+            else np.asarray([0.5, 1, 1, 0], dtype=float)
+        )
+        
     try:
         start_len = len(start)
     except TypeError as e:
