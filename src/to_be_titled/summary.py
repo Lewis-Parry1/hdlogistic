@@ -3,12 +3,11 @@ from numpy.typing import NDArray
 from scipy.linalg import solve
 
 # TODO: Remove this import once refactor is complete and functions are properly exposed
-import to_be_titled.estimation as estimation
 from to_be_titled.estimation import (
     DiaconisYlvisakerLogisticRegressionResult,
 )
 from to_be_titled.solve_state_equations import _solve_state_equation
-from to_be_titled.utils import compute_sloe_estimator
+from to_be_titled.utils import compute_sloe_estimator, compute_weighted_design_and_info
 
 
 def _compute_leverages(
@@ -33,10 +32,8 @@ def _compute_leverages(
     NDArray[np.float64]
         The leverage scores (diagonal elements of the hat matrix) for each observation.
     """
-    # access through module to avoid static export checks
-    wx, info = estimation.compute_weighted_design_and_info(  # type: ignore[attr-defined]
-        x, mus, epsilon
-    )
+
+    wx, info = compute_weighted_design_and_info(x, mus, epsilon)
 
     solved_wx_t = solve(info, wx.T, assume_a="pos")
 
@@ -81,9 +78,10 @@ def summary(
             kappa=kappa,
             ss=signal_strength,
             alpha=result.alpha,
-            start=np.array([0.5, 1, 1]), # Argument required by 
+            start=np.array([0.5, 1, 1]),  # Argument required by
             # _solve_state_equation
             gh=None,
+            corrupted=True,
         )
 
         mu_star = pars.solution[0]

@@ -47,13 +47,13 @@ def test_summary_with_high_dimensional_correction(
 ) -> None:
     result = _make_result(n_samples=10, n_features=3, seed=0)
 
-    # Mock _solve_state_equation to return a specific mu_star (e.g. 2.5)
-    mock_mu_star = 2.5
-    fake_pars = np.array([mock_mu_star, 0.0, 0.0])
+    # Mock _solve_state_equation to return a specific mu_star
+    mock_mu_star = 0.5
+    fake_pars = np.array([mock_mu_star, 1, 1])
 
     mock_solver_result = SolverResult(
         solution=fake_pars,
-        func_value=np.array([0.0]),
+        func_value=np.array([0.0, 0.0, 0.0]),
         message="Success",
         success=True,
     )
@@ -84,10 +84,6 @@ def test_summary_integration_success(
 ) -> None:
     result = _make_result(n_samples=10, n_features=3, seed=2)
     output = summary(result, high_dimensional_correction=True)
-    monkeypatch.setattr(
-        "to_be_titled.summary.compute_sloe_estimator",
-        MagicMock(return_value=1.5),
-    )
     assert output.shape == result.betas.shape
     assert np.all(np.isfinite(output))
     assert not np.allclose(output, result.betas)

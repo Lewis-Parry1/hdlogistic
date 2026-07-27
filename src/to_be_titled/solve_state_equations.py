@@ -337,7 +337,7 @@ def _solve_state_equation(
     ss: float,
     alpha: float,
     start: NDArray[np.float64],
-    gh: tuple[NDArray[np.float64], NDArray[np.float64]],
+    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
     transform: bool = True,

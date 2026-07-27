@@ -238,7 +238,8 @@ def fit_diaconis_ylvisaker_logistic_regression(
     max_iterations: int = 25,
     tolerance: float = 1e-6,
 ) -> DiaconisYlvisakerLogisticRegressionResult:
-    """Fit a logistic regression model using a Diaconis-Ylvisaker prior.
+    """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
+    penalized likelihood.
 
     Estimates regression coefficients using a Fisher scoring method. Due to the
     properties of the Diaconis-Ylvisaker prior, simplifies to standard maximisation of
