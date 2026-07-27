@@ -19,6 +19,8 @@ def _se_funcs(
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     transform: bool = True,
+    intercept: float | None = None,
+    iota: float | None = None,
 ) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
     """
     Construct the system of MDYPL state evolution equations.
@@ -69,28 +71,98 @@ def _se_funcs(
     """
 
     def g(pars: NDArray[np.float64]) -> NDArray[np.float64]:
-        if transform:
-            # Limit search to exp(-20) ... exp(20) to avoid numerical overflow
-            pars_clipped = np.clip(pars, -20, 20)
-            pars = np.exp(pars_clipped)
-
+        pars = np.asarray(pars, dtype=np.float64)
+        # if using corrupted signal strength (estimated)
         if corrupted:
-            mu, b, sigma = pars[0], pars[1], pars[2]
-            # TODO: Check for 0 error?
-            gamma = np.sqrt(ss**2 - kappa * sigma**2) / mu
-            pars = np.array([mu, b, sigma])
+            # if no iota term
+            if iota is None:
+                # 3 param; mu , b , sigma, no intercept in model
+                # clip parameters before exponentiating to avoid overflow
+                pars_t = np.exp(np.clip(pars, -20, 20)) if transform else pars
+                mu, b, sigma = pars_t[0], pars_t[1], pars_t[2]
+                with np.errstate(invalid="ignore"):
+                    # estimate gamma using corrupted ss
+                    gamma = np.sqrt(ss**2 - kappa * sigma**2) / mu
+                if np.isnan(gamma):
+                    # if we get get divide by zero error
+                    return np.full(3, np.nan)
+                return state_equations._se_no_intercept(
+                    mu=mu,
+                    b=b,
+                    sigma=sigma,
+                    kappa=kappa,
+                    gamma=gamma,
+                    alpha=alpha,
+                    gh=gh,
+                    prox_tol=prox_tol,
+                )
+            # if iota term
+            else:
+                # 4 param; mu, b, sigma (transformed) and intercept (untransformed)
+                # iota is fixed (estimated intercept from model), solve for
+                # true intercept
+                if transform:
+                    pars_t = pars.copy()
+                    pars_t[:3] = np.exp(np.clip(pars[:3], -20, 20))
+                else:
+                    pars_t = pars
+                mu, b, sigma, intercept_free = (
+                    pars_t[0],
+                    pars_t[1],
+                    pars_t[2],
+                    pars_t[3],
+                )
+                with np.errstate(invalid="ignore"):
+                    gamma = np.sqrt(ss**2 - kappa * sigma**2) / mu
+                if np.isnan(gamma):
+                    return np.full(4, np.nan)
+                return state_equations._se_with_intercept(
+                    mu=mu,
+                    b=b,
+                    sigma=sigma,
+                    iota=iota,
+                    kappa=kappa,
+                    gamma=gamma,
+                    alpha=alpha,
+                    intercept=intercept_free,
+                    gh=gh,
+                    prox_tol=prox_tol,
+                )
         else:
-            gamma = ss
-        return state_equations._se_no_intercept(
-            mu=pars[0],
-            b=pars[1],
-            sigma=pars[2],
-            kappa=kappa,
-            gamma=gamma,
-            alpha=alpha,
-            gh=gh,
-            prox_tol=prox_tol,
-        )
+            if intercept is None:
+                # 3 param model; mu, b , sigma
+                pars_t = np.exp(np.clip(pars, -20, 20)) if transform else pars
+                return state_equations._se_no_intercept(
+                    mu=pars_t[0],
+                    b=pars_t[1],
+                    sigma=pars_t[2],
+                    kappa=kappa,
+                    gamma=ss,
+                    alpha=alpha,
+                    gh=gh,
+                    prox_tol=prox_tol,
+                )
+            # 4 param model; mu, b, sigma (transformed) and iota (untransformed)
+            # true intercept is known (fixed), solve for iota
+            else:
+                if transform:
+                    pars_t = pars.copy()
+                    pars_t[:3] = np.exp(np.clip(pars[:3], -20, 20))
+                else:
+                    pars_t = pars
+                mu, b, sigma, iota_free = pars_t[0], pars_t[1], pars_t[2], pars_t[3]
+                return state_equations._se_with_intercept(
+                    mu=mu,
+                    b=b,
+                    sigma=sigma,
+                    iota=iota_free,
+                    kappa=kappa,
+                    gamma=ss,
+                    alpha=alpha,
+                    intercept=intercept,
+                    gh=gh,
+                    prox_tol=prox_tol,
+                )
 
     return g
 
@@ -132,6 +204,7 @@ def _init_solver(
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     prox_tol: float = 1e-10,
     corrupted: bool = False,
+    intercept: float | None = None,
     **minimize_kwargs: Any,
 ) -> SolverResult:
     """
@@ -192,36 +265,72 @@ def _init_solver(
         of iterations performed (`iterations`), and the solver's convergence status
         (`message`, `success`).
     """
+    has_intercept = intercept is not None
+
     # define multiple initial starts if user has not defined one
     candidates: list[NDArray[np.float64]] = []
     if start is not None:
         candidates.append(np.asarray(start, dtype=np.float64))
 
-    candidates.extend(
-        [
-            np.array([0.5, ss, ss]),  # state equation-scaled default
-            np.array([0.1, 1.0, 1.0]),  # low-mu fallback
-            np.array([0.9, ss * 2, ss]),  # large mu fallback
-        ]
-    )
+    if has_intercept:
+        candidates.extend(
+            [
+                np.array([0.5, ss, ss, 0.0]),  # state equation-scaled default
+                np.array([0.1, 1.0, 1.0, 0.0]),  # low-mu fallback
+                np.array([0.9, ss * 2, ss, 0.0]),  # large mu fallback
+            ]
+        )
+    else:
+        candidates.extend(
+            [
+                np.array([0.5, ss, ss]),  # state equation-scaled default
+                np.array([0.1, 1.0, 1.0]),  # low-mu fallback
+                np.array([0.9, ss * 2, ss]),  # large mu fallback
+            ]
+        )
 
     best: tuple[float, OptimizeResult] | None = None
 
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
-    g = _se_funcs(kappa, ss, alpha, gh, prox_tol, corrupted, transform=True)
+
+    if corrupted:
+        # fitted model returns estimated intercept (iota)
+        g = _se_funcs(
+            kappa, ss, alpha, gh, prox_tol, corrupted, transform=True, iota=intercept
+        )
+    else:
+        # true intercept known, trying to estimate iota
+        g = _se_funcs(
+            kappa,
+            ss,
+            alpha,
+            gh,
+            prox_tol,
+            corrupted,
+            transform=True,
+            intercept=intercept,
+        )
 
     def objective(pars_log: NDArray[np.float64]) -> float:
         r = g(pars_log)
         return float(np.dot(r, r))
 
+    options_override = minimize_kwargs.pop("options", {})
+
     for cand in candidates:
-        start_log = np.asarray(np.log(cand), dtype=np.float64)
+        cand = np.asarray(cand, dtype=np.float64)
+
+        start_vec = (
+            np.concatenate([np.log(cand[:3]), cand[3:4]])
+            if has_intercept
+            else np.log(cand)
+        )
 
         res = minimize(
             objective,
-            start_log,
+            start_vec,
             method=init_method,
-            options={"maxiter": init_iter, **minimize_kwargs.pop("options", {})},
+            options={"maxiter": init_iter, **options_override},
             **minimize_kwargs,
         )  # type: ignore[call-overload]
 
@@ -233,15 +342,19 @@ def _init_solver(
         raise RuntimeError(
             f"No candidate start converged for kappa={kappa}, gamma={ss}"
         )
-    else:
-        res_final = best[1]
-        soln = np.exp(res_final.x)
-        return SolverResult(
-            solution=soln,
-            func_value=g(res_final.x),
-            message=res_final.message,
-            success=res_final.success,
-        )
+    res_final = best[1]
+    soln = (
+        np.concatenate([np.exp(res_final.x[:3]), res_final.x[3:4]])
+        if has_intercept
+        else np.exp(res_final.x)
+    )
+
+    return SolverResult(
+        solution=soln,
+        func_value=g(res_final.x),
+        message=res_final.message,
+        success=res_final.success,
+    )
 
 
 def _root_solver(
@@ -254,6 +367,7 @@ def _root_solver(
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     transform: bool = True,
+    intercept: float | None = None,
     **root_kwargs: Any,
 ) -> SolverResult:
     """
@@ -316,16 +430,38 @@ def _root_solver(
         of iterations performed (`iterations`), and the solver's termination
         status and message (`message`, `success`).
     """
+    has_intercept = intercept is not None
 
     gh = gh if gh is not None else _get_hermite_roots_weights(200)
 
-    g = _se_funcs(kappa, ss, alpha, gh, prox_tol, corrupted, transform)
+    if corrupted:
+        g = _se_funcs(
+            kappa, ss, alpha, gh, prox_tol, corrupted, transform, iota=intercept
+        )
+    else:
+        g = _se_funcs(
+            kappa, ss, alpha, gh, prox_tol, corrupted, transform, intercept=intercept
+        )
 
-    start = np.log(start) if transform else start
+    if transform:
+        start_t = (
+            np.concatenate([np.log(start[:3]), start[3:4]])
+            if has_intercept
+            else np.log(start)
+        )
+    else:
+        start_t = start
 
-    res = root(g, start, method=main_method, **root_kwargs)  #  type: ignore[call-overload]
+    res = root(g, start_t, method=main_method, **root_kwargs)  #  type: ignore[call-overload]
 
-    soln = np.exp(res.x) if transform else res.x  # Return in original space
+    if transform:
+        soln = (
+            np.concatenate([np.exp(res.x[:3]), res.x[3:4]])
+            if has_intercept
+            else np.exp(res.x)
+        )
+    else:
+        soln = res.x
 
     return SolverResult(
         solution=soln, func_value=g(res.x), message=res.message, success=res.success
@@ -336,12 +472,13 @@ def _solve_state_equation(
     kappa: float,
     ss: float,
     alpha: float,
-    start: NDArray[np.float64],
-    gh: tuple[NDArray[np.float64], NDArray[np.float64]],
+    start: NDArray[np.float64] | None = None,
+    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
     transform: bool = True,
     corrupted: bool = False,
+    intercept: float | None = None,
     init_iter: int = 50,
     init_method: str = "Nelder-Mead",
     main_method: str = "hybr",
@@ -370,12 +507,12 @@ def _solve_state_equation(
         computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : NDArray[np.float64]
+    start : NDArray[np.float64] | None
         A 1D array of length 3 containing the initial starting values for `mu`, `b`,
-        and `sigma`.
-    gh : tuple[NDArray[np.float64], NDArray[np.float64]]
+        and `sigma`. By default, None.
+    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
-        used to approximate the system's expected values.
+        used to approximate the system's expected values. By default, None.
     root_kwargs : dict[str, Any] | None, optional
         Additional keyword arguments passed directly to the main root solver
         (`scipy.optimize.root`).
@@ -422,8 +559,16 @@ def _solve_state_equation(
     ValueError
         If the number of parameters in `start` does not equal 3.
     """
+    has_intercept = intercept is not None
+    npar = 4 if has_intercept else 3
 
-    npar = 3
+    # Intialise start as default guesses if None
+    if start is None:
+        start = (
+            np.asarray([0.5, 1, 1], dtype=float)
+            if not has_intercept
+            else np.asarray([0.5, 1, 1, 0], dtype=float)
+        )
 
     try:
         start_len = len(start)
@@ -446,6 +591,7 @@ def _solve_state_equation(
             gh,
             prox_tol,
             corrupted,
+            intercept,
             **minimize_kwargs,
         )
         start = init_result.solution
@@ -463,6 +609,7 @@ def _solve_state_equation(
         prox_tol,
         corrupted,
         transform,
+        intercept,
         **root_kwargs,
     )
     opt_chain += f"main_method: {main_method}"
