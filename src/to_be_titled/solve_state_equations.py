@@ -10,6 +10,18 @@ from to_be_titled import state_equations
 
 from .utils import _get_hermite_roots_weights
 
+@dataclass
+class StateParameters():
+    mu : float
+    b : float
+    sigma : float 
+    iota : float | None
+
+    def to_array(self) -> NDArray[np.float64]: 
+        if self.iota is None: 
+            return np.array([self.mu, self.b, self.sigma])
+        else: 
+            return np.array([self.mu, self.b, self.sigma, self.iota])
 
 def _se_funcs(
     kappa: float,
@@ -175,7 +187,7 @@ class SolverResult:
 
     Attributes
     ----------
-    solution, NDArray[np.float64]
+    solution, StateParameters
         Estimated state evolution parameters.
 
     func_value, NDArray[np.float64]
@@ -188,11 +200,29 @@ class SolverResult:
         Whether the solver reported successful convergence.
     """
 
-    solution: NDArray[np.float64]
+    solution: StateParameters
     func_value: NDArray[np.float64]
     message: str
     success: bool
 
+def _validate_start(start: NDArray[np.float64], has_intercept: bool) -> None: 
+    '''
+    Validate user supplied starting values.
+    '''
+    # validate start dimensions 
+    expected_dim = 4 if has_intercept else 3
+    if start.shape != (expected_dim, ):
+        raise ValueError(f'`start` must be a length-{expected_dim} vector, got shape {start.shape}') 
+
+    mu, b, sigma = start[:3]
+
+    if not (0 < mu < 1): 
+        raise ValueError(f'`mu` must lie in (0,1). Received {mu}.')
+    if b <= 0: 
+        raise ValueError(f'`b` must be strictly positive; received {b}.')
+    if sigma <= 0: 
+        raise ValueError(f'`sigma` must be strictly positive; received {sigma}.')
+    
 
 def _init_solver(
     kappa: float,
@@ -269,8 +299,13 @@ def _init_solver(
 
     # define multiple initial starts if user has not defined one
     candidates: list[NDArray[np.float64]] = []
+
     if start is not None:
-        candidates.append(np.asarray(start, dtype=np.float64))
+        start = np.asarray(start, dtype= np.float64)
+
+        _validate_start(start, has_intercept)
+
+        candidates.append(start)
 
     if has_intercept:
         candidates.extend(
@@ -335,7 +370,7 @@ def _init_solver(
         )  # type: ignore[call-overload]
 
         resid_norm = res.fun
-        if best is None or resid_norm < best[0]:
+        if not np.isnan(resid_norm) and (best is None or np.isnan(best[0]) or resid_norm < best[0]):
             best = (resid_norm, res)
 
     if best is None:
@@ -343,14 +378,23 @@ def _init_solver(
             f"No candidate start converged for kappa={kappa}, gamma={signal_strength}"
         )
     res_final = best[1]
+
+    # solution needs to be transformed back from log-space to real-space
     soln = (
         np.concatenate([np.exp(res_final.x[:3]), res_final.x[3:4]])
         if has_intercept
         else np.exp(res_final.x)
     )
 
+    if has_intercept: 
+        mu, b, sigma, iota = soln 
+    else: 
+        mu, b, sigma = soln 
+        iota = None
+    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota = iota)
+
     return SolverResult(
-        solution=soln,
+        solution=state_params,
         func_value=g(res_final.x),
         message=res_final.message,
         success=res_final.success,
@@ -463,12 +507,19 @@ def _root_solver(
     else:
         soln = res.x
 
+    if has_intercept: 
+        mu, b, sigma, iota = soln 
+    else: 
+        mu, b, sigma = soln 
+        iota = None
+    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota = iota)
+     
     return SolverResult(
-        solution=soln, func_value=g(res.x), message=res.message, success=res.success
+        solution= state_params, func_value=g(res.x), message=res.message, success=res.success
     )
 
 
-def _solve_state_equation(
+def solve_state_equation(
     kappa: float,
     signal_strength: float,
     alpha: float,
@@ -560,22 +611,16 @@ def _solve_state_equation(
         If the number of parameters in `start` does not equal 3.
     """
     has_intercept = intercept is not None
-    npar = 4 if has_intercept else 3
 
-    # Intialise start as default guesses if None
+    # Intialise start as default brglm2 guess if None
     if start is None:
         start = (
             np.asarray([0.5, 1, 1], dtype=float)
             if not has_intercept
             else np.asarray([0.5, 1, 1, 0], dtype=float)
         )
-
-    try:
-        start_len = len(start)
-    except TypeError as e:
-        raise TypeError("`start` must be a sequence with a length") from e
-    if start_len != npar:
-        raise ValueError(f"start must have length {npar}; got {start_len}")
+    else: 
+        _validate_start(start, has_intercept)
 
     root_kwargs = root_kwargs or {}
     minimize_kwargs = minimize_kwargs or {}
@@ -594,7 +639,8 @@ def _solve_state_equation(
             intercept,
             **minimize_kwargs,
         )
-        start = init_result.solution
+        soln = init_result.solution
+        start = soln.to_array()
         opt_chain = f"initial_method: {init_method} -> "
     else:
         opt_chain = ""
