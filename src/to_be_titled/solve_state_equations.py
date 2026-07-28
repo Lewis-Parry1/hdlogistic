@@ -13,7 +13,7 @@ from .utils import _get_hermite_roots_weights
 
 def _se_funcs(
     kappa: float,
-    ss: float,
+    signal_strength: float,
     alpha: float,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]],
     prox_tol: float = 1e-10,
@@ -34,11 +34,11 @@ def _se_funcs(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         kappa should be in (0,1).
-    ss : float
+    signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of
+        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `signal_strength` is the limit `nu` squared of
         \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
         Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
         computed by [mdyplFit()] with shrinkage parameter alpha.
@@ -51,8 +51,8 @@ def _se_funcs(
         Convergence tolerance for the Newton-Raphson estimation of
         proximal operator, by default 1e-10.
     corrupted : bool, optional
-        If False, then `ss` is the square root of the signal strength.
-        If True, then `ss` is the square root of the corrupted signal strength
+        If False, then `signal_strength` is the square root of the signal strength.
+        If True, then `signal_strength` is the square root of the corrupted signal strength
         is the limit of the variance of the fitted values computed by mdyplFit()
         with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
@@ -82,7 +82,7 @@ def _se_funcs(
                 mu, b, sigma = pars_t[0], pars_t[1], pars_t[2]
                 with np.errstate(invalid="ignore"):
                     # estimate gamma using corrupted ss
-                    gamma = np.sqrt(ss**2 - kappa * sigma**2) / mu
+                    gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
                 if np.isnan(gamma):
                     # if we get get divide by zero error
                     return np.full(3, np.nan)
@@ -113,7 +113,7 @@ def _se_funcs(
                     pars_t[3],
                 )
                 with np.errstate(invalid="ignore"):
-                    gamma = np.sqrt(ss**2 - kappa * sigma**2) / mu
+                    gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
                 if np.isnan(gamma):
                     return np.full(4, np.nan)
                 return state_equations._se_with_intercept(
@@ -137,7 +137,7 @@ def _se_funcs(
                     b=pars_t[1],
                     sigma=pars_t[2],
                     kappa=kappa,
-                    gamma=ss,
+                    gamma=signal_strength,
                     alpha=alpha,
                     gh=gh,
                     prox_tol=prox_tol,
@@ -157,7 +157,7 @@ def _se_funcs(
                     sigma=sigma,
                     iota=iota_free,
                     kappa=kappa,
-                    gamma=ss,
+                    gamma=signal_strength,
                     alpha=alpha,
                     intercept=intercept,
                     gh=gh,
@@ -196,7 +196,7 @@ class SolverResult:
 
 def _init_solver(
     kappa: float,
-    ss: float,
+    signal_strength: float,
     alpha: float,
     start: NDArray[np.float64] | None = None,
     init_method: str = "Nelder-Mead",
@@ -221,11 +221,11 @@ def _init_solver(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
-    ss : float
+    signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of
+        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `signal_strength` is the limit `nu` squared of
         \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
         Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
         computed by [mdyplFit()] with shrinkage parameter alpha.
@@ -250,8 +250,8 @@ def _init_solver(
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
     corrupted: bool
-        If False, then `ss` is the square root of the signal strength.
-        If True, then `ss` is the square root of the corrupted signal strength
+        If False, then `signal_strength` is the square root of the signal strength.
+        If True, then `signal_strength` is the square root of the corrupted signal strength
         is the limit of the variance of the fitted values computed by mdyplFit()
         with shrinkage parameter, alpha. By default, False.
     **minimize_kwargs : dict[str, Any], optional
@@ -275,17 +275,17 @@ def _init_solver(
     if has_intercept:
         candidates.extend(
             [
-                np.array([0.5, ss, ss, 0.0]),  # state equation-scaled default
+                np.array([0.5, signal_strength, signal_strength, 0.0]),  # state equation-scaled default
                 np.array([0.1, 1.0, 1.0, 0.0]),  # low-mu fallback
-                np.array([0.9, ss * 2, ss, 0.0]),  # large mu fallback
+                np.array([0.9, signal_strength * 2, signal_strength, 0.0]),  # large mu fallback
             ]
         )
     else:
         candidates.extend(
             [
-                np.array([0.5, ss, ss]),  # state equation-scaled default
+                np.array([0.5, signal_strength, signal_strength]),  # state equation-scaled default
                 np.array([0.1, 1.0, 1.0]),  # low-mu fallback
-                np.array([0.9, ss * 2, ss]),  # large mu fallback
+                np.array([0.9, signal_strength * 2, signal_strength]),  # large mu fallback
             ]
         )
 
@@ -296,13 +296,13 @@ def _init_solver(
     if corrupted:
         # fitted model returns estimated intercept (iota)
         g = _se_funcs(
-            kappa, ss, alpha, gh, prox_tol, corrupted, transform=True, iota=intercept
+            kappa, signal_strength, alpha, gh, prox_tol, corrupted, transform=True, iota=intercept
         )
     else:
         # true intercept known, trying to estimate iota
         g = _se_funcs(
             kappa,
-            ss,
+            signal_strength,
             alpha,
             gh,
             prox_tol,
@@ -340,7 +340,7 @@ def _init_solver(
 
     if best is None:
         raise RuntimeError(
-            f"No candidate start converged for kappa={kappa}, gamma={ss}"
+            f"No candidate start converged for kappa={kappa}, gamma={signal_strength}"
         )
     res_final = best[1]
     soln = (
@@ -359,7 +359,7 @@ def _init_solver(
 
 def _root_solver(
     kappa: float,
-    ss: float,
+    signal_strength: float,
     alpha: float,
     start: NDArray[np.float64],
     main_method: str = "hybr",
@@ -384,11 +384,11 @@ def _root_solver(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
-    ss : float
+    signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of
+        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `signal_strength` is the limit `nu` squared of
         \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
         Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
         computed by [mdyplFit()] with shrinkage parameter alpha.
@@ -409,8 +409,8 @@ def _root_solver(
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
     corrupted: bool, optional
-        If False, then `ss` is the square root of the signal strength.
-        If True, then `ss` is the square root of the corrupted signal strength
+        If False, then `signal_strength` is the square root of the signal strength.
+        If True, then `signal_strength` is the square root of the corrupted signal strength
         is the limit of the variance of the fitted values computed by mdyplFit()
         with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
@@ -436,11 +436,11 @@ def _root_solver(
 
     if corrupted:
         g = _se_funcs(
-            kappa, ss, alpha, gh, prox_tol, corrupted, transform, iota=intercept
+            kappa, signal_strength, alpha, gh, prox_tol, corrupted, transform, iota=intercept
         )
     else:
         g = _se_funcs(
-            kappa, ss, alpha, gh, prox_tol, corrupted, transform, intercept=intercept
+            kappa, signal_strength, alpha, gh, prox_tol, corrupted, transform, intercept=intercept
         )
 
     if transform:
@@ -470,7 +470,7 @@ def _root_solver(
 
 def _solve_state_equation(
     kappa: float,
-    ss: float,
+    signal_strength: float,
     alpha: float,
     start: NDArray[np.float64] | None = None,
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
@@ -497,11 +497,11 @@ def _solve_state_equation(
     kappa : float
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
-    ss : float
+    signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `ss` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `ss` is the limit `nu` squared of
+        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
+        corrupted is True, then `signal_strength` is the limit `nu` squared of
         \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
         Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
         computed by [mdyplFit()] with shrinkage parameter alpha.
@@ -520,8 +520,8 @@ def _solve_state_equation(
         Additional keyword arguments passed directly to the initial minimizer
         (`scipy.optimize.minimize`).
     corrupted: bool, optional
-        If False, then `ss` is the square root of the signal strength.
-        If True, then `ss` is the square root of the corrupted signal strength
+        If False, then `signal_strength` is the square root of the signal strength.
+        If True, then `signal_strength` is the square root of the corrupted signal strength
         is the limit of the variance of the fitted values computed by mdyplFit()
         with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
@@ -583,7 +583,7 @@ def _solve_state_equation(
     if init_iter > 0:
         init_result = _init_solver(
             kappa,
-            ss,
+            signal_strength,
             alpha,
             start,
             init_method,
@@ -601,7 +601,7 @@ def _solve_state_equation(
 
     result = _root_solver(
         kappa,
-        ss,
+        signal_strength,
         alpha,
         start,
         main_method,
