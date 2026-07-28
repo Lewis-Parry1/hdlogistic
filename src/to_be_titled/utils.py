@@ -89,3 +89,42 @@ def compute_sloe_estimator(
     ]
 
     return float(np.std(finite_adjusted_predictors, ddof=1))
+
+
+def compute_weighted_design_and_info(
+    x: NDArray[np.float64],
+    mus: NDArray[np.float64],
+    epsilon: float = 1e-8,
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Compute the square-root weighted design matrix and Fisher information matrix.
+
+    Calculates working weights from predicted probabilities, applies
+    them element-wise to scale the design matrix, and computes the regularised
+    information matrix.
+
+    Parameters
+    ----------
+    x : NDArray[np.float64]
+        Design matrix of shape (n_samples, n_features).
+    mus : NDArray[np.float64]
+        Predicted mean responses (probabilities) of shape (n_samples, 1) or
+        (n_samples,), with values in the interval (0, 1).
+    epsilon : float, default=1e-8
+        Small positive constant added to the diagonal of the information matrix
+        for numerical stability and ridge regularization.
+
+    Returns
+    -------
+    tuple[NDArray[np.float64], NDArray[np.float64]]
+        A tuple containing:
+        - wx : Weighted design matrix of shape (n_samples, n_features).
+        - info : Regularized Fisher information matrix of shape
+        (n_features, n_features).
+    """
+    p = x.shape[1]
+
+    working_weights = mus * (1.0 - mus)
+    wx = np.sqrt(working_weights) * x
+    info = wx.T @ wx + np.eye(p) * epsilon
+
+    return wx, info

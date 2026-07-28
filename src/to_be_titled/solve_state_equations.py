@@ -562,7 +562,7 @@ def solve_state_equation(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: NDArray[np.float64] | None = None,
+    start: NDArray[np.float64],
     gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
