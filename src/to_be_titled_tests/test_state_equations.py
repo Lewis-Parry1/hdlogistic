@@ -8,6 +8,7 @@ from scipy.special import expit
 from to_be_titled.state_equations import (
     _proximal_operator,
     _se_no_intercept,
+    _se_with_intercept,
 )
 
 """
@@ -86,9 +87,8 @@ REGIMES = [
     *((mu, 50.0, 5.0, 0.9, 15.0) for mu in [1e-2, 1e-4, 1e-8, 1e-20]),
 ]
 
+
 # Test 3: Test _proximal_operator and se_no_intercept on different parameter reigmes
-
-
 @pytest.mark.parametrize("mu, b, sigma, kappa, gamma", REGIMES)
 def test_prox_data_regimes(
     mu: float, b: float, sigma: float, kappa: float, gamma: float
@@ -219,3 +219,34 @@ def test_se_no_intercept_matches_brglm2_se0(
     )
 
     np.testing.assert_allclose(res, expected_res, atol=1e-7)
+
+
+def test_se_with_intercept_matches_brglm2_se1() -> None:
+    kappa0 = 0.2
+    gamma0 = 5
+    alpha0 = 0.88
+    theta0 = 1
+    iota0 = 2
+    mu0 = 0.7
+    b0 = 1.2
+    sigma0 = 2.3
+
+    soln = _se_with_intercept(mu0, b0, sigma0, iota0, kappa0, gamma0, alpha0, theta0)
+
+    brglm_results = np.asarray([-0.05090216, -0.11007367, 0.11183220, -0.10479934])
+    np.testing.assert_allclose(brglm_results, soln, atol=1e-7)
+
+
+def test_se0_se1_is_equal() -> None:
+    """
+    That the 4-parameter system with an intercept matches the
+    3-parameter system when the intercept terms is nullified.
+    """
+    kappa, gamma, alpha = 0.2, 5, 0.88
+    mu, b, sigma = 0.7, 1.2, 2.3
+
+    sol0 = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+    sol1 = _se_with_intercept(mu, b, sigma, 0, kappa, gamma, alpha, intercept=0)
+    # Assert, almost equal, a inisgniciant numerical differences
+    # occur
+    np.testing.assert_array_almost_equal(sol0, sol1[0:3])
