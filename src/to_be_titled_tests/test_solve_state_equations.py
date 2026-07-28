@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from to_be_titled.solve_state_equations import _solve_state_equation
+from to_be_titled.solve_state_equations import solve_state_equation
 from to_be_titled.utils import _get_hermite_roots_weights
 
 
@@ -30,13 +30,13 @@ def test_solve_state_equation_no_int_compare_candes_sur(
     # Use default brglm2 starting guess
     start = np.array([0.5, 1, 1])
 
-    solver_result, _ = _solve_state_equation(
+    solver_result, _ = solve_state_equation(
         kappa, gamma, alpha, start, gh, init_iter=50
     )
 
     # Ensure solver converged successfully
     assert solver_result.success is True, "Solver failed to converge"
-    np.testing.assert_allclose(solver_result.solution, roots, atol=1e-2)
+    np.testing.assert_allclose(solver_result.solution.to_array(), roots, atol=1e-2)
 
 
 # Compare with Candes Table 13, with intercept
@@ -62,13 +62,13 @@ def test_solve_state_equation_w_int_compare_candes_sur(
 
     start = np.array([0.5, 1, 1, 0.0])
 
-    solver_result, _ = _solve_state_equation(
+    solver_result, _ = solve_state_equation(
         kappa, gamma, alpha, start, gh, intercept=thetas, init_iter=50
     )
 
     # Ensure solver converged successfully
     assert solver_result.success is True, "Solver failed to converge"
-    np.testing.assert_allclose(solver_result.solution, roots, atol=1e-1)
+    np.testing.assert_allclose(solver_result.solution.to_array(), roots, atol=1e-1)
 
 
 # Test against solve_state_equations w/o intecept against brglm2
@@ -89,7 +89,7 @@ def test_solve_state_equations_against_se0_brglm2() -> None:
     start = np.array([0.5, 1, 1])
     gh = _get_hermite_roots_weights(200)
 
-    est_nelder_mead_50, _ = _solve_state_equation(
+    est_nelder_mead_50, _ = solve_state_equation(
         kappa, gamma, alpha, start, gh, init_iter=50
     )
 
@@ -98,7 +98,7 @@ def test_solve_state_equations_against_se0_brglm2() -> None:
 
     # Ensure solver roots match brglm2 roots
     np.testing.assert_allclose(
-        est_nelder_mead_50.solution, true_nelder_mead_50, atol=1e-7
+        est_nelder_mead_50.solution.to_array(), true_nelder_mead_50, atol=1e-7
     )
 
 
@@ -118,14 +118,14 @@ def test_solve_state_equations_not_corrupt_against_se1_brglm2() -> None:
     start = np.array([0.5, 1, 1, 0])
     gh = _get_hermite_roots_weights(200)
 
-    soln, _ = _solve_state_equation(
+    soln, _ = solve_state_equation(
         kappa, gamma, alpha, start, gh, corrupted=False, intercept=theta
     )
 
     # checks solver gets approximately close to roots
     np.testing.assert_array_almost_equal(soln.func_value, np.zeros(4))
     # check solver roots match brglm2
-    np.testing.assert_allclose(soln.solution, brglm2_res, atol=1e-10)
+    np.testing.assert_allclose(soln.solution.to_array(), brglm2_res, atol=1e-10)
 
 
 def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
@@ -149,7 +149,7 @@ def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
     gh = _get_hermite_roots_weights(200)
 
     # pass in corrupted signal strength and estimtaed intercept (iota_root)
-    soln_c, _ = _solve_state_equation(
+    soln_c, _ = solve_state_equation(
         kappa, nu, alpha, start, gh, corrupted=True, intercept=iota_root
     )
 
@@ -157,7 +157,7 @@ def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
     brglm2_corrupted_res = np.array([mu_root, b_root, sigma_root, theta])
 
     np.testing.assert_array_almost_equal(soln_c.func_value, np.zeros(4))
-    np.testing.assert_allclose(soln_c.solution, brglm2_corrupted_res, atol=1e-6)
+    np.testing.assert_allclose(soln_c.solution.to_array(), brglm2_corrupted_res, atol=1e-6)
 
 
 def test_solve_se0_with_nu() -> None:
@@ -171,20 +171,21 @@ def test_solve_se0_with_nu() -> None:
     start = np.array([0.5, 1, 1])
     gh = _get_hermite_roots_weights(200)
 
-    sol0, _ = _solve_state_equation(kappa, gamma, alpha, start, gh)
+    res0, _ = solve_state_equation(kappa, gamma, alpha, start, gh)
+    sol0 = res0.solution.to_array()
     (
         mu,
         _,
         sigma,
-    ) = sol0.solution[0], sol0.solution[1], sol0.solution[2]
+    ) = sol0[0], sol0[1], sol0[2]
 
     # Compute the corrupted signal strength
     nu = np.sqrt(mu**2 * gamma**2 + kappa * sigma**2)
 
     # Use the corrupted signal strength as gamma in solver with corrupted = True
-    sol0_c, _ = _solve_state_equation(kappa, nu, alpha, start, gh, corrupted=True)
+    sol0_c, _ = solve_state_equation(kappa, nu, alpha, start, gh, corrupted=True)
 
-    np.testing.assert_array_almost_equal(sol0_c.solution, sol0.solution, decimal=8)
+    np.testing.assert_array_almost_equal(sol0_c.solution.to_array(), sol0, decimal=8)
 
 
 def test_solve_se1_retrieve_nu() -> None:
@@ -198,13 +199,14 @@ def test_solve_se1_retrieve_nu() -> None:
     start = np.array([0.5, 1, 1, 0.0])
     gh = _get_hermite_roots_weights(200)
 
-    sol1, _ = _solve_state_equation(kappa, gamma, alpha, start, gh, intercept=theta)
+    res1, _ = solve_state_equation(kappa, gamma, alpha, start, gh, intercept=theta)
+    sol1 = res1.solution.to_array()
 
     mu, _, sigma, iota = (
-        sol1.solution[0],
-        sol1.solution[1],
-        sol1.solution[2],
-        sol1.solution[3],
+        sol1[0],
+        sol1[1],
+        sol1[2],
+        sol1[3],
     )
 
     # Compute the corrupted signal strength
@@ -212,17 +214,17 @@ def test_solve_se1_retrieve_nu() -> None:
 
     # Use the corrupted signal strength as gamma and iota as intercept
     # in solver with corrupted = True
-    sol1_c, _ = _solve_state_equation(
+    res1_c, _ = solve_state_equation(
         kappa, nu, alpha, start, gh, corrupted=True, intercept=iota
     )
+    sol1_c = res1_c.solution.to_array()
 
     # mu, b, sigma should be recovered consistently between the two parameterizations
     np.testing.assert_array_almost_equal(
-        sol1_c.solution[:3], sol1.solution[:3], decimal=8
+        sol1_c[:3], sol1[:3], decimal=8
     )
-
     # the corrupted-branch free parameter should recover the TRUE intercept (theta),
-    np.testing.assert_almost_equal(sol1_c.solution[3], theta, decimal=8)
+    np.testing.assert_almost_equal(sol1_c[3], theta, decimal=8)
 
 
 def test_solve_state_equation_no_int_transform_safely() -> None:
@@ -235,10 +237,10 @@ def test_solve_state_equation_no_int_transform_safely() -> None:
     start = np.asarray([0.5, 1, 1])
     gh = _get_hermite_roots_weights(200)
 
-    soln, _ = _solve_state_equation(kappa, gamma, alpha, start, gh, transform=False)
-    soln_t, _ = _solve_state_equation(kappa, gamma, alpha, start, gh, transform=True)
+    soln, _ = solve_state_equation(kappa, gamma, alpha, start, gh, transform=False)
+    soln_t, _ = solve_state_equation(kappa, gamma, alpha, start, gh, transform=True)
 
-    np.testing.assert_array_almost_equal(soln.solution, soln_t.solution)
+    np.testing.assert_array_almost_equal(soln.solution.to_array(), soln_t.solution.to_array())
 
 
 def test_solve_state_equation_int_transform_safely() -> None:
@@ -251,11 +253,11 @@ def test_solve_state_equation_int_transform_safely() -> None:
     start = np.asarray([0.5, 1, 1, 0])
     gh = _get_hermite_roots_weights(200)
 
-    soln, _ = _solve_state_equation(
+    soln, _ = solve_state_equation(
         kappa, gamma, alpha, start, gh, transform=False, intercept=theta
     )
-    soln_t, _ = _solve_state_equation(
+    soln_t, _ = solve_state_equation(
         kappa, gamma, alpha, start, gh, transform=True, intercept=theta
     )
 
-    np.testing.assert_array_almost_equal(soln.solution, soln_t.solution)
+    np.testing.assert_array_almost_equal(soln.solution.to_array(), soln_t.solution.to_array())
