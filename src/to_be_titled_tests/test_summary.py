@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from to_be_titled.estimation import DiaconisYlvisakerLogisticRegressionResult
-from to_be_titled.solve_state_equations import SolverResult
+from to_be_titled.solve_state_equations import SolverResult, StateParameters
 from to_be_titled.summary import _compute_leverages, summary
 
 
@@ -49,7 +49,7 @@ def test_summary_with_high_dimensional_correction(
 
     # Mock _solve_state_equation to return a specific mu_star
     mock_mu_star = 0.5
-    fake_pars = np.array([mock_mu_star, 1, 1])
+    fake_pars = StateParameters(mock_mu_star, 1, 1, iota=None)
 
     mock_solver_result = SolverResult(
         solution=fake_pars,
@@ -59,7 +59,7 @@ def test_summary_with_high_dimensional_correction(
     )
 
     monkeypatch.setattr(
-        "to_be_titled.summary._solve_state_equation",
+        "to_be_titled.summary.solve_state_equation",
         MagicMock(return_value=(mock_solver_result, "success")),
     )
     monkeypatch.setattr(

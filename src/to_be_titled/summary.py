@@ -6,7 +6,7 @@ from scipy.linalg import solve
 from to_be_titled.estimation import (
     DiaconisYlvisakerLogisticRegressionResult,
 )
-from to_be_titled.solve_state_equations import _solve_state_equation
+from to_be_titled.solve_state_equations import solve_state_equation
 from to_be_titled.utils import compute_sloe_estimator, compute_weighted_design_and_info
 
 
@@ -74,9 +74,9 @@ def summary(
 
         kappa = number_parameters / number_observations
 
-        pars, _ = _solve_state_equation(
+        pars, _ = solve_state_equation(
             kappa=kappa,
-            ss=signal_strength,
+            signal_strength=signal_strength,
             alpha=result.alpha,
             start=np.array([0.5, 1, 1]),  # Argument required by
             # _solve_state_equation
@@ -84,7 +84,7 @@ def summary(
             corrupted=True,
         )
 
-        mu_star = pars.solution[0]
+        mu_star = pars.solution.mu
 
         rescaled_betas = result.betas / mu_star
 
