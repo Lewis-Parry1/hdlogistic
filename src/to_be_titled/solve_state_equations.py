@@ -10,18 +10,20 @@ from to_be_titled import state_equations
 
 from .utils import _get_hermite_roots_weights
 
-@dataclass
-class StateParameters():
-    mu : float
-    b : float
-    sigma : float 
-    iota : float | None
 
-    def to_array(self) -> NDArray[np.float64]: 
-        if self.iota is None: 
+@dataclass
+class StateParameters:
+    mu: float
+    b: float
+    sigma: float
+    iota: float | None
+
+    def to_array(self) -> NDArray[np.float64]:
+        if self.iota is None:
             return np.array([self.mu, self.b, self.sigma])
-        else: 
+        else:
             return np.array([self.mu, self.b, self.sigma, self.iota])
+
 
 def _se_funcs(
     kappa: float,
@@ -49,11 +51,11 @@ def _se_funcs(
     signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `signal_strength` is the limit `nu` squared of
-        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
-        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
-        computed by [mdyplFit()] with shrinkage parameter alpha.
+        False, then `signal_strength` is the limit `gamma` squared of the
+        var(X * beta). If corrupted is True, then `signal_strength` is the limit
+        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
+        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
+        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     gh : tuple[NDArray[np.float64], NDArray[np.float64]]
@@ -64,9 +66,9 @@ def _se_funcs(
         proximal operator, by default 1e-10.
     corrupted : bool, optional
         If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal strength
-        is the limit of the variance of the fitted values computed by mdyplFit()
-        with shrinkage parameter, alpha. By default, False.
+        If True, then `signal_strength` is the square root of the corrupted signal
+        strength is the limit of the variance of the fitted values computed by
+        mdyplFit() with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
         If True, the returned function expects the input parameters
         (`mu`, `b`, `sigma`) to be log-transformed. The closure will
@@ -205,24 +207,27 @@ class SolverResult:
     message: str
     success: bool
 
-def _validate_start(start: NDArray[np.float64], has_intercept: bool) -> None: 
-    '''
+
+def _validate_start(start: NDArray[np.float64], has_intercept: bool) -> None:
+    """
     Validate user supplied starting values.
-    '''
-    # validate start dimensions 
+    """
+    # validate start dimensions
     expected_dim = 4 if has_intercept else 3
-    if start.shape != (expected_dim, ):
-        raise ValueError(f'`start` must be a length-{expected_dim} vector, got shape {start.shape}') 
+    if start.shape != (expected_dim,):
+        raise ValueError(
+            f"`start` must be a length-{expected_dim} vector, got shape {start.shape}"
+        )
 
     mu, b, sigma = start[:3]
 
-    if not (0 < mu < 1): 
-        raise ValueError(f'`mu` must lie in (0,1). Received {mu}.')
-    if b <= 0: 
-        raise ValueError(f'`b` must be strictly positive; received {b}.')
-    if sigma <= 0: 
-        raise ValueError(f'`sigma` must be strictly positive; received {sigma}.')
-    
+    if not (0 < mu < 1):
+        raise ValueError(f"`mu` must lie in (0,1). Received {mu}.")
+    if b <= 0:
+        raise ValueError(f"`b` must be strictly positive; received {b}.")
+    if sigma <= 0:
+        raise ValueError(f"`sigma` must be strictly positive; received {sigma}.")
+
 
 def _init_solver(
     kappa: float,
@@ -254,11 +259,11 @@ def _init_solver(
     signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `signal_strength` is the limit `nu` squared of
-        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
-        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
-        computed by [mdyplFit()] with shrinkage parameter alpha.
+        False, then `signal_strength` is the limit `gamma` squared of the
+        var(X * beta). If corrupted is True, then `signal_strength` is the limit
+        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
+        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
+        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64], optional
@@ -281,9 +286,9 @@ def _init_solver(
         proximal operator, by default 1e-10.
     corrupted: bool
         If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal strength
-        is the limit of the variance of the fitted values computed by mdyplFit()
-        with shrinkage parameter, alpha. By default, False.
+        If True, then `signal_strength` is the square root of the corrupted signal
+        strength is the limit of the variance of the fitted values computed by
+        mdyplFit() with shrinkage parameter, alpha. By default, False.
     **minimize_kwargs : dict[str, Any], optional
         Additional keyword arguments passed directly to `scipy.optimize.minimize`.
 
@@ -301,7 +306,7 @@ def _init_solver(
     candidates: list[NDArray[np.float64]] = []
 
     if start is not None:
-        start = np.asarray(start, dtype= np.float64)
+        start = np.asarray(start, dtype=np.float64)
 
         _validate_start(start, has_intercept)
 
@@ -310,17 +315,25 @@ def _init_solver(
     if has_intercept:
         candidates.extend(
             [
-                np.array([0.5, signal_strength, signal_strength, 0.0]),  # state equation-scaled default
+                np.array(
+                    [0.5, signal_strength, signal_strength, 0.0]
+                ),  # state equation-scaled default
                 np.array([0.1, 1.0, 1.0, 0.0]),  # low-mu fallback
-                np.array([0.9, signal_strength * 2, signal_strength, 0.0]),  # large mu fallback
+                np.array(
+                    [0.9, signal_strength * 2, signal_strength, 0.0]
+                ),  # large mu fallback
             ]
         )
     else:
         candidates.extend(
             [
-                np.array([0.5, signal_strength, signal_strength]),  # state equation-scaled default
+                np.array(
+                    [0.5, signal_strength, signal_strength]
+                ),  # state equation-scaled default
                 np.array([0.1, 1.0, 1.0]),  # low-mu fallback
-                np.array([0.9, signal_strength * 2, signal_strength]),  # large mu fallback
+                np.array(
+                    [0.9, signal_strength * 2, signal_strength]
+                ),  # large mu fallback
             ]
         )
 
@@ -331,7 +344,14 @@ def _init_solver(
     if corrupted:
         # fitted model returns estimated intercept (iota)
         g = _se_funcs(
-            kappa, signal_strength, alpha, gh, prox_tol, corrupted, transform=True, iota=intercept
+            kappa,
+            signal_strength,
+            alpha,
+            gh,
+            prox_tol,
+            corrupted,
+            transform=True,
+            iota=intercept,
         )
     else:
         # true intercept known, trying to estimate iota
@@ -370,7 +390,9 @@ def _init_solver(
         )  # type: ignore[call-overload]
 
         resid_norm = res.fun
-        if not np.isnan(resid_norm) and (best is None or np.isnan(best[0]) or resid_norm < best[0]):
+        if not np.isnan(resid_norm) and (
+            best is None or np.isnan(best[0]) or resid_norm < best[0]
+        ):
             best = (resid_norm, res)
 
     if best is None:
@@ -386,12 +408,12 @@ def _init_solver(
         else np.exp(res_final.x)
     )
 
-    if has_intercept: 
-        mu, b, sigma, iota = soln 
-    else: 
-        mu, b, sigma = soln 
+    if has_intercept:
+        mu, b, sigma, iota = soln
+    else:
+        mu, b, sigma = soln
         iota = None
-    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota = iota)
+    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=iota)
 
     return SolverResult(
         solution=state_params,
@@ -431,11 +453,11 @@ def _root_solver(
     signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `signal_strength` is the limit `nu` squared of
-        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
-        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
-        computed by [mdyplFit()] with shrinkage parameter alpha.
+        False, then `signal_strength` is the limit `gamma` squared of the
+        var(X * beta). If corrupted is True, then `signal_strength` is the limit
+        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
+        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
+        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64]
@@ -454,9 +476,9 @@ def _root_solver(
         proximal operator, by default 1e-10.
     corrupted: bool, optional
         If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal strength
-        is the limit of the variance of the fitted values computed by mdyplFit()
-        with shrinkage parameter, alpha. By default, False.
+        If True, then `signal_strength` is the square root of the corrupted signal
+        strength is the limit of the variance of the fitted values computed by
+        mdyplFit() with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
         If True, the input parameters (`mu`, `b`, `sigma`) are internally
         log-transformed before being passed to the objective function. The closure
@@ -480,11 +502,25 @@ def _root_solver(
 
     if corrupted:
         g = _se_funcs(
-            kappa, signal_strength, alpha, gh, prox_tol, corrupted, transform, iota=intercept
+            kappa,
+            signal_strength,
+            alpha,
+            gh,
+            prox_tol,
+            corrupted,
+            transform,
+            iota=intercept,
         )
     else:
         g = _se_funcs(
-            kappa, signal_strength, alpha, gh, prox_tol, corrupted, transform, intercept=intercept
+            kappa,
+            signal_strength,
+            alpha,
+            gh,
+            prox_tol,
+            corrupted,
+            transform,
+            intercept=intercept,
         )
 
     if transform:
@@ -507,15 +543,18 @@ def _root_solver(
     else:
         soln = res.x
 
-    if has_intercept: 
-        mu, b, sigma, iota = soln 
-    else: 
-        mu, b, sigma = soln 
+    if has_intercept:
+        mu, b, sigma, iota = soln
+    else:
+        mu, b, sigma = soln
         iota = None
-    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota = iota)
-     
+    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=iota)
+
     return SolverResult(
-        solution= state_params, func_value=g(res.x), message=res.message, success=res.success
+        solution=state_params,
+        func_value=g(res.x),
+        message=res.message,
+        success=res.success,
     )
 
 
@@ -551,11 +590,11 @@ def solve_state_equation(
     signal_strength : float
         Square root of signal strength or of corrupted signal
         strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the var(X * beta). If
-        corrupted is True, then `signal_strength` is the limit `nu` squared of
-        \\text{var}(X * \\hat \\beta), where \\hat{\\beta} is the maximum
-        Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator as
-        computed by [mdyplFit()] with shrinkage parameter alpha.
+        False, then `signal_strength` is the limit `gamma` squared of the
+        var(X * beta). If corrupted is True, then `signal_strength` is the limit
+        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
+        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
+        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : NDArray[np.float64] | None
@@ -572,9 +611,9 @@ def solve_state_equation(
         (`scipy.optimize.minimize`).
     corrupted: bool, optional
         If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal strength
-        is the limit of the variance of the fitted values computed by mdyplFit()
-        with shrinkage parameter, alpha. By default, False.
+        If True, then `signal_strength` is the square root of the corrupted signal
+        strength is the limit of the variance of the fitted values computed by
+        mdyplFit() with shrinkage parameter, alpha. By default, False.
     transform : bool, optional
         If True, the input parameters (`mu`, `b`, `sigma`) are internally
         log-transformed during the solver exploration to enforce strict positivity
@@ -619,7 +658,7 @@ def solve_state_equation(
             if not has_intercept
             else np.asarray([0.5, 1, 1, 0], dtype=float)
         )
-    else: 
+    else:
         _validate_start(start, has_intercept)
 
     root_kwargs = root_kwargs or {}

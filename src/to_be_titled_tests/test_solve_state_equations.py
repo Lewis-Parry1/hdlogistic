@@ -157,7 +157,9 @@ def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
     brglm2_corrupted_res = np.array([mu_root, b_root, sigma_root, theta])
 
     np.testing.assert_array_almost_equal(soln_c.func_value, np.zeros(4))
-    np.testing.assert_allclose(soln_c.solution.to_array(), brglm2_corrupted_res, atol=1e-6)
+    np.testing.assert_allclose(
+        soln_c.solution.to_array(), brglm2_corrupted_res, atol=1e-6
+    )
 
 
 def test_solve_se0_with_nu() -> None:
@@ -220,9 +222,7 @@ def test_solve_se1_retrieve_nu() -> None:
     sol1_c = res1_c.solution.to_array()
 
     # mu, b, sigma should be recovered consistently between the two parameterizations
-    np.testing.assert_array_almost_equal(
-        sol1_c[:3], sol1[:3], decimal=8
-    )
+    np.testing.assert_array_almost_equal(sol1_c[:3], sol1[:3], decimal=8)
     # the corrupted-branch free parameter should recover the TRUE intercept (theta),
     np.testing.assert_almost_equal(sol1_c[3], theta, decimal=8)
 
@@ -240,7 +240,9 @@ def test_solve_state_equation_no_int_transform_safely() -> None:
     soln, _ = solve_state_equation(kappa, gamma, alpha, start, gh, transform=False)
     soln_t, _ = solve_state_equation(kappa, gamma, alpha, start, gh, transform=True)
 
-    np.testing.assert_array_almost_equal(soln.solution.to_array(), soln_t.solution.to_array())
+    np.testing.assert_array_almost_equal(
+        soln.solution.to_array(), soln_t.solution.to_array()
+    )
 
 
 def test_solve_state_equation_int_transform_safely() -> None:
@@ -260,4 +262,6 @@ def test_solve_state_equation_int_transform_safely() -> None:
         kappa, gamma, alpha, start, gh, transform=True, intercept=theta
     )
 
-    np.testing.assert_array_almost_equal(soln.solution.to_array(), soln_t.solution.to_array())
+    np.testing.assert_array_almost_equal(
+        soln.solution.to_array(), soln_t.solution.to_array()
+    )
