@@ -1,10 +1,22 @@
+from typing import Any
+
 import numpy as np
 from scipy.linalg import solve
 from scipy.special import expit
 
 from to_be_titled.matrix_operations import compute_weighted_design_and_info
-from to_be_titled.solvers.solver_types import LogisticRegressionResult
-from to_be_titled.types import FloatArray
+from to_be_titled.types import FloatArray, LogisticRegressionResult
+
+
+def _validate_config(config: dict[str, Any]) -> None:
+    """Validate that convergence parameters in the config are floats."""
+    for key in ("max_iterations", "tolerance", "epsilon"):
+        if key in config and not isinstance(config[key], (float, int)):
+            raise TypeError(
+                f"Config parameter '{key}' must be a float, got {
+                    type(config[key]).__name__
+                }"
+            )
 
 
 def _compute_fisher_scoring_components(
@@ -49,11 +61,7 @@ def _compute_fisher_scoring_components(
 
 
 def fit_logistic_regression_fisher_scoring(
-    x: FloatArray,
-    y: FloatArray,
-    max_iterations: int = 25,
-    tolerance: float = 1e-6,
-    epsilon: float = 1e-8,
+    x: FloatArray, y: FloatArray, config: dict[str, Any]
 ) -> LogisticRegressionResult:
     """Fit a logistic regression model using the Fisher scoring method.
 
@@ -68,12 +76,14 @@ def fit_logistic_regression_fisher_scoring(
         2-D design matrix of shape (n_samples, n_features).
     y : FloatArray
         2-D response vector of shape (n_samples, 1).
-    max_iterations : int, default=25
-        Maximum number of Fisher scoring iterations to perform.
-    tolerance : float, default=1e-6
-        Convergence tolerance threshold for the absolute maximum step size.
-    epsilon : float, default=1e-8
-        Small positive constant passed to the information matrix computation.
+    config : dict[str, Any]
+        Configuration options dictionary. Supported keys:
+        - `"max_iterations"` (int, default=25): Maximum number of Fisher scoring
+        iterations.
+        - `"tolerance"` (float, default=1e-6): Convergence tolerance threshold for
+        absolute maximum step size.
+        - `"epsilon"` (float, default=1e-8): Small positive constant passed to the
+        information matrix computation.
 
     Returns
     -------
@@ -87,6 +97,15 @@ def fit_logistic_regression_fisher_scoring(
         If the Fisher information matrix is singular or ill-conditioned and
         cannot be solved during the scoring iteration.
     """
+
+    config = config or {}
+
+    _validate_config(config=config)
+
+    max_iterations = config.get("max_iterations", 25)
+    tolerance = config.get("tolerance", 1e-6)
+    epsilon = config.get("epsilon", 1e-8)
+
     p = x.shape[1]
 
     # Initialise the coefficient vector to our initial guess
