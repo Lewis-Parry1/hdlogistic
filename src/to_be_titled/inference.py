@@ -1,12 +1,13 @@
 import numpy as np
-from numpy.typing import NDArray
 from scipy.special import expit
+
+from to_be_titled.types import FloatArray
 
 
 def compute_sloe_estimator(
-    linear_predictors: NDArray[np.float64],
-    y_adjusted: NDArray[np.float64],
-    leverages: NDArray[np.float64],
+    linear_predictors: FloatArray,
+    y_adjusted: FloatArray,
+    leverages: FloatArray,
 ) -> float:
     """
     Estimate the corrupted signal strength in a model with (sub-)Gaussian covariates.
@@ -26,11 +27,11 @@ def compute_sloe_estimator(
 
     Parameters
     ----------
-    linear_predictors : NDArray[np.float64]
+    linear_predictors : FloatArray
         The fitted linear predictors (eta = X*beta) from the model.
-    y_adjusted : NDArray[np.float64]
+    y_adjusted : FloatArray
         The adjusted or true binary response vector (y).
-    leverages : NDArray[np.float64]
+    leverages : FloatArray
         The diagonal elements of the hat matrix (h, leverage values).
 
     Returns

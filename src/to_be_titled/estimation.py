@@ -1,15 +1,15 @@
 import numpy as np
-from numpy.typing import NDArray
 
 from to_be_titled.solvers.logistic_regression_fisher_solver import (
     fit_logistic_regression_fisher_scoring,
 )
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
+    FloatArray,
 )
 
 
-def _adjust_response(y: NDArray[np.float64], alpha: float) -> NDArray[np.float64]:
+def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
     """Compute the adjusted response vector under a Diaconis-Ylvisaker prior.
 
     Transforms the empirical binary responses into pseudo-probabilities shifted
@@ -18,7 +18,7 @@ def _adjust_response(y: NDArray[np.float64], alpha: float) -> NDArray[np.float64
 
     Parameters
     ----------
-    y : NDArray[np.float64]
+    y : FloatArray
         Original binary response vector of shape (n_samples,) or (n_samples, 1).
     alpha : float
         Prior shrinkage hyperparameter in [0, 1]. Lower values enforce stronger
@@ -27,24 +27,24 @@ def _adjust_response(y: NDArray[np.float64], alpha: float) -> NDArray[np.float64
 
     Returns
     -------
-    NDArray[np.float64]
+    FloatArray
         Adjusted response vector of the same shape as y, with values continuous
         on the interval [0, 1].
     """
     return alpha * y + (1 - alpha) / 2
 
 
-def _ensure_design_matrix(x: NDArray[np.float64]) -> NDArray[np.float64]:
+def _ensure_design_matrix(x: FloatArray) -> FloatArray:
     """Convert input to a 2-D float64 design matrix and validate dimensions.
 
     Parameters
     ----------
-    x : NDArray[np.float64]
+    x : FloatArray
         Input feature array-like structure.
 
     Returns
     -------
-    NDArray[np.float64]
+    FloatArray
         Validated 2-D design matrix of shape (n_samples, n_features).
 
     Raises
@@ -60,17 +60,17 @@ def _ensure_design_matrix(x: NDArray[np.float64]) -> NDArray[np.float64]:
     return x
 
 
-def _ensure_column_vector(y: NDArray[np.float64]) -> NDArray[np.float64]:
+def _ensure_column_vector(y: FloatArray) -> FloatArray:
     """Convert input to a 2-D float64 column vector and validate dimensions.
 
     Parameters
     ----------
-    y : NDArray[np.float64]
+    y : FloatArray
         Input response array-like structure.
 
     Returns
     -------
-    NDArray[np.float64]
+    FloatArray
         Validated 2-D column vector of shape (n_samples, 1).
 
     Raises
@@ -89,8 +89,8 @@ def _ensure_column_vector(y: NDArray[np.float64]) -> NDArray[np.float64]:
 
 
 def fit_diaconis_ylvisaker_logistic_regression(
-    x: NDArray[np.float64],
-    y: NDArray[np.float64],
+    x: FloatArray,
+    y: FloatArray,
     alpha: float = 0.5,
     max_iterations: int = 25,
     tolerance: float = 1e-6,
@@ -104,9 +104,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     Parameters
     ----------
-    x : NDArray[np.float64]
+    x : FloatArray
         Design matrix of shape (n_samples, n_features).
-    y : NDArray[np.float64]
+    y : FloatArray
         Binary response vector of shape (n_samples,) or (n_samples, 1).
     alpha : float, default=0.5
         Prior shrinkage hyperparameter in [0, 1]. Controls the variance of

@@ -2,7 +2,6 @@ import warnings
 
 import numpy as np
 import pytest
-from numpy.typing import NDArray
 from scipy.special import expit
 
 from to_be_titled.state_equations import (
@@ -10,6 +9,7 @@ from to_be_titled.state_equations import (
     se_no_intercept,
     se_with_intercept,
 )
+from to_be_titled.types import FloatArray
 
 """
 These tests test the proximal operator to ensure that Newton's method
@@ -207,7 +207,7 @@ def test_se_no_intercept_matches_brglm2_se0(
     kappa: float,
     gamma: float,
     alpha: float,
-    expected_res: NDArray[np.float64],
+    expected_res: FloatArray,
 ) -> None:
     """
     Test to ensure se_no_intercept matches the equivalent brglm2 se0. Both functions

@@ -1,9 +1,9 @@
 import numpy as np
 import pytest
-from numpy.typing import NDArray
 
 from to_be_titled.quadrature import get_hermite_roots_weights
 from to_be_titled.solvers import solve_state_equation
+from to_be_titled.types import FloatArray
 
 
 # Compare solve_se to Candes and Sur results.
@@ -19,7 +19,7 @@ from to_be_titled.solvers import solve_state_equation
     ],
 )
 def test_solve_state_equation_no_int_compare_candes_sur(
-    thetas: float, roots: NDArray[np.float64]
+    thetas: float, roots: FloatArray
 ) -> None:
     kappa = 0.2
     alpha = 1.0
@@ -52,7 +52,7 @@ def test_solve_state_equation_no_int_compare_candes_sur(
     ],
 )
 def test_solve_state_equation_w_int_compare_candes_sur(
-    thetas: float, roots: NDArray[np.float64]
+    thetas: float, roots: FloatArray
 ) -> None:
     gamma = np.sqrt(5)
     kappa = 0.2

@@ -1,43 +1,41 @@
 import numpy as np
-from numpy.typing import NDArray
 from scipy.linalg import solve
 from scipy.special import expit
 
 from to_be_titled.matrix_operations import compute_weighted_design_and_info
 from to_be_titled.solvers.solver_types import LogisticRegressionResult
+from to_be_titled.types import FloatArray
 
 
 def _compute_fisher_scoring_components(
-    x: NDArray[np.float64],
-    y: NDArray[np.float64],
-    betas: NDArray[np.float64],
+    x: FloatArray,
+    y: FloatArray,
+    betas: FloatArray,
     epsilon: float,
-) -> tuple[
-    NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]
-]:
+) -> tuple[FloatArray, FloatArray, FloatArray, FloatArray]:
     """Compute the Fisher information matrix and the score vector.
 
     Parameters
     ----------
-    x : NDArray[np.float64]
+    x : FloatArray
         Design matrix of shape (n_samples, n_features).
-    y : NDArray[np.float64]
+    y : FloatArray
         Response vector of shape (n_samples, 1).
-    betas : NDArray[np.float64]
+    betas : FloatArray
         Current parameter estimates vector of shape (n_features, 1).
     epsilon : float
         Small positive constant for numerical stability and ridge regularization.
 
     Returns
     -------
-    info : NDArray[np.float64]
+    info : FloatArray
         Expected Fisher information matrix of shape (n_features, n_features).
-    score : NDArray[np.float64]
+    score : FloatArray
         Score function vector (gradient of the log-likelihood) of shape
         (n_features, 1).
-    mus : NDArray[np.float64]
+    mus : FloatArray
         The fitted probabilities of shape (n_samples, 1).
-    etas : NDArray[np.float64]
+    etas : FloatArray
         The fitted linear predictors of shape (n_samples, 1).
     """
     etas = x @ betas
@@ -51,8 +49,8 @@ def _compute_fisher_scoring_components(
 
 
 def fit_logistic_regression_fisher_scoring(
-    x: NDArray[np.float64],
-    y: NDArray[np.float64],
+    x: FloatArray,
+    y: FloatArray,
     max_iterations: int = 25,
     tolerance: float = 1e-6,
     epsilon: float = 1e-8,
@@ -66,9 +64,9 @@ def fit_logistic_regression_fisher_scoring(
 
     Parameters
     ----------
-    x : NDArray[np.float64]
+    x : FloatArray
         2-D design matrix of shape (n_samples, n_features).
-    y : NDArray[np.float64]
+    y : FloatArray
         2-D response vector of shape (n_samples, 1).
     max_iterations : int, default=25
         Maximum number of Fisher scoring iterations to perform.

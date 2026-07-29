@@ -1,12 +1,13 @@
 import numpy as np
-from numpy.typing import NDArray
+
+from to_be_titled.types import FloatArray
 
 
 def compute_weighted_design_and_info(
-    x: NDArray[np.float64],
-    mus: NDArray[np.float64],
+    x: FloatArray,
+    mus: FloatArray,
     epsilon: float = 1e-8,
-) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+) -> tuple[FloatArray, FloatArray]:
     """Compute the square-root weighted design matrix and Fisher information matrix.
 
     Calculates working weights from predicted probabilities, applies
@@ -15,9 +16,9 @@ def compute_weighted_design_and_info(
 
     Parameters
     ----------
-    x : NDArray[np.float64]
+    x : FloatArray
         Design matrix of shape (n_samples, n_features).
-    mus : NDArray[np.float64]
+    mus : FloatArray
         Predicted mean responses (probabilities) of shape (n_samples, 1) or
         (n_samples,), with values in the interval (0, 1).
     epsilon : float, default=1e-8
@@ -26,7 +27,7 @@ def compute_weighted_design_and_info(
 
     Returns
     -------
-    tuple[NDArray[np.float64], NDArray[np.float64]]
+    tuple[FloatArray, FloatArray]
         A tuple containing:
         - wx : Weighted design matrix of shape (n_samples, n_features).
         - info : Regularized Fisher information matrix of shape

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
 import numpy as np
-from numpy.typing import NDArray
+
+from to_be_titled.types import FloatArray
 
 
 @dataclass
@@ -11,17 +12,17 @@ class LogisticRegressionResult:
 
     Attributes
     ----------
-    betas : NDArray[np.float64]
+    betas : FloatArray
         Estimated coefficient vector of shape (n_features, 1).
-    mus : NDArray[np.float64]
+    mus : FloatArray
         The fitted probabilities of shape (n_samples, 1).
-    linear_predictors : NDArray[np.float64]
+    linear_predictors : FloatArray
         The fitted linear predictors (eta = X*beta) from the model.
     """
 
-    betas: NDArray[np.float64]
-    mus: NDArray[np.float64]
-    linear_predictors: NDArray[np.float64]
+    betas: FloatArray
+    mus: FloatArray
+    linear_predictors: FloatArray
 
 
 @dataclass
@@ -31,7 +32,7 @@ class StateParameters:
     sigma: float
     iota: float | None
 
-    def to_array(self) -> NDArray[np.float64]:
+    def to_array(self) -> FloatArray:
         if self.iota is None:
             return np.array([self.mu, self.b, self.sigma])
         else:
@@ -49,7 +50,7 @@ class SolverResult:
     solution, StateParameters
         Estimated state evolution parameters.
 
-    func_value, NDArray[np.float64]
+    func_value, FloatArray
         Residual vector evaluated at ``solution``.
 
     message, str
@@ -60,6 +61,6 @@ class SolverResult:
     """
 
     solution: StateParameters
-    func_value: NDArray[np.float64]
+    func_value: FloatArray
     message: str
     success: bool

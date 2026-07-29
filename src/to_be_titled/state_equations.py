@@ -1,10 +1,10 @@
 from warnings import warn
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.special import expit
 
 from to_be_titled.quadrature import get_hermite_roots_weights
+from to_be_titled.types import FloatArray
 
 
 def se_no_intercept(
@@ -14,10 +14,9 @@ def se_no_intercept(
     kappa: float,
     gamma: float,
     alpha: float,
-    hermite_roots_weights: tuple[NDArray[np.float64], NDArray[np.float64]]
-    | None = None,
+    hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
-) -> NDArray[np.float64]:
+) -> FloatArray:
     """
 
     MDYPL state evolution functions with no intercept.
@@ -37,7 +36,7 @@ def se_no_intercept(
         Square root of the limit of the (corrupted) signal strength.
     alpha : float
         The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
-    hermite_roots_weights : tuple[NDArray[np.float64], NDArray[np.float64]] | None,
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
     default = None
         A list with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
@@ -47,7 +46,7 @@ def se_no_intercept(
 
     Returns
     -------
-    NDArray[np.float64]
+    FloatArray
         A 1D array containing the evaluated residuals of the three state evolution
         equations.
 
@@ -108,10 +107,9 @@ def se_with_intercept(
     gamma: float,
     alpha: float,
     intercept: float,
-    hermite_roots_weights: tuple[NDArray[np.float64], NDArray[np.float64]]
-    | None = None,
+    hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
-) -> NDArray[np.float64]:
+) -> FloatArray:
     """
 
     MDYPL state evolution functions with an intercept.
@@ -136,7 +134,7 @@ def se_with_intercept(
         The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
     intercept : float
         The intercept of a logistic regression model.
-    hermite_roots_weights : tuple[NDArray[np.float64], NDArray[np.float64]] | None,
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
     default = None
         A list with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
@@ -146,7 +144,7 @@ def se_with_intercept(
 
     Returns
     -------
-    NDArray[np.float64]
+    FloatArray
         A 1D array containing the evaluated residuals of the four state evolution
         equations.
 
@@ -221,11 +219,11 @@ def se_with_intercept(
 
 
 def _proximal_operator(
-    x: float | NDArray[np.float64],
+    x: float | FloatArray,
     b: float,
     tol: float = 1e-10,
     max_iter: int = 100_000,
-) -> float | NDArray[np.float64]:
+) -> float | FloatArray:
     """
     The function finds the scalar u which minimises (b * log (1 + e^u) + (x-u)^2 /2).
     This is known as the proximal operator [1]. The function is vectorised to take
@@ -235,7 +233,7 @@ def _proximal_operator(
 
     Parameters
     ----------
-    x : float | NDArray[np.float64]
+    x : float | FloatArray
         Scalar or vector of x values for proximal operator to be evaluated on.
     b : float
         Parameter 'b' in state evolution functions.
@@ -246,7 +244,7 @@ def _proximal_operator(
 
     Returns
     -------
-    float | NDArray[np.float64]
+    float | FloatArray
         Scalar (or vector) of approximation(s) of proximal operator for each x.
 
     References
