@@ -1,54 +1,12 @@
-from dataclasses import dataclass
-
 import numpy as np
 from numpy.typing import NDArray
-from scipy.linalg import solve
-from scipy.special import expit
 
-from to_be_titled.utils import compute_weighted_design_and_info
-
-
-@dataclass
-class LogisticRegressionResult:
-    """
-    A dataclass to hold the results of the logistic regression fit.
-
-    Attributes
-    ----------
-    betas : NDArray[np.float64]
-        Estimated coefficient vector of shape (n_features, 1).
-    mus : NDArray[np.float64]
-        The fitted probabilities of shape (n_samples, 1).
-    linear_predictors : NDArray[np.float64]
-        The fitted linear predictors (eta = X*beta) from the model.
-    """
-
-    betas: NDArray[np.float64]
-    mus: NDArray[np.float64]  # TODO: Rename one letter variable
-    linear_predictors: NDArray[np.float64]
-
-
-@dataclass
-class DiaconisYlvisakerLogisticRegressionResult:
-    """
-    A dataclass to hold the results of the Diaconis-Ylvisaker logistic regression fit.
-
-    Attributes
-    ----------
-    betas : NDArray[np.float64]
-        Estimated coefficient vector of shape (n_features, 1).
-    linear_predictors : NDArray[np.float64]
-        The fitted linear predictors (eta = X*beta) from the model.
-    y_adjusted : NDArray[np.float64]
-        The adjusted or true binary response vector (y).
-    """
-
-    betas: NDArray[np.float64]
-    linear_predictors: NDArray[np.float64]
-    mus: NDArray[np.float64]
-    y_adjusted: NDArray[np.float64]
-    x_validated: NDArray[np.float64]
-    alpha: float
+from to_be_titled.solvers.logistic_regression_fisher_solver import (
+    fit_logistic_regression_fisher_scoring,
+)
+from to_be_titled.types import (
+    DiaconisYlvisakerLogisticRegressionResult,
+)
 
 
 def _adjust_response(y: NDArray[np.float64], alpha: float) -> NDArray[np.float64]:
@@ -130,107 +88,6 @@ def _ensure_column_vector(y: NDArray[np.float64]) -> NDArray[np.float64]:
     return y
 
 
-def _compute_fisher_scoring_components(
-    x: NDArray[np.float64],
-    y: NDArray[np.float64],
-    betas: NDArray[np.float64],
-) -> tuple[
-    NDArray[np.float64], NDArray[np.float64], NDArray[np.float64], NDArray[np.float64]
-]:
-    """Compute the Fisher information matrix and the score vector.
-
-    Parameters
-    ----------
-    x : NDArray[np.float64]
-        Design matrix of shape (n_samples, n_features).
-    y : NDArray[np.float64]
-        Response vector of shape (n_samples, 1).
-    betas : NDArray[np.float64]
-        Current parameter estimates vector of shape (n_features, 1).
-
-    Returns
-    -------
-    info : NDArray[np.float64]
-        Expected Fisher information matrix of shape (n_features, n_features).
-    score : NDArray[np.float64]
-        Score function vector (gradient of the log-likelihood) of shape
-        (n_features, 1).
-
-    Raises
-    ------
-    ValueError
-        If matrix dimensions between `x`, `y`, and `betas` are incompatible for
-        matrix multiplication.
-    """
-    etas = x @ betas
-    mus = expit(etas)
-
-    # TODO: Pass in epsilon instead of having a magic number
-    _, info = compute_weighted_design_and_info(x, mus)
-
-    score = x.T @ (y - mus)
-
-    return info, score, mus, etas
-
-
-def _fit_logistic_regression(
-    x: NDArray[np.float64],
-    y: NDArray[np.float64],
-    max_iterations: int = 25,
-    tolerance: float = 1e-6,
-) -> LogisticRegressionResult:
-    """Fit a logistic regression model using the Fisher scoring method.
-
-    Estimates regression coefficients by iteratively updating the parameter
-    vector using the score function and the Fisher information matrix.
-    Convergence is determined by the maximum absolute change in the parameter
-    estimates falling below a specified threshold.
-
-    Parameters
-    ----------
-    x : NDArray[np.float64]
-        Validated 2-D design matrix of shape (n_samples, n_features).
-    y : NDArray[np.float64]
-        Validated 2-D response vector of shape (n_samples, 1).
-    max_iterations : int, default=25
-        Maximum number of Fisher scoring iterations to perform.
-    tolerance : float, default=1e-6
-        Convergence tolerance threshold for the absolute maximum step size.
-
-    Returns
-    -------
-    LogisticRegressionResult
-        A dataclass containing the estimated coefficient vector, linear predictors,
-        adjusted response, and leverage scores.
-
-    Raises
-    ------
-    LinAlgError
-        If the Fisher information matrix is singular or ill-conditioned and
-        cannot be solved during the scoring iteration.
-    """
-    p = x.shape[1]  # Number of features in the design matrix
-
-    # Initialise the coefficient vector to our initial guess
-    betas = np.zeros((p, 1), dtype=np.float64)
-
-    # Initialize outputs
-    info, score, mus, etas = _compute_fisher_scoring_components(x, y, betas)
-
-    for _ in range(max_iterations):
-        info, score, mus, etas = _compute_fisher_scoring_components(x, y, betas)
-
-        step = solve(info, score)
-
-        # Assess convergence bounds
-        if np.max(np.abs(step)) < tolerance:
-            break
-
-        betas += step
-
-    return LogisticRegressionResult(betas=betas, mus=mus, linear_predictors=etas)
-
-
 def fit_diaconis_ylvisaker_logistic_regression(
     x: NDArray[np.float64],
     y: NDArray[np.float64],
@@ -289,7 +146,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
-    result = _fit_logistic_regression(
+    result = fit_logistic_regression_fisher_scoring(
         x_validated, y_adjusted, max_iterations, tolerance
     )
     return DiaconisYlvisakerLogisticRegressionResult(

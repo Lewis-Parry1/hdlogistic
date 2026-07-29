@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from to_be_titled.utils import compute_sloe_estimator
+from to_be_titled.inference import compute_sloe_estimator
 
 
 def test_compute_sloe_estimator_no_leverage_adjustment() -> None:
