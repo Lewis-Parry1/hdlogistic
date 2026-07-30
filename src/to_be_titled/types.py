@@ -33,3 +33,23 @@ class DiaconisYlvisakerLogisticRegressionResult:
     y_adjusted: FloatArray
     x_validated: FloatArray
     alpha: float
+
+
+@dataclass
+class LogisticRegressionResult:
+    """
+    A dataclass to hold the results of the logistic regression fit.
+
+    Attributes
+    ----------
+    betas : FloatArray
+        Estimated coefficient vector of shape (n_features, 1).
+    mus : FloatArray
+        The fitted probabilities of shape (n_samples, 1).
+    linear_predictors : FloatArray
+        The fitted linear predictors (eta = X*beta) from the model.
+    """
+
+    betas: FloatArray
+    mus: FloatArray
+    linear_predictors: FloatArray

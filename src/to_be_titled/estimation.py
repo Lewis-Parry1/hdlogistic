@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from typing import Any, Literal
+
 import numpy as np
 
 from to_be_titled.solvers.logistic_regression_fisher_solver import (
@@ -6,7 +9,14 @@ from to_be_titled.solvers.logistic_regression_fisher_solver import (
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
+    LogisticRegressionResult,
 )
+
+SupportedSolver = Literal["fisher_scoring"]
+
+SOLVERS_REGISTRY: dict[SupportedSolver, Callable[..., LogisticRegressionResult]] = {
+    "fisher_scoring": fit_logistic_regression_fisher_scoring,
+}
 
 
 def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
@@ -92,8 +102,8 @@ def fit_diaconis_ylvisaker_logistic_regression(
     x: FloatArray,
     y: FloatArray,
     alpha: float = 0.5,
-    max_iterations: int = 25,
-    tolerance: float = 1e-6,
+    solver: str = "fisher_scoring",
+    solver_config: dict[str, Any] = {},
 ) -> DiaconisYlvisakerLogisticRegressionResult:
     """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
     penalized likelihood.
@@ -113,10 +123,17 @@ def fit_diaconis_ylvisaker_logistic_regression(
         the prior distribution. As alpha approaches 0, estimates shrink toward
         the prior mode, as alpha approaches 1, the maximum likelihood
         estimate is recovered.
-    max_iterations : int, default=25
-        Maximum number of Fisher scoring iterations to perform.
-    tolerance : float, default=1e-6
-        Convergence tolerance threshold for the absolute maximum step size.
+    solver : str, default="fisher_scoring"
+        The optimization solver backend to use.
+    solver_config : dict[str, Any]
+            Configuration options dictionary passed to the solver. Supported keys
+            depend on the chosen solver:
+
+            - For `"fisher_scoring"`:
+                * `"max_iterations"` (int, default=25): Maximum Fisher scoring
+                iterations.
+                * `"tolerance"` (float, default=1e-6): Convergence threshold.
+                * `"epsilon"` (float, default=1e-8): Numerical stability threshold.
 
     Returns
     -------
@@ -128,6 +145,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     ------
     ValueError
         If `alpha` is not in the closed interval [0.0, 1.0].
+        If `solver` is not recognized.
         If `x` or `y` fail structural checks during validation.
     LinAlgError
         If the Fisher information matrix is singular during solver operations.
@@ -138,17 +156,24 @@ def fit_diaconis_ylvisaker_logistic_regression(
            penalized likelihood for p/n -> kappa in (0,1) logistic regression.
            https://arxiv.org/abs/2311.07419
     """
+
+    if solver not in SOLVERS_REGISTRY:
+        raise ValueError(
+            f"Unknown solver '{solver}'. "
+            f"Available solvers: {list(SOLVERS_REGISTRY.keys())}"
+        )
+    solver_function = SOLVERS_REGISTRY[solver]
+
     if not 0.0 <= alpha <= 1.0:
         raise ValueError("alpha must be in [0, 1]")
 
     x_validated = _ensure_design_matrix(x)
     y_validated = _ensure_column_vector(y)
-
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
-    result = fit_logistic_regression_fisher_scoring(
-        x_validated, y_adjusted, max_iterations, tolerance
-    )
+    # Delegate to the chosen solver function
+    result = solver_function(x_validated, y_adjusted, config=solver_config)
+
     return DiaconisYlvisakerLogisticRegressionResult(
         betas=result.betas,
         linear_predictors=result.linear_predictors,
