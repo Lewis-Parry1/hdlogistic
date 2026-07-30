@@ -1,0 +1,66 @@
+from dataclasses import dataclass
+
+import numpy as np
+
+from to_be_titled.types import FloatArray
+
+
+@dataclass
+class LogisticRegressionResult:
+    """
+    A dataclass to hold the results of the logistic regression fit.
+
+    Attributes
+    ----------
+    betas : FloatArray
+        Estimated coefficient vector of shape (n_features, 1).
+    mus : FloatArray
+        The fitted probabilities of shape (n_samples, 1).
+    linear_predictors : FloatArray
+        The fitted linear predictors (eta = X*beta) from the model.
+    """
+
+    betas: FloatArray
+    mus: FloatArray
+    linear_predictors: FloatArray
+
+
+@dataclass
+class StateParameters:
+    mu: float
+    b: float
+    sigma: float
+    iota: float | None
+
+    def to_array(self) -> FloatArray:
+        if self.iota is None:
+            return np.array([self.mu, self.b, self.sigma])
+        else:
+            return np.array([self.mu, self.b, self.sigma, self.iota])
+
+
+@dataclass
+class SolverResult:
+    """
+    Container for the outcome of a numerical optimisation or root-finding
+    procedure.
+
+    Attributes
+    ----------
+    solution, StateParameters
+        Estimated state evolution parameters.
+
+    func_value, FloatArray
+        Residual vector evaluated at ``solution``.
+
+    message, str
+        Solver termination message.
+
+    success, bool
+        Whether the solver reported successful convergence.
+    """
+
+    solution: StateParameters
+    func_value: FloatArray
+    message: str
+    success: bool

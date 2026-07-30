@@ -2,14 +2,14 @@ import warnings
 
 import numpy as np
 import pytest
-from numpy.typing import NDArray
 from scipy.special import expit
 
 from to_be_titled.state_equations import (
-    _proximal_operator,
-    _se_no_intercept,
-    _se_with_intercept,
+    _proximal_operator,  # pyright: ignore[reportPrivateUsage]
+    se_no_intercept,
+    se_with_intercept,
 )
+from to_be_titled.types import FloatArray
 
 """
 These tests test the proximal operator to ensure that Newton's method
@@ -74,7 +74,7 @@ def test_prox_zero_point(b: float) -> None:
 
 # Define data reigmes
 # (mu, b, sigma, kappa, gamma)
-REGIMES = [
+REGIMES: list[tuple[float, float, float, float, float]] = [
     # 1. Low dimensional / unbiased (mu -> 1, kappa -> 0, gamma = sqrt(0.9))
     *((mu, 1.0, 1.0, 0.1, np.sqrt(0.9)) for mu in [0.9, 0.95, 0.99]),
     # 2. Phase transition boundary (mu = 0.4, b = 2.0, sigma = 2.0)
@@ -134,7 +134,7 @@ def test_se_no_intercept_regimes(
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         try:
-            res = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+            res = se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
 
             # Guarantee the equations successfully returned 3 valid floating points
             assert not np.any(np.isnan(res))
@@ -156,8 +156,8 @@ def test_se_no_intercept_shape_and_reproducibility() -> None:
     mu, b, sigma, kappa, gamma = 0.5, 1.0, 1.0, 0.2, np.sqrt(0.9)
     alpha = 1 / (1 + kappa)
 
-    res1 = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
-    res2 = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+    res1 = se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+    res2 = se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
 
     assert isinstance(res1, np.ndarray)
     assert res1.shape == (3,)
@@ -207,14 +207,14 @@ def test_se_no_intercept_matches_brglm2_se0(
     kappa: float,
     gamma: float,
     alpha: float,
-    expected_res: NDArray[np.float64],
+    expected_res: FloatArray,
 ) -> None:
     """
     Test to ensure se_no_intercept matches the equivalent brglm2 se0. Both functions
     approximate the value of the three state equations.
     """
     # Evaluate the state equations in Python
-    res = _se_no_intercept(
+    res = se_no_intercept(
         mu=mu, b=b, sigma=sigma, kappa=kappa, gamma=gamma, alpha=alpha
     )
 
@@ -231,7 +231,7 @@ def test_se_with_intercept_matches_brglm2_se1() -> None:
     b0 = 1.2
     sigma0 = 2.3
 
-    soln = _se_with_intercept(mu0, b0, sigma0, iota0, kappa0, gamma0, alpha0, theta0)
+    soln = se_with_intercept(mu0, b0, sigma0, iota0, kappa0, gamma0, alpha0, theta0)
 
     brglm_results = np.asarray([-0.05090216, -0.11007367, 0.11183220, -0.10479934])
     np.testing.assert_allclose(brglm_results, soln, atol=1e-7)
@@ -245,8 +245,8 @@ def test_se0_se1_is_equal() -> None:
     kappa, gamma, alpha = 0.2, 5, 0.88
     mu, b, sigma = 0.7, 1.2, 2.3
 
-    sol0 = _se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
-    sol1 = _se_with_intercept(mu, b, sigma, 0, kappa, gamma, alpha, intercept=0)
+    sol0 = se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
+    sol1 = se_with_intercept(mu, b, sigma, 0, kappa, gamma, alpha, intercept=0)
     # Assert, almost equal, a inisgniciant numerical differences
     # occur
     np.testing.assert_array_almost_equal(sol0, sol1[0:3])

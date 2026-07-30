@@ -1,41 +1,27 @@
 from collections.abc import Callable
-from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
+from warnings import warn
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.optimize import OptimizeResult, minimize, root
 
 from to_be_titled import state_equations
-
-from .utils import _get_hermite_roots_weights
-
-
-@dataclass
-class StateParameters:
-    mu: float
-    b: float
-    sigma: float
-    iota: float | None
-
-    def to_array(self) -> NDArray[np.float64]:
-        if self.iota is None:
-            return np.array([self.mu, self.b, self.sigma])
-        else:
-            return np.array([self.mu, self.b, self.sigma, self.iota])
+from to_be_titled.quadrature import get_hermite_roots_weights
+from to_be_titled.solvers.solver_types import SolverResult, StateParameters
+from to_be_titled.types import FloatArray
 
 
 def _se_funcs(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    gh: tuple[NDArray[np.float64], NDArray[np.float64]],
+    hermite_roots_weights: tuple[FloatArray, FloatArray],
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     transform: bool = True,
     intercept: float | None = None,
     iota: float | None = None,
-) -> Callable[[NDArray[np.float64]], NDArray[np.float64]]:
+) -> Callable[[FloatArray], FloatArray]:
     """
     Construct the system of MDYPL state evolution equations.
     Returns a closure compatible with scipy.optimize.root and scipy.optimize.minimize.
@@ -58,7 +44,7 @@ def _se_funcs(
         estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    gh : tuple[NDArray[np.float64], NDArray[np.float64]]
+    hermite_roots_weights : tuple[FloatArray, FloatArray]
         A tuple of 1D arrays containing Gauss Hermite quadrature nodes and weights
         used to approximate the system's expected values.
     prox_tol : float, optional
@@ -78,13 +64,13 @@ def _se_funcs(
 
     Returns
     -------
-    Callable[[NDArray[np.float64]], NDArray[np.float64]]
+    Callable[[FloatArray], FloatArray]
         An objective function `g(pars)` that takes a 1D array of the three state
         evolution parameters (optionally log-transformed) and returns a 1D array
         of the evaluated residuals for the three state equations.
     """
 
-    def g(pars: NDArray[np.float64]) -> NDArray[np.float64]:
+    def g(pars: FloatArray) -> FloatArray:
         pars = np.asarray(pars, dtype=np.float64)
         # if using corrupted signal strength (estimated)
         if corrupted:
@@ -99,15 +85,22 @@ def _se_funcs(
                     gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
                 if np.isnan(gamma):
                     # if we get get divide by zero error
+                    warn(
+                        "Estimated gamma evaluated to NaN (likely due to division by "
+                        "zero or negative variance). Returning NaNs for state "
+                        "equation residuals.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
                     return np.full(3, np.nan)
-                return state_equations._se_no_intercept(
+                return state_equations.se_no_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
                     kappa=kappa,
                     gamma=gamma,
                     alpha=alpha,
-                    gh=gh,
+                    hermite_roots_weights=hermite_roots_weights,
                     prox_tol=prox_tol,
                 )
             # if iota term
@@ -129,8 +122,15 @@ def _se_funcs(
                 with np.errstate(invalid="ignore"):
                     gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
                 if np.isnan(gamma):
+                    warn(
+                        "Estimated gamma evaluated to NaN (likely due to division by "
+                        "zero or negative variance). Returning NaNs for state "
+                        "equation residuals.",
+                        RuntimeWarning,
+                        stacklevel=2,
+                    )
                     return np.full(4, np.nan)
-                return state_equations._se_with_intercept(
+                return state_equations.se_with_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
@@ -139,21 +139,21 @@ def _se_funcs(
                     gamma=gamma,
                     alpha=alpha,
                     intercept=intercept_free,
-                    gh=gh,
+                    hermite_roots_weights=hermite_roots_weights,
                     prox_tol=prox_tol,
                 )
         else:
             if intercept is None:
                 # 3 param model; mu, b , sigma
                 pars_t = np.exp(np.clip(pars, -20, 20)) if transform else pars
-                return state_equations._se_no_intercept(
+                return state_equations.se_no_intercept(
                     mu=pars_t[0],
                     b=pars_t[1],
                     sigma=pars_t[2],
                     kappa=kappa,
                     gamma=signal_strength,
                     alpha=alpha,
-                    gh=gh,
+                    hermite_roots_weights=hermite_roots_weights,
                     prox_tol=prox_tol,
                 )
             # 4 param model; mu, b, sigma (transformed) and iota (untransformed)
@@ -165,7 +165,7 @@ def _se_funcs(
                 else:
                     pars_t = pars
                 mu, b, sigma, iota_free = pars_t[0], pars_t[1], pars_t[2], pars_t[3]
-                return state_equations._se_with_intercept(
+                return state_equations.se_with_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
@@ -174,41 +174,14 @@ def _se_funcs(
                     gamma=signal_strength,
                     alpha=alpha,
                     intercept=intercept,
-                    gh=gh,
+                    hermite_roots_weights=hermite_roots_weights,
                     prox_tol=prox_tol,
                 )
 
     return g
 
 
-@dataclass
-class SolverResult:
-    """
-    Container for the outcome of a numerical optimisation or root-finding
-    procedure.
-
-    Attributes
-    ----------
-    solution, StateParameters
-        Estimated state evolution parameters.
-
-    func_value, NDArray[np.float64]
-        Residual vector evaluated at ``solution``.
-
-    message, str
-        Solver termination message.
-
-    success, bool
-        Whether the solver reported successful convergence.
-    """
-
-    solution: StateParameters
-    func_value: NDArray[np.float64]
-    message: str
-    success: bool
-
-
-def _validate_start(start: NDArray[np.float64], has_intercept: bool) -> None:
+def _validate_start(start: FloatArray, has_intercept: bool) -> None:
     """
     Validate user supplied starting values.
     """
@@ -233,10 +206,10 @@ def _init_solver(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: NDArray[np.float64] | None = None,
+    start: FloatArray | None = None,
     init_method: str = "Nelder-Mead",
     init_iter: int = 50,
-    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
+    hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     intercept: float | None = None,
@@ -266,7 +239,7 @@ def _init_solver(
         estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : NDArray[np.float64], optional
+    start : FloatArray, optional
         A 1D array of starting values for the state evolution parameters
         (`mu`, `b`, and `sigma`). These are internally log-transformed during
         minimization to enforce strict positivity and prevent underflow. If None,
@@ -277,7 +250,8 @@ def _init_solver(
     init_iter : int, optional
         Maximum number of iterations for the initial minimization algorithm,
         by default 50.
-    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, optional
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
+    optional
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default None, in
         which case it is set to `scipy.special.roots_hermite(200)`.
@@ -303,7 +277,7 @@ def _init_solver(
     has_intercept = intercept is not None
 
     # define multiple initial starts if user has not defined one
-    candidates: list[NDArray[np.float64]] = []
+    candidates: list[FloatArray] = []
 
     if start is not None:
         start = np.asarray(start, dtype=np.float64)
@@ -339,7 +313,11 @@ def _init_solver(
 
     best: tuple[float, OptimizeResult] | None = None
 
-    gh = gh if gh is not None else _get_hermite_roots_weights(200)
+    hermite_roots_weights = (
+        hermite_roots_weights
+        if hermite_roots_weights is not None
+        else get_hermite_roots_weights(200)
+    )
 
     if corrupted:
         # fitted model returns estimated intercept (iota)
@@ -347,7 +325,7 @@ def _init_solver(
             kappa,
             signal_strength,
             alpha,
-            gh,
+            hermite_roots_weights,
             prox_tol,
             corrupted,
             transform=True,
@@ -359,14 +337,14 @@ def _init_solver(
             kappa,
             signal_strength,
             alpha,
-            gh,
+            hermite_roots_weights,
             prox_tol,
             corrupted,
             transform=True,
             intercept=intercept,
         )
 
-    def objective(pars_log: NDArray[np.float64]) -> float:
+    def objective(pars_log: FloatArray) -> float:
         r = g(pars_log)
         return float(np.dot(r, r))
 
@@ -384,10 +362,10 @@ def _init_solver(
         res = minimize(
             objective,
             start_vec,
-            method=init_method,
-            options={"maxiter": init_iter, **options_override},
+            method=cast(Any, init_method),
+            options=cast(Any, {"maxiter": init_iter, **options_override}),
             **minimize_kwargs,
-        )  # type: ignore[call-overload]
+        )  # pyright: ignore[reportCallIssue]
 
         resid_norm = res.fun
         if not np.isnan(resid_norm) and (
@@ -427,9 +405,9 @@ def _root_solver(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: NDArray[np.float64],
+    start: FloatArray,
     main_method: str = "hybr",
-    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
+    hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     transform: bool = True,
@@ -460,14 +438,15 @@ def _root_solver(
         estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : NDArray[np.float64]
+    start : FloatArray
         A 1D array of starting values for `mu`, `b` and `sigma`. For extreme
         `kappa` and `gamma` regimes, it is recommended to pass a "warm"
         starting guess obtained from an initial heuristic solver.
     main_method : str, optional
         The method to be passed into `scipy.optimize.root` to find the roots of
         the state equations, by default "hybr" .
-    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None, optional
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
+    optional
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default None, in which
         case it is set to `scipy.special.roots_hermite(200)`.
@@ -498,14 +477,18 @@ def _root_solver(
     """
     has_intercept = intercept is not None
 
-    gh = gh if gh is not None else _get_hermite_roots_weights(200)
+    hermite_roots_weights = (
+        hermite_roots_weights
+        if hermite_roots_weights is not None
+        else get_hermite_roots_weights(200)
+    )
 
     if corrupted:
         g = _se_funcs(
             kappa,
             signal_strength,
             alpha,
-            gh,
+            hermite_roots_weights,
             prox_tol,
             corrupted,
             transform,
@@ -516,7 +499,7 @@ def _root_solver(
             kappa,
             signal_strength,
             alpha,
-            gh,
+            hermite_roots_weights,
             prox_tol,
             corrupted,
             transform,
@@ -532,16 +515,16 @@ def _root_solver(
     else:
         start_t = start
 
-    res = root(g, start_t, method=main_method, **root_kwargs)  #  type: ignore[call-overload]
-
+    res = root(g, start_t, method=cast(Any, main_method), **root_kwargs)
+    raw_x = np.asarray(res.x, dtype=np.float64)
     if transform:
         soln = (
-            np.concatenate([np.exp(res.x[:3]), res.x[3:4]])
+            np.concatenate([np.exp(raw_x[:3]), raw_x[3:4]])
             if has_intercept
-            else np.exp(res.x)
+            else np.exp(raw_x)
         )
     else:
-        soln = res.x
+        soln = raw_x
 
     if has_intercept:
         mu, b, sigma, iota = soln
@@ -562,8 +545,8 @@ def solve_state_equation(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: NDArray[np.float64],
-    gh: tuple[NDArray[np.float64], NDArray[np.float64]] | None = None,
+    start: FloatArray | None,
+    hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
     transform: bool = True,
@@ -597,10 +580,10 @@ def solve_state_equation(
         estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : NDArray[np.float64] | None
+    start : FloatArray | None
         A 1D array of length 3 containing the initial starting values for `mu`, `b`,
         and `sigma`. By default, None.
-    gh : tuple[NDArray[np.float64], NDArray[np.float64]] | None
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default, None.
     root_kwargs : dict[str, Any] | None, optional
@@ -672,7 +655,7 @@ def solve_state_equation(
             start,
             init_method,
             init_iter,
-            gh,
+            hermite_roots_weights,
             prox_tol,
             corrupted,
             intercept,
@@ -690,7 +673,7 @@ def solve_state_equation(
         alpha,
         start,
         main_method,
-        gh,
+        hermite_roots_weights,
         prox_tol,
         corrupted,
         transform,

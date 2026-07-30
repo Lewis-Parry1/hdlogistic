@@ -3,9 +3,12 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from to_be_titled.estimation import DiaconisYlvisakerLogisticRegressionResult
-from to_be_titled.solve_state_equations import SolverResult, StateParameters
-from to_be_titled.summary import _compute_leverages, summary
+from to_be_titled.solvers.solver_types import SolverResult, StateParameters
+from to_be_titled.summary import (
+    _compute_leverages,  # pyright: ignore [reportPrivateUsage]
+    summary,
+)
+from to_be_titled.types import DiaconisYlvisakerLogisticRegressionResult
 
 
 def _make_result(

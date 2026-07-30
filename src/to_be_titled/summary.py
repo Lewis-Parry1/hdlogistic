@@ -1,35 +1,35 @@
 import numpy as np
-from numpy.typing import NDArray
 from scipy.linalg import solve
 
-# TODO: Remove this import once refactor is complete and functions are properly exposed
-from to_be_titled.estimation import (
+from to_be_titled.inference import compute_sloe_estimator
+from to_be_titled.matrix_operations import compute_weighted_design_and_info
+from to_be_titled.solvers import solve_state_equation
+from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
+    FloatArray,
 )
-from to_be_titled.solve_state_equations import solve_state_equation
-from to_be_titled.utils import compute_sloe_estimator, compute_weighted_design_and_info
 
 
 def _compute_leverages(
-    x: NDArray[np.float64],
-    mus: NDArray[np.float64],
+    x: FloatArray,
+    mus: FloatArray,
     epsilon: float = 1e-8,
-) -> NDArray[np.float64]:
+) -> FloatArray:
     """Compute the diagonal leverage scores (hat values) for a logistic regression
     model.
 
     Parameters
     ----------
-    x : NDArray[np.float64]
+    x : FloatArray
         The validated design matrix of shape (n_samples, n_features).
-    mus : NDArray[np.float64]
+    mus : FloatArray
         The fitted probabilities of shape (n_samples, 1).
     epsilon : float, default=1e-8
         Small regularization constant passed to the internal weighting routine.
 
     Returns
     -------
-    NDArray[np.float64]
+    FloatArray
         The leverage scores (diagonal elements of the hat matrix) for each observation.
     """
 
@@ -43,7 +43,7 @@ def _compute_leverages(
 def summary(
     result: DiaconisYlvisakerLogisticRegressionResult,
     high_dimensional_correction: bool = True,
-) -> NDArray[np.float64]:
+) -> FloatArray:
     """Provides summary statistics from the provided model results and optionally
     applies a high-dimensional correction to the estimated coefficients.
 
@@ -58,7 +58,7 @@ def summary(
 
     Returns
     -------
-    NDArray[np.float64]
+    FloatArray
     Rescaled estimated coefficient vector of shape (n_features, 1)
     """
     if high_dimensional_correction:
@@ -80,7 +80,7 @@ def summary(
             alpha=result.alpha,
             start=np.array([0.5, 1, 1]),  # Argument required by
             # _solve_state_equation
-            gh=None,
+            hermite_roots_weights=None,
             corrupted=True,
         )
 
