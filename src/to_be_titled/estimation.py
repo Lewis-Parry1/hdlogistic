@@ -31,9 +31,10 @@ def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
     y : FloatArray
         Original binary response vector of shape (n_samples,) or (n_samples, 1).
     alpha : float
-        Prior shrinkage hyperparameter in [0, 1]. Lower values enforce stronger
-        shrinkage toward the prior weight of 0.5; alpha = 1.0 recovers the
-        original response vector.
+        Shrinkage parameter in [0, 1]. Lower values enforce stronger prior 
+        regularization, pulling the pseudo-responses toward 0.5 (which shrinks 
+        coefficient estimates toward the prior mode of 0). Setting alpha = 1.0 
+        recovers standard unpenalized maximum likelihood estimation.
 
     Returns
     -------
