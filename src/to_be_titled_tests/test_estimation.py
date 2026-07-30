@@ -13,7 +13,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_balanced_dataset() -> None:
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
     result = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=1.0, config=config
+        x, y, alpha=1.0, solver_config=config
     )
     betas = result.betas
 
@@ -27,7 +27,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_returns_finite_values() -> N
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
     result = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=0.5, config=config
+        x, y, alpha=0.5, solver_config=config
     )
     betas = result.betas
 
@@ -41,10 +41,10 @@ def test_fit_diaconis_ylvisaker_logistic_regression_shrinks_coefficients() -> No
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
     betas_mle = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=1.0, config=config
+        x, y, alpha=1.0, solver_config=config
     ).betas
     betas_shrunk = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=0.5, config=config
+        x, y, alpha=0.5, solver_config=config
     ).betas
 
     assert betas_mle.shape == betas_shrunk.shape
@@ -58,7 +58,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses() -> 
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
     result = estimation.fit_diaconis_ylvisaker_logistic_regression(
-        x, y, alpha=0.5, config=config
+        x, y, alpha=0.5, solver_config=config
     )
     betas = result.betas
 
@@ -73,7 +73,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha() -> N
 
     with pytest.raises(ValueError, match=r"alpha must be in \[0, 1\]"):
         estimation.fit_diaconis_ylvisaker_logistic_regression(
-            x, y, alpha=1.5, config=config
+            x, y, alpha=1.5, solver_config=config
         )
 
 

@@ -103,7 +103,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     y: FloatArray,
     alpha: float = 0.5,
     solver: str = "fisher_scoring",
-    config: dict[str, Any] = {},
+    solver_config: dict[str, Any] = {},
 ) -> DiaconisYlvisakerLogisticRegressionResult:
     """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
     penalized likelihood.
@@ -125,7 +125,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
         estimate is recovered.
     solver : str, default="fisher_scoring"
         The optimization solver backend to use.
-    config : dict[str, Any]
+    solver_config : dict[str, Any]
             Configuration options dictionary passed to the solver. Supported keys
             depend on the chosen solver:
 
@@ -172,7 +172,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
     # Delegate to the chosen solver function
-    result = solver_function(x_validated, y_adjusted, config=config)
+    result = solver_function(x_validated, y_adjusted, config=solver_config)
 
     return DiaconisYlvisakerLogisticRegressionResult(
         betas=result.betas,
