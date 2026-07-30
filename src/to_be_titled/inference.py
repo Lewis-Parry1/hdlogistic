@@ -41,7 +41,7 @@ def compute_sloe_estimator(
 
     References
     ----------
-    .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
+    .. [1] Sterzinger, P., & Kosmidis, I. (2026). Diaconis-Ylvisaker prior
        penalized likelihood for p/n -> kappa in (0,1) logistic regression.
        arXiv preprint arXiv:2311.07419.
     .. [2] Yadlowsky, S., Yun, T., McLean, C. Y., D'Amour, A. (2021). SLOE: A Faster

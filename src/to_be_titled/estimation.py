@@ -24,7 +24,7 @@ def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
 
     Transforms the empirical binary responses into pseudo-probabilities shifted
     toward the prior distribution. This specific formulation assumes a zero prior
-    mode, which evaluates the inverse link function to 0.5.
+    mode, which evaluates the sigmoid function to 0.5.
 
     Parameters
     ----------
@@ -153,7 +153,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     References
     ----------
-    .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
+    .. [1] Sterzinger, P., & Kosmidis, I. (2026). Diaconis-Ylvisaker prior
            penalized likelihood for p/n -> kappa in (0,1) logistic regression.
            https://arxiv.org/abs/2311.07419
     """
