@@ -102,59 +102,68 @@ def fit_diaconis_ylvisaker_logistic_regression(
     x: FloatArray,
     y: FloatArray,
     alpha: float = 0.5,
+    intercept_index: int | None = None,
     solver: str = "fisher_scoring",
     solver_config: dict[str, Any] = {},
 ) -> DiaconisYlvisakerLogisticRegressionResult:
     """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
-    penalized likelihood.
+        penalized likelihood.
 
-    Estimates regression coefficients using a Fisher scoring method. Due to the
-    properties of the Diaconis-Ylvisaker prior, simplifies to standard maximisation of
-    the log-likelihood function, on an adjusted response vector.
+        Estimates regression coefficients using a Fisher scoring method. Due to the
+        properties of the Diaconis-Ylvisaker prior, simplifies to standard maximisation
+        of the log-likelihood function, on an adjusted response vector.
 
-    Parameters
-    ----------
-    x : FloatArray
-        Design matrix of shape (n_samples, n_features).
-    y : FloatArray
-        Binary response vector of shape (n_samples,) or (n_samples, 1).
-    alpha : float, default=0.5
-        Prior shrinkage hyperparameter in [0, 1]. Controls the variance of
-        the prior distribution. As alpha approaches 0, estimates shrink toward
-        the prior mode, as alpha approaches 1, the maximum likelihood
-        estimate is recovered.
-    solver : str, default="fisher_scoring"
-        The optimization solver backend to use.
-    solver_config : dict[str, Any]
-            Configuration options dictionary passed to the solver. Supported keys
-            depend on the chosen solver:
+        Parameters
+        ----------
+        x : FloatArray
+            Design matrix of shape (n_samples, n_features).
+        y : FloatArray
+            Binary response vector of shape (n_samples,) or (n_samples, 1).
+        alpha : float, default=0.5
+            Prior shrinkage hyperparameter in [0, 1]. Controls the variance of
+            the prior distribution. As alpha approaches 0, estimates shrink toward
+            the prior mode, as alpha approaches 1, the maximum likelihood
+            estimate is recovered.
+        intercept_index : int | None, default=None
+            Zero-based column index of the intercept in the design matrix `x`.
+            If provided, the corresponding estimated coefficient is stored as `iota`
+            in the result for downstream state evolution calculations. If None, the
+            model is treated as having no intercept.
+        solver : str, default="fisher_scoring"
+            The optimization solver backend to use.
+        solver_config : dict[str, Any]
+                Configuration options dictionary passed to the solver. Supported keys
+                depend on the chosen solver:
 
-            - For `"fisher_scoring"`:
-                * `"max_iterations"` (int, default=25): Maximum Fisher scoring
-                iterations.
-                * `"tolerance"` (float, default=1e-6): Convergence threshold.
-                * `"epsilon"` (float, default=1e-8): Numerical stability threshold.
+                - For `"fisher_scoring"`:
+                    * `"max_iterations"` (int, default=25): Maximum Fisher scoring
+                    iterations.
+                    * `"tolerance"` (float, default=1e-6): Convergence threshold.
+                    * `"epsilon"` (float, default=1e-8): Numerical stability threshold.
 
-    Returns
+        Returns
+        -------
     -------
-    DiaconisYlvisakerLogisticRegressionResult
-        A dataclass containing the estimated coefficient vector, linear predictors,
-        adjusted response, and leverage scores.
+        DiaconisYlvisakerLogisticRegressionResult
+            A dataclass containing the estimated coefficient vector, linear predictors,
+            fitted probabilities, adjusted response, validated design matrix, prior
+            shrinkage hyperparameter, and the estimated scalar intercept parameter
+            (`iota`)
 
-    Raises
-    ------
-    ValueError
-        If `alpha` is not in the closed interval [0.0, 1.0].
-        If `solver` is not recognized.
-        If `x` or `y` fail structural checks during validation.
-    LinAlgError
-        If the Fisher information matrix is singular during solver operations.
+        Raises
+        ------
+        ValueError
+            If `alpha` is not in the closed interval [0.0, 1.0].
+            If `solver` is not recognized.
+            If `x` or `y` fail structural checks during validation.
+        LinAlgError
+            If the Fisher information matrix is singular during solver operations.
 
-    References
-    ----------
-    .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
-           penalized likelihood for p/n -> kappa in (0,1) logistic regression.
-           https://arxiv.org/abs/2311.07419
+        References
+        ----------
+        .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
+               penalized likelihood for p/n -> kappa in (0,1) logistic regression.
+               https://arxiv.org/abs/2311.07419
     """
 
     if solver not in SOLVERS_REGISTRY:
@@ -174,6 +183,10 @@ def fit_diaconis_ylvisaker_logistic_regression(
     # Delegate to the chosen solver function
     result = solver_function(x_validated, y_adjusted, config=solver_config)
 
+    iota = (
+        float(result.betas[intercept_index, 0]) if intercept_index is not None else None
+    )
+
     return DiaconisYlvisakerLogisticRegressionResult(
         betas=result.betas,
         linear_predictors=result.linear_predictors,
@@ -181,4 +194,5 @@ def fit_diaconis_ylvisaker_logistic_regression(
         y_adjusted=y_adjusted,
         x_validated=x_validated,
         alpha=alpha,
+        iota=iota,
     )

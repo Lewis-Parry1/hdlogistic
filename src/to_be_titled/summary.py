@@ -78,10 +78,8 @@ def summary(
             kappa=kappa,
             signal_strength=signal_strength,
             alpha=result.alpha,
-            start=np.array([0.5, 1, 1]),  # Argument required by
-            # _solve_state_equation
-            hermite_roots_weights=None,
             corrupted=True,
+            intercept=result.iota,
         )
 
         mu_star = pars.solution.mu

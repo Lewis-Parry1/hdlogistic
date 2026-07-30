@@ -545,7 +545,7 @@ def solve_state_equation(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: FloatArray | None,
+    start: FloatArray | None = None,
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
