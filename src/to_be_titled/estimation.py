@@ -101,7 +101,7 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
 def fit_diaconis_ylvisaker_logistic_regression(
     x: FloatArray,
     y: FloatArray,
-    alpha: float = 0.5,
+    alpha: float | None = None,
     solver: str = "fisher_scoring",
     solver_config: dict[str, Any] = {},
 ) -> DiaconisYlvisakerLogisticRegressionResult:
@@ -118,11 +118,11 @@ def fit_diaconis_ylvisaker_logistic_regression(
         Design matrix of shape (n_samples, n_features).
     y : FloatArray
         Binary response vector of shape (n_samples,) or (n_samples, 1).
-    alpha : float, default=0.5
-        Prior shrinkage hyperparameter in [0, 1]. Controls the variance of
-        the prior distribution. As alpha approaches 0, estimates shrink toward
-        the prior mode, as alpha approaches 1, the maximum likelihood
-        estimate is recovered.
+    alpha : float | None, default = None
+        The prior shrinkage parameter in [0, 1] in the Diaconis-Ylvisaker 
+        prior penalty. Default is None, in which `alpha` is set to \\frac{n}{n+p}
+        or equivalently, \\frac{1}{1+kappa}. Setting `alpha` to 1, corresponds to 
+        using maximum likelihood without penalisation.
     solver : str, default="fisher_scoring"
         The optimization solver backend to use.
     solver_config : dict[str, Any]
@@ -164,11 +164,16 @@ def fit_diaconis_ylvisaker_logistic_regression(
         )
     solver_function = SOLVERS_REGISTRY[solver]
 
+    x_validated = _ensure_design_matrix(x)
+    y_validated = _ensure_column_vector(y)
+
+    if alpha is None: 
+        n, p = x_validated.shape[0], x_validated.shape[1]
+        alpha = n / (n+p)
+
     if not 0.0 <= alpha <= 1.0:
         raise ValueError("alpha must be in [0, 1]")
 
-    x_validated = _ensure_design_matrix(x)
-    y_validated = _ensure_column_vector(y)
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
     # Delegate to the chosen solver function
