@@ -31,9 +31,9 @@ def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
     y : FloatArray
         Original binary response vector of shape (n_samples,) or (n_samples, 1).
     alpha : float
-        Shrinkage parameter in [0, 1]. Lower values enforce stronger prior 
-        regularization, pulling the pseudo-responses toward 0.5 (which shrinks 
-        coefficient estimates toward the prior mode of 0). Setting alpha = 1.0 
+        Shrinkage parameter in [0, 1]. Lower values enforce stronger prior
+        regularization, pulling the pseudo-responses toward 0.5 (which shrinks
+        coefficient estimates toward the prior mode of 0). Setting alpha = 1.0
         recovers standard unpenalized maximum likelihood estimation.
 
     Returns
@@ -120,9 +120,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
     y : FloatArray
         Binary response vector of shape (n_samples,) or (n_samples, 1).
     alpha : float | None, default = None
-        The prior shrinkage parameter in [0, 1] in the Diaconis-Ylvisaker 
+        The prior shrinkage parameter in [0, 1] in the Diaconis-Ylvisaker
         prior penalty. Default is None, in which `alpha` is set to \\frac{n}{n+p}
-        or equivalently, \\frac{1}{1+kappa}. Setting `alpha` to 1, corresponds to 
+        or equivalently, \\frac{1}{1+kappa}. Setting `alpha` to 1, corresponds to
         using maximum likelihood without penalisation.
     solver : str, default="fisher_scoring"
         The optimization solver backend to use.
@@ -168,9 +168,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
     x_validated = _ensure_design_matrix(x)
     y_validated = _ensure_column_vector(y)
 
-    if alpha is None: 
+    if alpha is None:
         n, p = x_validated.shape[0], x_validated.shape[1]
-        alpha = n / (n+p)
+        alpha = n / (n + p)
 
     if not 0.0 <= alpha <= 1.0:
         raise ValueError("alpha must be in [0, 1]")
