@@ -32,7 +32,7 @@ def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
         Original binary response vector of shape (n_samples,) or (n_samples, 1).
     alpha : float
         Prior shrinkage hyperparameter in [0, 1]. Lower values enforce stronger
-        shrinkage toward the prior weight of 0.5; alpha = 1.0 recovers the
+        shrinkage toward the prior weight of 0; alpha = 1.0 recovers the
         original response vector.
 
     Returns
