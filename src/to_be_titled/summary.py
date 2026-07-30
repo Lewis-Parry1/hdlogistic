@@ -89,3 +89,5 @@ def summary(
         return np.asarray(rescaled_betas, dtype=np.float64)
 
     return result.betas
+
+#TODO: add tests for with and without intercept
