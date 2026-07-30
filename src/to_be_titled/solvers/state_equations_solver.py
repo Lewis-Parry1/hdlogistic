@@ -61,6 +61,14 @@ def _se_funcs(
         automatically clip and exponentiate the inputs to enforce strict
         positivity and prevent numerical underflow/overflow during solver
         exploration. By default True.
+    intercept: float | None, optional
+        If None, then state evolution equations are solved for model without 
+        intercept. If a float, then the equations for the model with 
+        intercept parameter equal to `intercept` are used.
+    iota: float | None, optional
+        Only specified for intercept model. `iota` is the limit of MDYPL
+        estimator of \\theta_0 as computed by mdyplFit() with shrinkage 
+        parameter `alpha`. 
 
     Returns
     -------
@@ -258,11 +266,20 @@ def _init_solver(
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
-    corrupted: bool
+    corrupted: bool, optional
         If False, then `signal_strength` is the square root of the signal strength.
         If True, then `signal_strength` is the square root of the corrupted signal
         strength is the limit of the variance of the fitted values computed by
         mdyplFit() with shrinkage parameter, alpha. By default, False.
+    intercept : float | None, optional
+        If `intercept` is None, then the solver, solves for the three stationary 
+        points `mu`, `b` and `sigma`, using the MDYPL state equations without an
+        intercept. If `intercept` is a float, then what it represents depends on
+        the value of `corrupted`. If `corrupted` is False, then `intercept` 
+        represents the oracle (true) value of the intercept of the model. 
+        If `corrupted` is True  then the `intercept` represents the limit 
+        `iota` of the MDYPL estimator of the oracle value of the intercept 
+        of the model. 
     **minimize_kwargs : dict[str, Any], optional
         Additional keyword arguments passed directly to `scipy.optimize.minimize`.
 
@@ -387,11 +404,16 @@ def _init_solver(
     )
 
     if has_intercept:
-        mu, b, sigma, iota = soln
+            if corrupted: 
+                mu, b, sigma, theta = soln 
+                state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=None, theta=theta)
+            else: 
+                mu, b, sigma, iota = soln
+                state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=iota, theta=None)
+    
     else:
         mu, b, sigma = soln
-        iota = None
-    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=iota)
+        state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=None, theta=None)
 
     return SolverResult(
         solution=state_params,
@@ -464,6 +486,15 @@ def _root_solver(
         will automatically clip and exponentiate the inputs to enforce strict
         positivity and prevent numerical underflow/overflow during solver
         exploration. By default True.
+    intercept : float | None, optional
+        If `intercept` is None, then the solver, solves for the three stationary 
+        points `mu`, `b` and `sigma`, using the MDYPL state equations without an
+        intercept. If `intercept` is a float, then what it represents depends on
+        the value of `corrupted`. If `corrupted` is False, then `intercept` 
+        represents the oracle (true) value of the intercept of the model. 
+        If `corrupted` is True  then the `intercept` represents the limit 
+        `iota` of the MDYPL estimator of the oracle value of the intercept 
+        of the model. 
     **root_kwargs : dict[str, Any], optional
         Additional keyword arguments passed directly to `scipy.optimize.root`.
 
@@ -527,11 +558,16 @@ def _root_solver(
         soln = raw_x
 
     if has_intercept:
-        mu, b, sigma, iota = soln
+        if corrupted: 
+            mu, b, sigma, theta = soln 
+            state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=None, theta=theta)
+        else: 
+            mu, b, sigma, iota = soln
+            state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=iota, theta=None)
+
     else:
         mu, b, sigma = soln
-        iota = None
-    state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=iota)
+        state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=None, theta=None)
 
     return SolverResult(
         solution=state_params,
@@ -545,7 +581,7 @@ def solve_state_equation(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: FloatArray | None,
+    start: FloatArray | None = None,
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
@@ -597,6 +633,15 @@ def solve_state_equation(
         If True, then `signal_strength` is the square root of the corrupted signal
         strength is the limit of the variance of the fitted values computed by
         mdyplFit() with shrinkage parameter, alpha. By default, False.
+    intercept: float | None, optional
+        If `intercept` is None, then the solver, solves for the three stationary 
+        points `mu`, `b` and `sigma`, using the MDYPL state equations without an
+        intercept. If `intercept` is a float, then what it represents depends on
+        the value of `corrupted`. If `corrupted` is False, then `intercept` 
+        represents the oracle (true) value of the intercept of the model. 
+        If `corrupted` is True  then the `intercept` represents the limit 
+        `iota` of the MDYPL estimator of the oracle value of the intercept 
+        of the model. 
     transform : bool, optional
         If True, the input parameters (`mu`, `b`, `sigma`) are internally
         log-transformed during the solver exploration to enforce strict positivity

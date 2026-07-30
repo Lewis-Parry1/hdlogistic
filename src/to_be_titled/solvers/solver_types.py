@@ -11,6 +11,7 @@ class StateParameters:
     b: float
     sigma: float
     iota: float | None
+    theta: float | None
 
     def to_array(self) -> FloatArray:
         if self.iota is None:
