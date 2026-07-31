@@ -44,7 +44,6 @@ def summary(
     result: DiaconisYlvisakerLogisticRegressionResult,
     start: FloatArray | None = None,
     high_dimensional_correction: bool = True,
-    start: FloatArray | None = None,
 ) -> FloatArray:
     """Provides summary statistics from the provided model results and optionally
     applies a high-dimensional correction to the estimated coefficients.
