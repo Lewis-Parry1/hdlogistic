@@ -42,6 +42,7 @@ def _compute_leverages(
 
 def summary(
     result: DiaconisYlvisakerLogisticRegressionResult,
+    start: FloatArray | None = None,
     high_dimensional_correction: bool = True,
     start: FloatArray | None = None,
 ) -> FloatArray:
@@ -68,7 +69,8 @@ def summary(
     """
     if high_dimensional_correction:
         number_observations = result.x_validated.shape[0]
-        number_parameters = result.x_validated.shape[1]
+        has_intercept = result.theta_hat is not None
+        number_parameters = result.x_validated.shape[1] - (1 if has_intercept else 0)
 
         leverages = _compute_leverages(result.x_validated, result.mus)
         signal_strength = compute_sloe_estimator(
