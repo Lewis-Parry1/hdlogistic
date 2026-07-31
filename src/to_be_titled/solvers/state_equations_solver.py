@@ -239,11 +239,13 @@ def _init_solver(
         estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : FloatArray, optional
-        A 1D array of starting values for the state evolution parameters
-        (`mu`, `b`, and `sigma`). These are internally log-transformed during
-        minimization to enforce strict positivity and prevent underflow. If None,
-        the additional starting candidates are only considered.
+    start : FloatArray | None, optional
+        Initial starting values for the state evolution parameters. If `intercept`
+        is None, a 1D array of length 3 containing (`mu`, `b`, `sigma`), where `mu`
+        lies in (0, 1) and `b`, `sigma` are strictly positive. If `intercept` is
+        provided, a 1D array of length 4 containing (`mu`, `b`, `sigma`, `iota`).
+        These are internally log-transformed during minimization to enforce strict
+        positivity and prevent underflow
     init_method : str, optional
         The optimization method to be passed to `scipy.optimize.minimize`
         to minimize the squared residuals, by default 'Nelder-Mead'.
@@ -439,9 +441,11 @@ def _root_solver(
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : FloatArray
-        A 1D array of starting values for `mu`, `b` and `sigma`. For extreme
-        `kappa` and `gamma` regimes, it is recommended to pass a "warm"
-        starting guess obtained from an initial heuristic solver.
+        A 1D array of initial starting values for the state evolution parameters.
+        If `intercept` is None, length must be 3 containing (`mu`, `b`, `sigma`). If
+        `intercept` is provided, length must be 4 containing (`mu`, `b`, `sigma`,
+        `iota`). For extreme `kappa` and `gamma` regimes, it is recommended to pass a
+        "warm" starting guess obtained from an initial heuristic solver.
     main_method : str, optional
         The method to be passed into `scipy.optimize.root` to find the roots of
         the state equations, by default "hybr" .
@@ -580,9 +584,14 @@ def solve_state_equation(
         estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : FloatArray | None
-        A 1D array of length 3 containing the initial starting values for `mu`, `b`,
-        and `sigma`. By default, None.
+    start : FloatArray | None, optional
+            Initial values for the state evolution parameters. If `intercept` is None,
+            `start` must be a 1D array of length 3 containing (`mu`, `b`, `sigma`),
+            where `mu` lies in (0, 1), and `b` and `sigma` are strictly positive. If
+            `intercept` is provided, `start` must be a 1D array of length 4 containing
+            (`mu`, `b`, `sigma`, `iota`). Defaults to `[0.5, 1.0, 1.0]` when
+            `intercept` is None, or `[0.5, 1.0, 1.0, 0.0]` when an intercept is
+            specified.
     hermite_roots_weights : tuple[FloatArray, FloatArray] | None
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default, None.
