@@ -126,9 +126,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
             estimate is recovered.
         intercept_index : int | None, default=None
             Zero-based column index of the intercept in the design matrix `x`.
-            If provided, the corresponding estimated coefficient is stored as `theta_hat`
-            in the result for downstream state evolution calculations. If None, the
-            model is treated as having no intercept.
+            If provided, the corresponding estimated coefficient is stored as
+            `theta_hat` in the result for downstream state evolution calculations.
+            If None, the model is treated as having no intercept.
         solver : str, default="fisher_scoring"
             The optimization solver backend to use.
         solver_config : dict[str, Any]
