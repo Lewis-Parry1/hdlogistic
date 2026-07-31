@@ -97,4 +97,4 @@ def summary(
     return result.betas
 
 
-# TODO: add tests for with and without intercept
+# TODO: add tests for with and without intercept and with and without starting value
