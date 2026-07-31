@@ -79,7 +79,7 @@ def summary(
             signal_strength=signal_strength,
             alpha=result.alpha,
             corrupted=True,
-            intercept=result.iota,
+            intercept=result.theta_hat,
         )
 
         mu_star = pars.solution.mu

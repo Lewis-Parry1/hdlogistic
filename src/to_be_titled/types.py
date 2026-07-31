@@ -25,7 +25,7 @@ class DiaconisYlvisakerLogisticRegressionResult:
         The validated design matrix of shape (n_samples, n_features).
     alpha : float
         Prior shrinkage hyperparameter used in the model fit, in the interval [0, 1].
-    iota : float | None
+    theta_hat : float | None
         The estimated scalar intercept coefficient from the fitted model.
         Set to None if the model is fitted without an intercept.
     """
@@ -36,7 +36,7 @@ class DiaconisYlvisakerLogisticRegressionResult:
     y_adjusted: FloatArray
     x_validated: FloatArray
     alpha: float
-    iota: float | None
+    theta_hat: float | None
 
 
 @dataclass

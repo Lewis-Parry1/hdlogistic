@@ -126,7 +126,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
             estimate is recovered.
         intercept_index : int | None, default=None
             Zero-based column index of the intercept in the design matrix `x`.
-            If provided, the corresponding estimated coefficient is stored as `iota`
+            If provided, the corresponding estimated coefficient is stored as `theta_hat`
             in the result for downstream state evolution calculations. If None, the
             model is treated as having no intercept.
         solver : str, default="fisher_scoring"
@@ -148,7 +148,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
             A dataclass containing the estimated coefficient vector, linear predictors,
             fitted probabilities, adjusted response, validated design matrix, prior
             shrinkage hyperparameter, and the estimated scalar intercept parameter
-            (`iota`)
+            (`theta`)
 
         Raises
         ------
@@ -183,7 +183,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     # Delegate to the chosen solver function
     result = solver_function(x_validated, y_adjusted, config=solver_config)
 
-    iota = (
+    theta_hat = (
         float(result.betas[intercept_index, 0]) if intercept_index is not None else None
     )
 
@@ -194,5 +194,5 @@ def fit_diaconis_ylvisaker_logistic_regression(
         y_adjusted=y_adjusted,
         x_validated=x_validated,
         alpha=alpha,
-        iota=iota,
+        theta_hat=theta_hat,
     )

@@ -33,7 +33,7 @@ def _make_result(
         betas=betas,
         mus=mus,
         alpha=1.0,
-        iota=None,
+        theta_hat=None,
     )
 
 
