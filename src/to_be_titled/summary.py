@@ -43,6 +43,7 @@ def _compute_leverages(
 def summary(
     result: DiaconisYlvisakerLogisticRegressionResult,
     high_dimensional_correction: bool = True,
+    start: FloatArray | None = None,
 ) -> FloatArray:
     """Provides summary statistics from the provided model results and optionally
     applies a high-dimensional correction to the estimated coefficients.
@@ -55,6 +56,10 @@ def summary(
     high_dimensional_correction : bool, optional
         Whether to apply a high-dimensional correction to the estimated coefficients,
         by default True.
+    start : FloatArray | None, optional
+            Starting values (`mu`, `b`, `sigma`, and optionally `beta_0`) passed to the
+            internal state evolution solver (`solve_state_equation`) when
+            `high_dimensional_correction=True`. If `None`, defaults to preset values.
 
     Returns
     -------
@@ -80,6 +85,7 @@ def summary(
             alpha=result.alpha,
             corrupted=True,
             intercept=result.theta_hat,
+            start=start,
         )
 
         mu_star = pars.solution.mu
