@@ -503,7 +503,6 @@ def _root_solver(
         mu, b, sigma = soln
         state_params = StateParameters(mu=mu, b=b, sigma=sigma, corrupted=corrupted)
 
-
     return SolverResult(
         solution=state_params,
         func_value=g(res.x),
