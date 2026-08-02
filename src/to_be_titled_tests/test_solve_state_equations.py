@@ -230,7 +230,7 @@ def test_solve_se1_retrieve_nu() -> None:
         sol1[0],
         sol1[1],
         sol1[2],
-        sol1[3],
+        sol1[3]
     )
 
     # Compute the corrupted signal strength

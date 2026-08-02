@@ -80,19 +80,16 @@ def _se_funcs(
 
     def g(pars: FloatArray) -> FloatArray:
         pars = np.asarray(pars, dtype=np.float64)
-        # if using corrupted signal strength (estimated)
         if corrupted:
-            # if no iota term
             if iota is None:
                 # 3 param; mu , b , sigma, no intercept in model
-                # clip parameters before exponentiating to avoid overflow
+                # Clip parameters before exponentiating to avoid overflow
                 pars_t = np.exp(np.clip(pars, -20, 20)) if transform else pars
                 mu, b, sigma = pars_t[0], pars_t[1], pars_t[2]
                 with np.errstate(invalid="ignore"):
-                    # estimate gamma using corrupted ss
+                    # Estimate gamma using corrupted signal strength
                     gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
                 if np.isnan(gamma):
-                    # if we get get divide by zero error
                     warn(
                         "Estimated gamma evaluated to NaN (likely due to division by "
                         "zero or negative variance). Returning NaNs for state "
@@ -111,7 +108,6 @@ def _se_funcs(
                     hermite_roots_weights=hermite_roots_weights,
                     prox_tol=prox_tol,
                 )
-            # if iota term
             else:
                 # 4 param; mu, b, sigma (transformed) and intercept (untransformed)
                 # iota is fixed (estimated intercept from model), solve for
@@ -121,12 +117,14 @@ def _se_funcs(
                     pars_t[:3] = np.exp(np.clip(pars[:3], -20, 20))
                 else:
                     pars_t = pars
+
                 mu, b, sigma, intercept_free = (
                     pars_t[0],
                     pars_t[1],
                     pars_t[2],
-                    pars_t[3],
+                    pars_t[3]
                 )
+
                 with np.errstate(invalid="ignore"):
                     gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
                 if np.isnan(gamma):
@@ -150,6 +148,7 @@ def _se_funcs(
                     hermite_roots_weights=hermite_roots_weights,
                     prox_tol=prox_tol,
                 )
+        # Not corrupted case; iota is estimated in intercept model
         else:
             if intercept is None:
                 # 3 param model; mu, b , sigma

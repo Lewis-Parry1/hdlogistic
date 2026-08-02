@@ -14,11 +14,12 @@ class StateParameters:
     theta: float | None
 
     def to_array(self) -> FloatArray:
-        if self.iota is None:
-            return np.array([self.mu, self.b, self.sigma])
-        else:
-            return np.array([self.mu, self.b, self.sigma, self.iota])
-
+        arr = [self.mu, self.b, self.sigma]
+        if self.iota is not None: 
+            arr.append(self.iota)
+        elif self.theta is not None: 
+            arr.append(self.theta)
+        return np.array(arr, dtype=np.float64)
 
 @dataclass
 class SolverResult:
