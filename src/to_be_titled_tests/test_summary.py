@@ -52,7 +52,7 @@ def test_summary_with_high_dimensional_correction(
 
     # Mock _solve_state_equation to return a specific mu_star
     mock_mu_star = 0.5
-    fake_pars = StateParameters(mock_mu_star, 1, 1, iota=None)
+    fake_pars = StateParameters(mock_mu_star, 1, 1, iota=None, theta=None)
 
     mock_solver_result = SolverResult(
         solution=fake_pars,
