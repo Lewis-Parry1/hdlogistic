@@ -5,7 +5,7 @@ from warnings import warn
 import numpy as np
 from scipy.optimize import OptimizeResult, minimize, root
 
-from to_be_titled import state_equations
+from to_be_titled import state_equations, validation
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
@@ -40,7 +40,7 @@ def _se_funcs(
         \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
         signal strength leave one out estimator).
     alpha : float
-        Shrinkage hyperparamter of the MDYPL estimator. `alpha` should be in (0,1).
+        Shrinkage hyperparamter of the MDYPL estimator. `alpha` should be in (0,1].
     hermite_roots_weights : tuple[FloatArray, FloatArray]
         Tuple of 1D arrays containing Gauss Hermite quadrature nodes and weights
         used to approximate the expected values in the state equations.
@@ -79,24 +79,39 @@ def _se_funcs(
         The residual closure function passed into scipy solvers to be optimised.
         """
         pars = np.asarray(pars, dtype=np.float64)
+        has_intercept = intercept is not None
 
         if transform:
-            mu, b, sigma = np.exp(np.clip(pars[:3], -20, 20))
+            # Transform (`mu`,`b`, `sigma`) parameters back into real-space
+            pars_t = _transform_parameters(pars, has_intercept, reverse=True)
         else:
-            mu, b, sigma = pars[:3]
+            pars_t = pars
+        mu, b, sigma = pars_t[:3]
 
         def _derive_gamma_from_nu() -> float:
             with np.errstate(invalid="ignore"):
                 gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
             return float(gamma)
 
-        # Case 1: Oracle case, true population intercept known
-        if not corrupted:
+        if corrupted:
+            gamma = _derive_gamma_from_nu()
+            # Check estimated gamma did not evaluate to NaN
+            if np.isnan(gamma):
+                warn(
+                    "Estimated gamma evaluated to NaN (likely due to division by "
+                    "zero). Returning NaNs for state equation residuals.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                return np.full(4 if has_intercept else 3, np.nan)
+        else:
             gamma = signal_strength
 
+        # Case 1: Oracle case, true population intercept known
+        if not corrupted:
             if intercept is not None:
                 # iota is one of the variables in which we are trying to solve for
-                iota_var = pars[3]
+                iota_var = pars_t[3]
                 theta_fixed = intercept
 
                 return state_equations.se_with_intercept(
@@ -126,21 +141,9 @@ def _se_funcs(
         # Case 2: Empirical (corrupted) case; true population intercept not known
         # Estimated sample intercept is given
         else:
-            # Estimate gamma through corrupted signal strength nu
-            gamma = _derive_gamma_from_nu()
-
-            if gamma is np.nan:
-                warn(
-                    "Estimated gamma evaluated to NaN (likely due to division by "
-                    "zero). Returning NaNs for state equation residuals.",
-                    RuntimeWarning,
-                    stacklevel=2,
-                )
-                return np.full(3, np.nan)
-
             if intercept is not None:
                 # true theta is now what we are trying to solve for
-                theta_var = pars[3]
+                theta_var = pars_t[3]
                 # iota, is fixed and specified by estimated sample intercept
                 iota_fixed = intercept
                 return state_equations.se_with_intercept(
@@ -170,25 +173,89 @@ def _se_funcs(
     return g
 
 
-def _validate_start(start: FloatArray, has_intercept: bool) -> None:
+def _transform_parameters(
+    pars: FloatArray, has_intercept: bool, reverse: bool = False
+) -> FloatArray:
     """
-    Validate user supplied starting values.
+    If `reverse = False`, parameters are assumed to be in real-space and
+    `mu`, `b`, `sigmas` are subsequently transformed into log-space.
+    If `reverse = True` then `mu`, `b`, and `sigma` (not iota) are
+    assumed to be in log-space, and subsequently clipped and exponetiated
+    back into real-space.
     """
-    # validate start dimensions
-    expected_dim = 4 if has_intercept else 3
-    if start.shape != (expected_dim,):
-        raise ValueError(
-            f"`start` must be a length-{expected_dim} vector, got shape {start.shape}"
+    if not reverse:
+        pars_log = (
+            np.concatenate([np.log(pars[:3]), pars[3:4]])
+            if has_intercept
+            else np.log(pars)
+        )
+        return pars_log
+    else:
+        pars_clipped = pars.copy()
+        pars_clipped[:3] = np.clip(pars[:3], -20, 20)
+
+        pars_exp = (
+            np.concatenate([np.exp(pars_clipped[:3]), pars_clipped[3:4]])
+            if has_intercept
+            else np.exp(pars_clipped)
+        )
+        return pars_exp
+
+
+def _default_start(has_intercept: bool) -> FloatArray:
+    """
+    Single starting guess for `mu`, `b`, `sigma` and
+    optional `intercept` when the user supplies no start.
+    """
+    return (
+        np.asarray([0.5, 2.0, 2.0, 0.0], dtype=np.float64)
+        if has_intercept
+        else np.asarray([0.5, 2.0, 1.0], dtype=np.float64)
+    )
+
+
+def _generate_warm_start_candidates(
+    start: FloatArray | None, signal_strength: float, has_intercept: bool
+) -> list[FloatArray]:
+    """
+    Internal function to create a list of possible warm starts for initial
+    solver.
+    """
+    user_start = (
+        np.asarray(start, dtype=np.float64)
+        if start is not None
+        else _default_start(has_intercept)
+    )
+
+    candidates: list[FloatArray] = [user_start]
+
+    # TODO: Find best alternative candidates
+    if has_intercept:
+        candidates.extend(
+            [
+                np.array(
+                    [0.5, signal_strength, signal_strength, 0.0]
+                ),  # state equation-scaled default
+                np.array([0.1, 1.0, 1.0, 0.0]),  # low-mu fallback
+                np.array(
+                    [0.9, signal_strength * 2, signal_strength, 0.0]
+                ),  # large mu fallback
+            ]
+        )
+    else:
+        candidates.extend(
+            [
+                np.array(
+                    [0.5, signal_strength, signal_strength]
+                ),  # state equation-scaled default
+                np.array([0.1, 1.0, 1.0]),  # low-mu fallback
+                np.array(
+                    [0.9, signal_strength * 2, signal_strength]
+                ),  # large mu fallback
+            ]
         )
 
-    mu, b, sigma = start[:3]
-
-    if not (0 < mu < 1):
-        raise ValueError(f"`mu` must lie in (0,1). Received {mu}.")
-    if b <= 0:
-        raise ValueError(f"`b` must be strictly positive; received {b}.")
-    if sigma <= 0:
-        raise ValueError(f"`sigma` must be strictly positive; received {sigma}.")
+    return candidates
 
 
 def _init_solver(
@@ -270,40 +337,9 @@ def _init_solver(
     """
     has_intercept = intercept is not None
 
-    # define multiple initial starts if user has not defined one
-    candidates: list[FloatArray] = []
-
-    if start is not None:
-        start = np.asarray(start, dtype=np.float64)
-
-        _validate_start(start, has_intercept)
-
-        candidates.append(start)
-
-    if has_intercept:
-        candidates.extend(
-            [
-                np.array(
-                    [0.5, signal_strength, signal_strength, 0.0]
-                ),  # state equation-scaled default
-                np.array([0.1, 1.0, 1.0, 0.0]),  # low-mu fallback
-                np.array(
-                    [0.9, signal_strength * 2, signal_strength, 0.0]
-                ),  # large mu fallback
-            ]
-        )
-    else:
-        candidates.extend(
-            [
-                np.array(
-                    [0.5, signal_strength, signal_strength]
-                ),  # state equation-scaled default
-                np.array([0.1, 1.0, 1.0]),  # low-mu fallback
-                np.array(
-                    [0.9, signal_strength * 2, signal_strength]
-                ),  # large mu fallback
-            ]
-        )
+    # Appends additional warm start candidates to (optional) user start
+    # Allows for _init_solver to find the best possible warm start.
+    candidates = _generate_warm_start_candidates(start, signal_strength, has_intercept)
 
     best: tuple[float, OptimizeResult] | None = None
 
@@ -331,40 +367,42 @@ def _init_solver(
     for cand in candidates:
         cand = np.asarray(cand, dtype=np.float64)
 
-        start_vec = (
-            np.concatenate([np.log(cand[:3]), cand[3:4]])
-            if has_intercept
-            else np.log(cand)
-        )
+        # Log-transform parameters except `intercept` if exists
+        cand_t = _transform_parameters(cand, has_intercept, reverse=False)
 
         res = minimize(
             objective,
-            start_vec,
+            cand_t,
             method=cast(Any, init_method),
             options=cast(Any, {"maxiter": init_iter, **options_override}),
             **minimize_kwargs,
         )  # pyright: ignore[reportCallIssue]
 
         resid_norm = res.fun
+        soln_raw = _transform_parameters(res.x, has_intercept, reverse=True)
 
-        if not np.isnan(resid_norm) and (best is None or resid_norm < best[0]):
+        # Ensure roots found lie within valid domain
+        if not validation._is_valid_domain(soln_raw, has_intercept):
+            continue
+
+        if (
+            not np.isnan(resid_norm)
+            and res.success
+            and (best is None or resid_norm < best[0])
+        ):
             best = (resid_norm, res)
 
     if best is None:
         raise RuntimeError(
             f"No candidate start converged for kappa={kappa}, gamma={signal_strength}"
         )
-    res_final = best[1]
 
-    # solution needs to be transformed back from log-space to real-space
-    soln = (
-        np.concatenate([np.exp(res_final.x[:3]), res_final.x[3:4]])
-        if has_intercept
-        else np.exp(res_final.x)
-    )
+    # transform best solution back into real space from log-space
+    res_best = best[1]
+    soln_best = _transform_parameters(res_best.x, has_intercept, reverse=True)
 
     if has_intercept:
-        mu, b, sigma, intercept_est = soln
+        mu, b, sigma, intercept_est = soln_best
         state_params = StateParameters(
             mu=mu,
             b=b,
@@ -373,14 +411,14 @@ def _init_solver(
             corrupted=corrupted,
         )
     else:
-        mu, b, sigma = soln
+        mu, b, sigma = soln_best
         state_params = StateParameters(mu=mu, b=b, sigma=sigma, corrupted=corrupted)
 
     return SolverResult(
         solution=state_params,
-        func_value=g(res_final.x),
-        message=res_final.message,
-        success=res_final.success,
+        func_value=g(res_best.x),
+        message=res_best.message,
+        success=res_best.success,
     )
 
 
@@ -470,23 +508,15 @@ def _root_solver(
     )
 
     if transform:
-        start_t = (
-            np.concatenate([np.log(start[:3]), start[3:4]])
-            if has_intercept
-            else np.log(start)
-        )
+        start_t = _transform_parameters(start, has_intercept, reverse=False)
     else:
-        start_t = start
+        start_t = start.copy()
 
     res = root(g, start_t, method=cast(Any, main_method), **root_kwargs)
     raw_x = np.asarray(res.x, dtype=np.float64)
 
     if transform:
-        soln = (
-            np.concatenate([np.exp(raw_x[:3]), raw_x[3:4]])
-            if has_intercept
-            else np.exp(raw_x)
-        )
+        soln = _transform_parameters(raw_x, has_intercept, reverse=True)
     else:
         soln = raw_x
 
@@ -612,37 +642,41 @@ def solve_state_equation(
     """
     has_intercept = intercept is not None
 
-    # Intialise start as default brglm2 guess if None
-    if start is None:
-        start = (
-            np.asarray([0.5, 1, 1], dtype=float)
-            if not has_intercept
-            else np.asarray([0.5, 1, 1, 0], dtype=float)
-        )
-    else:
-        _validate_start(start, has_intercept)
+    validation._validate_state_equation_fixed_params(alpha, kappa, signal_strength)
+
+    if start is not None:
+        validation._validate_start_dims(start, has_intercept)
+        validation._validate_domain(start, has_intercept)
 
     root_kwargs = root_kwargs or {}
     minimize_kwargs = minimize_kwargs or {}
 
     if init_iter > 0:
-        init_result = _init_solver(
-            kappa,
-            signal_strength,
-            alpha,
-            start,
-            init_method,
-            init_iter,
-            hermite_roots_weights,
-            prox_tol,
-            corrupted,
-            intercept,
-            **minimize_kwargs,
-        )
-        soln = init_result.solution
-        start = soln.to_array()
-        opt_chain = f"initial_method: {init_method} -> "
+        try:
+            init_result = _init_solver(
+                kappa,
+                signal_strength,
+                alpha,
+                start,
+                init_method,
+                init_iter,
+                hermite_roots_weights,
+                prox_tol,
+                corrupted,
+                intercept,
+                **minimize_kwargs,
+            )
+            soln = init_result.solution
+            start = soln.to_array()
+            opt_chain = f"initial_method: {init_method} -> "
+        except RuntimeError:
+            if start is None:
+                start = _default_start(has_intercept)
+            opt_chain = f"initial_method: {init_method} (failed, fallback to start) -> "
+
     else:
+        if start is None:
+            start = _default_start(has_intercept)
         opt_chain = ""
 
     result = _root_solver(
@@ -658,6 +692,7 @@ def solve_state_equation(
         intercept,
         **root_kwargs,
     )
+
     opt_chain += f"main_method: {main_method}"
 
     return result, opt_chain

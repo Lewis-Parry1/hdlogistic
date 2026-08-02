@@ -24,10 +24,7 @@ def test_solve_state_equation_no_int_compare_candes_sur(
     alpha = 1.0
     gamma = np.sqrt(5 + thetas**2)
 
-    # Use default brglm2 starting guess
-    start = np.array([0.5, 1, 1])
-
-    solver_result, _ = solve_state_equation(kappa, gamma, alpha, start, init_iter=50)
+    solver_result, _ = solve_state_equation(kappa, gamma, alpha, init_iter=50)
 
     # Ensure solver converged successfully
     assert solver_result.success is True, "Solver failed to converge"
@@ -53,13 +50,10 @@ def test_solve_state_equation_w_int_compare_candes_sur(
     kappa = 0.2
     alpha = 1.0
 
-    start = np.array([0.5, 1, 1, 0.0])
-
     solver_result, _ = solve_state_equation(
         kappa,
         gamma,
         alpha,
-        start,
         intercept=thetas,
         init_iter=50,
     )
@@ -83,12 +77,7 @@ def test_solve_state_equations_against_se0_brglm2() -> None:
     # results from brglm2::solve_se
     true_nelder_mead_50 = np.array([0.5649718, 2.5935673, 2.5376760])
 
-    # use default, naive guess used in brglm2
-    start = np.array([0.5, 1, 1])
-
-    est_nelder_mead_50, _ = solve_state_equation(
-        kappa, gamma, alpha, start, init_iter=50
-    )
+    est_nelder_mead_50, _ = solve_state_equation(kappa, gamma, alpha, init_iter=50)
 
     # Ensure solver gets suffciently to roots
     np.testing.assert_array_almost_equal(est_nelder_mead_50.func_value, np.zeros(3))
@@ -112,13 +101,10 @@ def test_solve_state_equations_not_corrupt_against_se1_brglm2() -> None:
     # results from brglm2::solve_se using above values
     brglm2_res = np.array([0.5565527, 2.6079197, 2.5297002, 0.5585552])
 
-    start = np.array([0.5, 1, 1, 0])
-
     soln, _ = solve_state_equation(
         kappa,
         gamma,
         alpha,
-        start,
         corrupted=False,
         intercept=theta,
     )
@@ -143,17 +129,14 @@ def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
     brglm2_res = np.array([0.5565527, 2.6079197, 2.5297002, 0.5585552])
     mu_root, b_root, sigma_root, iota_root = brglm2_res
 
-    # compute the corrupted signal strength
+    # compute the corrupted signal strength, nu
     nu = np.sqrt(mu_root**2 * gamma**2 + kappa * sigma_root**2)
-
-    start = np.array([0.5, 1, 1, 0])
 
     # pass in corrupted signal strength and estimtaed intercept (iota_root)
     soln_c, _ = solve_state_equation(
         kappa,
         nu,
         alpha,
-        start,
         corrupted=True,
         intercept=iota_root,
     )
@@ -202,9 +185,7 @@ def test_solve_se1_retrieve_nu() -> None:
     """
     kappa, gamma, alpha, theta = 0.2, 5, 0.88, 1.0
 
-    start = np.array([0.5, 1, 1, 0.0])
-
-    res1, _ = solve_state_equation(kappa, gamma, alpha, start, intercept=theta)
+    res1, _ = solve_state_equation(kappa, gamma, alpha, intercept=theta)
     sol1 = res1.solution.to_array()
 
     mu, _, sigma, iota = (sol1[0], sol1[1], sol1[2], sol1[3])
@@ -214,9 +195,7 @@ def test_solve_se1_retrieve_nu() -> None:
 
     # Use the corrupted signal strength as gamma and iota as intercept
     # in solver with corrupted = True
-    res1_c, _ = solve_state_equation(
-        kappa, nu, alpha, start, corrupted=True, intercept=iota
-    )
+    res1_c, _ = solve_state_equation(kappa, nu, alpha, corrupted=True, intercept=iota)
     sol1_c = res1_c.solution.to_array()
 
     # mu, b, sigma should be recovered consistently between the two parameterizations
@@ -232,10 +211,8 @@ def test_solve_state_equation_no_int_transform_safely() -> None:
     """
     kappa, gamma, alpha = 0.2, 5, 0.88
 
-    start = np.asarray([0.5, 1, 1])
-
-    soln, _ = solve_state_equation(kappa, gamma, alpha, start, transform=False)
-    soln_t, _ = solve_state_equation(kappa, gamma, alpha, start, transform=True)
+    soln, _ = solve_state_equation(kappa, gamma, alpha, transform=False)
+    soln_t, _ = solve_state_equation(kappa, gamma, alpha, transform=True)
 
     np.testing.assert_array_almost_equal(
         soln.solution.to_array(), soln_t.solution.to_array()
@@ -249,16 +226,13 @@ def test_solve_state_equation_int_transform_safely() -> None:
     """
     kappa, gamma, alpha, theta = 0.2, 5, 0.88, 1.0
 
-    start = np.asarray([0.5, 1, 1, 0])
-
     soln, _ = solve_state_equation(
-        kappa, gamma, alpha, start, transform=False, intercept=theta
+        kappa, gamma, alpha, transform=False, intercept=theta
     )
     soln_t, _ = solve_state_equation(
         kappa,
         gamma,
         alpha,
-        start,
         transform=True,
         intercept=theta,
     )
