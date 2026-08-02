@@ -24,7 +24,11 @@ class DiaconisYlvisakerLogisticRegressionResult:
     x_validated : FloatArray
         The validated design matrix of shape (n_samples, n_features).
     alpha : float
-        Prior shrinkage hyperparameter used in the model fit, in the interval [0, 1].
+        Prior shrinkage hyperparameter used in the model fit to adjust responses,
+        in the interval [0, 1].
+    theta_hat : float | None
+        The estimated scalar intercept coefficient from the fitted model.
+        Set to None if the model is fitted without an intercept.
     """
 
     betas: FloatArray
@@ -33,6 +37,7 @@ class DiaconisYlvisakerLogisticRegressionResult:
     y_adjusted: FloatArray
     x_validated: FloatArray
     alpha: float
+    theta_hat: float | None
 
 
 @dataclass
