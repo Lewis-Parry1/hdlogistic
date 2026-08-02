@@ -6,7 +6,6 @@ import numpy as np
 from scipy.optimize import OptimizeResult, minimize, root
 
 from to_be_titled import state_equations
-from to_be_titled.quadrature import get_hermite_roots_weights
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
@@ -15,17 +14,16 @@ def _se_funcs(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    hermite_roots_weights: tuple[FloatArray, FloatArray],
+    hermite_roots_weights: tuple[FloatArray, FloatArray] | None,
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     transform: bool = True,
     intercept: float | None = None,
-    iota: float | None = None,
 ) -> Callable[[FloatArray], FloatArray]:
-    """
+    r"""
     Construct the system of MDYPL state evolution equations.
     Returns a closure compatible with scipy.optimize.root and scipy.optimize.minimize.
-    The closure evaluates the three state evolution equations
+    The closure evaluates the three (or four) state evolution equations
     using Gauss–Hermite quadrature and optionally performs a log-transformation
     of the optimisation variables to enforce positivity.
 
@@ -35,40 +33,38 @@ def _se_funcs(
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         kappa should be in (0,1).
     signal_strength : float
-        Square root of signal strength or of corrupted signal
-        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the
-        var(X * beta). If corrupted is True, then `signal_strength` is the limit
-        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
-        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
-        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        Square root of the signal strength (ss).
+        - If `corrupted = False`, represents the true signal strength
+        \gamma (square root of the limit of Var(X * \beta_0))
+        - If `corrupted = True`, represents the corrupted signal strength
+        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+        signal strength leave one out estimator).
     alpha : float
-        Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
+        Shrinkage hyperparamter of the MDYPL estimator. `alpha` should be in (0,1).
     hermite_roots_weights : tuple[FloatArray, FloatArray]
-        A tuple of 1D arrays containing Gauss Hermite quadrature nodes and weights
-        used to approximate the system's expected values.
+        Tuple of 1D arrays containing Gauss Hermite quadrature nodes and weights
+        used to approximate the expected values in the state equations.
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of
-        proximal operator, by default 1e-10.
+        proximal operator. Default is 1e-10.
     corrupted : bool, optional
-        If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal
-        strength is the limit of the variance of the fitted values computed by
-        mdyplFit() with shrinkage parameter, alpha. By default, False.
+        If False, `signal_strength` is the true signal strength \gamma.
+        If True, `signal_strength` is the corrupted signal strength, \nu.
+        Default is False.
     transform : bool, optional
-        If True, the returned function expects the input parameters
-        (`mu`, `b`, `sigma`) to be log-transformed. The closure will
-        automatically clip and exponentiate the inputs to enforce strict
-        positivity and prevent numerical underflow/overflow during solver
-        exploration. By default True.
+        If True, the closure expects the input parameters (`mu`, `b`, `sigma`)
+        to be log-transformed. The closure will automatically clip and exponentiate
+        the inputs to enforce strict positivity and prevent numerical
+        underflow/overflow during solver exploration. By default True.
     intercept: float | None, optional
-        If None, then state evolution equations are solved for model without
-        intercept. If a float, then the equations for the model with
-        intercept parameter equal to `intercept` are used.
-    iota: float | None, optional
-        Only specified for intercept model. `iota` is the limit of MDYPL
-        estimator of \\theta_0 as computed by mdyplFit() with shrinkage
-        parameter `alpha`.
+        If `intercept` is None, then the 3-equation system without an intercpet is
+        used. If `intercept` is a float, then when
+        - `corrupted = False`, `intercept` specifies the known (fixed) population
+        intercept (\theta_0) used when solving the 4-equation state evolution system,
+        for `iota` which is the asymptotic limit of the sample estimated intercept.
+        - `corrupted = True`, `intercept` specifies the (fixed) sample intercept
+        estimate (\hat{\theta}_0) used to solve the 4-equation state evolution system,
+        for the true intercept \theta_0.
 
     Returns
     -------
@@ -79,108 +75,94 @@ def _se_funcs(
     """
 
     def g(pars: FloatArray) -> FloatArray:
+        """
+        The residual closure function passed into scipy solvers to be optimised.
+        """
         pars = np.asarray(pars, dtype=np.float64)
-        if corrupted:
-            if iota is None:
-                # 3 param; mu , b , sigma, no intercept in model
-                # Clip parameters before exponentiating to avoid overflow
-                pars_t = np.exp(np.clip(pars, -20, 20)) if transform else pars
-                mu, b, sigma = pars_t[0], pars_t[1], pars_t[2]
-                with np.errstate(invalid="ignore"):
-                    # Estimate gamma using corrupted signal strength
-                    gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
-                if np.isnan(gamma):
-                    warn(
-                        "Estimated gamma evaluated to NaN (likely due to division by "
-                        "zero or negative variance). Returning NaNs for state "
-                        "equation residuals.",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
-                    return np.full(3, np.nan)
-                return state_equations.se_no_intercept(
-                    mu=mu,
-                    b=b,
-                    sigma=sigma,
-                    kappa=kappa,
-                    gamma=gamma,
-                    alpha=alpha,
-                    hermite_roots_weights=hermite_roots_weights,
-                    prox_tol=prox_tol,
-                )
-            else:
-                # 4 param; mu, b, sigma (transformed) and intercept (untransformed)
-                # iota is fixed (estimated intercept from model), solve for
-                # true intercept
-                if transform:
-                    pars_t = pars.copy()
-                    pars_t[:3] = np.exp(np.clip(pars[:3], -20, 20))
-                else:
-                    pars_t = pars
 
-                mu, b, sigma, intercept_free = (
-                    pars_t[0],
-                    pars_t[1],
-                    pars_t[2],
-                    pars_t[3],
-                )
-
-                with np.errstate(invalid="ignore"):
-                    gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
-                if np.isnan(gamma):
-                    warn(
-                        "Estimated gamma evaluated to NaN (likely due to division by "
-                        "zero or negative variance). Returning NaNs for state "
-                        "equation residuals.",
-                        RuntimeWarning,
-                        stacklevel=2,
-                    )
-                    return np.full(4, np.nan)
-                return state_equations.se_with_intercept(
-                    mu=mu,
-                    b=b,
-                    sigma=sigma,
-                    iota=iota,
-                    kappa=kappa,
-                    gamma=gamma,
-                    alpha=alpha,
-                    intercept=intercept_free,
-                    hermite_roots_weights=hermite_roots_weights,
-                    prox_tol=prox_tol,
-                )
-        # Not corrupted case; iota is estimated in intercept model
+        if transform:
+            mu, b, sigma = np.exp(np.clip(pars[:3], -20, 20))
         else:
-            if intercept is None:
-                # 3 param model; mu, b , sigma
-                pars_t = np.exp(np.clip(pars, -20, 20)) if transform else pars
-                return state_equations.se_no_intercept(
-                    mu=pars_t[0],
-                    b=pars_t[1],
-                    sigma=pars_t[2],
-                    kappa=kappa,
-                    gamma=signal_strength,
-                    alpha=alpha,
-                    hermite_roots_weights=hermite_roots_weights,
-                    prox_tol=prox_tol,
-                )
-            # 4 param model; mu, b, sigma (transformed) and iota (untransformed)
-            # true intercept is known (fixed), solve for iota
-            else:
-                if transform:
-                    pars_t = pars.copy()
-                    pars_t[:3] = np.exp(np.clip(pars[:3], -20, 20))
-                else:
-                    pars_t = pars
-                mu, b, sigma, iota_free = pars_t[0], pars_t[1], pars_t[2], pars_t[3]
+            mu, b, sigma = pars[:3]
+
+        def _derive_gamma_from_nu() -> float:
+            with np.errstate(invalid="ignore"):
+                gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
+            return float(gamma)
+
+        # Case 1: Oracle case, true population intercept known
+        if not corrupted:
+            gamma = signal_strength
+
+            if intercept is not None:
+                # iota is one of the variables in which we are trying to solve for
+                iota_var = pars[3]
+                theta_fixed = intercept
+
                 return state_equations.se_with_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
-                    iota=iota_free,
+                    iota=iota_var,
                     kappa=kappa,
-                    gamma=signal_strength,
+                    gamma=gamma,
                     alpha=alpha,
-                    intercept=intercept,
+                    theta=theta_fixed,
+                    hermite_roots_weights=hermite_roots_weights,
+                    prox_tol=prox_tol,
+                )
+            else:
+                return state_equations.se_no_intercept(
+                    mu=mu,
+                    b=b,
+                    sigma=sigma,
+                    kappa=kappa,
+                    gamma=gamma,
+                    alpha=alpha,
+                    hermite_roots_weights=hermite_roots_weights,
+                    prox_tol=prox_tol,
+                )
+
+        # Case 2: Empirical (corrupted) case; true population intercept not known
+        # Estimated sample intercept is given
+        else:
+            # Estimate gamma through corrupted signal strength nu
+            gamma = _derive_gamma_from_nu()
+
+            if gamma is np.nan:
+                warn(
+                    "Estimated gamma evaluated to NaN (likely due to division by "
+                    "zero). Returning NaNs for state equation residuals.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                return np.full(3, np.nan)
+
+            if intercept is not None:
+                # true theta is now what we are trying to solve for
+                theta_var = pars[3]
+                # iota, is fixed and specified by estimated sample intercept
+                iota_fixed = intercept
+                return state_equations.se_with_intercept(
+                    mu=mu,
+                    b=b,
+                    sigma=sigma,
+                    iota=iota_fixed,
+                    kappa=kappa,
+                    gamma=gamma,
+                    alpha=alpha,
+                    theta=theta_var,
+                    hermite_roots_weights=hermite_roots_weights,
+                    prox_tol=prox_tol,
+                )
+            else:
+                return state_equations.se_no_intercept(
+                    mu=mu,
+                    b=b,
+                    sigma=sigma,
+                    kappa=kappa,
+                    gamma=gamma,
+                    alpha=alpha,
                     hermite_roots_weights=hermite_roots_weights,
                     prox_tol=prox_tol,
                 )
@@ -222,7 +204,7 @@ def _init_solver(
     intercept: float | None = None,
     **minimize_kwargs: Any,
 ) -> SolverResult:
-    """
+    r"""
     Performs an initial unconstrained minimization to find a robust starting
     point for the main state evolution root-finding algorithm.
 
@@ -237,28 +219,27 @@ def _init_solver(
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
     signal_strength : float
-        Square root of signal strength or of corrupted signal
-        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the
-        var(X * beta). If corrupted is True, then `signal_strength` is the limit
-        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
-        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
-        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        Square root of the signal strength (ss).
+        - If `corrupted = False`, represents the true signal strength
+        \gamma (square root of the limit of Var(X * \beta_0))
+        - If `corrupted = True`, represents the corrupted signal strength
+        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+        signal strength leave one out estimator).
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : FloatArray, optional
-        A 1D array of starting values for the state evolution parameters
-        (`mu`, `b`, and `sigma`). These are internally log-transformed during
-        minimization to enforce strict positivity and prevent underflow. If None,
-        the additional starting candidates are only considered.
+        A 1D array of starting values with (`mu`, `b`, `sigma`) with an optional,
+        `iota`/`theta` value if an intercept is included. The first three parameters
+        are internally log-transformed during minimization to enforce strict
+        positivity and prevent underflow. If None, default candidate starting vectors
+        are used.
     init_method : str, optional
-        The optimization method to be passed to `scipy.optimize.minimize`
-        to minimize the squared residuals, by default 'Nelder-Mead'.
+        The optimization method passed into `scipy.optimize.minimize`
+        to minimize the sum of squared residuals, by default 'Nelder-Mead'.
     init_iter : int, optional
         Maximum number of iterations for the initial minimization algorithm,
         by default 50.
-    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
-    optional
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None, optional
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default None, in
         which case it is set to `scipy.special.roots_hermite(200)`.
@@ -266,19 +247,17 @@ def _init_solver(
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
     corrupted: bool, optional
-        If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal
-        strength is the limit of the variance of the fitted values computed by
-        mdyplFit() with shrinkage parameter, alpha. By default, False.
+        If False, `signal_strength` is the true signal strength \gamma.
+        If True, `signal_strength` is the corrupted signal strength, \nu.
+        Default is False.
     intercept : float | None, optional
-        If `intercept` is None, then the solver, solves for the three stationary
-        points `mu`, `b` and `sigma`, using the MDYPL state equations without an
-        intercept. If `intercept` is a float, then what it represents depends on
-        the value of `corrupted`. If `corrupted` is False, then `intercept`
-        represents the oracle (true) value of the intercept of the model.
-        If `corrupted` is True  then the `intercept` represents the limit
-        `iota` of the MDYPL estimator of the oracle value of the intercept
-        of the model.
+        If None, the function minimizes residuals for the 3-equation system
+        without an intercept (`mu`,`b`, `sigma`).
+        If a float:
+        - If `corrupted = False`, `intercept` represents the true population
+        intercept \theta_0.
+        - If `corrupted = True`, `intercept` represents the limit, `iota`, of the
+        MDYPL sample-estimated intercept \hat{\theta}_0.
     **minimize_kwargs : dict[str, Any], optional
         Additional keyword arguments passed directly to `scipy.optimize.minimize`.
 
@@ -286,9 +265,8 @@ def _init_solver(
     -------
     SolverResult
         A dataclass containing the optimal real-space parameters (`solution`),
-        the evaluated residual vector at the solution (`func_value`), the number
-        of iterations performed (`iterations`), and the solver's convergence status
-        (`message`, `success`).
+        the evaluated residual vector at the solution (`func_value`), and the
+        solver's convergence status (`message`, `success`).
     """
     has_intercept = intercept is not None
 
@@ -329,38 +307,22 @@ def _init_solver(
 
     best: tuple[float, OptimizeResult] | None = None
 
-    hermite_roots_weights = (
-        hermite_roots_weights
-        if hermite_roots_weights is not None
-        else get_hermite_roots_weights(200)
+    g = _se_funcs(
+        kappa=kappa,
+        signal_strength=signal_strength,
+        alpha=alpha,
+        hermite_roots_weights=hermite_roots_weights,
+        prox_tol=prox_tol,
+        corrupted=corrupted,
+        transform=True,
+        intercept=intercept,
     )
 
-    if corrupted:
-        # fitted model returns estimated intercept (iota)
-        g = _se_funcs(
-            kappa,
-            signal_strength,
-            alpha,
-            hermite_roots_weights,
-            prox_tol,
-            corrupted,
-            transform=True,
-            iota=intercept,
-        )
-    else:
-        # true intercept known, trying to estimate iota
-        g = _se_funcs(
-            kappa,
-            signal_strength,
-            alpha,
-            hermite_roots_weights,
-            prox_tol,
-            corrupted,
-            transform=True,
-            intercept=intercept,
-        )
-
     def objective(pars_log: FloatArray) -> float:
+        """
+        Defines the objective to be passed into scipy.optimize.minimize, which is
+        to minimize the sum of squared residuals.
+        """
         r = g(pars_log)
         return float(np.dot(r, r))
 
@@ -384,9 +346,8 @@ def _init_solver(
         )  # pyright: ignore[reportCallIssue]
 
         resid_norm = res.fun
-        if not np.isnan(resid_norm) and (
-            best is None or np.isnan(best[0]) or resid_norm < best[0]
-        ):
+
+        if not np.isnan(resid_norm) and (best is None or resid_norm < best[0]):
             best = (resid_norm, res)
 
     if best is None:
@@ -439,7 +400,7 @@ def _root_solver(
     intercept: float | None = None,
     **root_kwargs: Any,
 ) -> SolverResult:
-    """
+    r"""
     Executes the main root-finding algorithm to estimate the stationary point
     (`mu*`, `b*`, `sigma*`) of the MDYPL state evolution equations.
 
@@ -454,50 +415,40 @@ def _root_solver(
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
     signal_strength : float
-        Square root of signal strength or of corrupted signal
-        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the
-        var(X * beta). If corrupted is True, then `signal_strength` is the limit
-        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
-        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
-        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        Square root of the signal strength (ss).
+        - If `corrupted = False`, represents the true signal strength
+        \gamma (square root of the limit of Var(X * \beta_0))
+        - If `corrupted = True`, represents the corrupted signal strength
+        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+        signal strength leave one out estimator).
     alpha : float
-        Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
+        Shrinkage hyperparameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : FloatArray
-        A 1D array of starting values for `mu`, `b` and `sigma`. For extreme
-        `kappa` and `gamma` regimes, it is recommended to pass a "warm"
-        starting guess obtained from an initial heuristic solver.
+        A 1D array of starting values with (`mu`, `b`, `sigma`) with an optional,
+        `iota`/`theta` value if an intercept is included. Especially, for exteme
+        `kappa` and `gamma` reigmes, it is reccomended to use an initial sum of
+        squares minimizer to obtain a warm start for the root solver.
     main_method : str, optional
         The method to be passed into `scipy.optimize.root` to find the roots of
         the state equations, by default "hybr" .
-    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
-    optional
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None, optional
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
-        used to approximate the system's expected values. By default None, in which
-        case it is set to `scipy.special.roots_hermite(200)`.
+        used to approximate the system's expected values. By default, None.
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
     corrupted: bool, optional
-        If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal
-        strength is the limit of the variance of the fitted values computed by
-        mdyplFit() with shrinkage parameter, alpha. By default, False.
-    transform : bool, optional
-        If True, the input parameters (`mu`, `b`, `sigma`) are internally
-        log-transformed before being passed to the objective function. The closure
-        will automatically clip and exponentiate the inputs to enforce strict
-        positivity and prevent numerical underflow/overflow during solver
-        exploration. By default True.
+        If False, `signal_strength` is the true signal strength \gamma.
+        If True, `signal_strength` is the corrupted signal strength, \nu.
+        Default is False.
     intercept : float | None, optional
-        If `intercept` is None, then the solver, solves for the three stationary
-        points `mu`, `b` and `sigma`, using the MDYPL state equations without an
-        intercept. If `intercept` is a float, then what it represents depends on
-        the value of `corrupted`. If `corrupted` is False, then `intercept`
-        represents the oracle (true) value of the intercept of the model.
-        If `corrupted` is True  then the `intercept` represents the limit
-        `iota` of the MDYPL estimator of the oracle value of the intercept
-        of the model.
+        If None, the function minimizes residuals for the 3-equation system
+        without an intercept (`mu`,`b`, `sigma`).
+        If a float:
+        - If `corrupted = False`, `intercept` represents the true population
+        intercept \theta_0.
+        - If `corrupted = True`, `intercept` represents the limit, `iota`, of the
+        MDYPL sample-estimated intercept \hat{\theta}_0.
     **root_kwargs : dict[str, Any], optional
         Additional keyword arguments passed directly to `scipy.optimize.root`.
 
@@ -505,40 +456,21 @@ def _root_solver(
     -------
     SolverResult
         A dataclass containing the optimal real-space parameters (`solution`),
-        the evaluated residual vector at the solution (`func_value`), the number
-        of iterations performed (`iterations`), and the solver's termination
-        status and message (`message`, `success`).
+        the evaluated residual vector at the solution (`func_value`) and the
+        solver's termination status and message (`message`, `success`).
     """
     has_intercept = intercept is not None
 
-    hermite_roots_weights = (
-        hermite_roots_weights
-        if hermite_roots_weights is not None
-        else get_hermite_roots_weights(200)
+    g = _se_funcs(
+        kappa,
+        signal_strength,
+        alpha,
+        hermite_roots_weights,
+        prox_tol,
+        corrupted,
+        transform,
+        intercept=intercept,
     )
-
-    if corrupted:
-        g = _se_funcs(
-            kappa,
-            signal_strength,
-            alpha,
-            hermite_roots_weights,
-            prox_tol,
-            corrupted,
-            transform,
-            iota=intercept,
-        )
-    else:
-        g = _se_funcs(
-            kappa,
-            signal_strength,
-            alpha,
-            hermite_roots_weights,
-            prox_tol,
-            corrupted,
-            transform,
-            intercept=intercept,
-        )
 
     if transform:
         start_t = (
@@ -551,6 +483,7 @@ def _root_solver(
 
     res = root(g, start_t, method=cast(Any, main_method), **root_kwargs)
     raw_x = np.asarray(res.x, dtype=np.float64)
+
     if transform:
         soln = (
             np.concatenate([np.exp(raw_x[:3]), raw_x[3:4]])
@@ -600,13 +533,14 @@ def solve_state_equation(
     main_method: str = "hybr",
     prox_tol: float = 1e-10,
 ) -> tuple[SolverResult, str]:
-    """
-    Solves the MDYPL state evolution equations (without intercept).
+    r"""
+    Solves the MDYPL state evolution equations.
 
-    This wrapper function execute the optional heuristic initial minimizer to
+    This wrapper function executes the optional initial sum of squares minimizer to
     obtain a warm start followed by a precise numerical root-finder.
     It provides a robust mechanism for finding the stationary points
-    (`mu*`, `b*`, `sigma*`) of the system's state equations.
+    `mu*`, `b*`, and `sigma*` (and `iota`/`theta` if an intercept is included)
+    of the system's state equations.
 
     Parameters
     ----------
@@ -614,19 +548,18 @@ def solve_state_equation(
         Asymptotic ratio of the columns/rows of the design matrix (p/n).
         `kappa` should be in (0,1).
     signal_strength : float
-        Square root of signal strength or of corrupted signal
-        strength, depending on whether `corrupted = TRUE` or not. If corrupted is
-        False, then `signal_strength` is the limit `gamma` squared of the
-        var(X * beta). If corrupted is True, then `signal_strength` is the limit
-        `nu` squared of \\text{var}(X * \\hat \\beta), where \\hat{\\beta}
-        is the maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL)
-        estimator as computed by [mdyplFit()] with shrinkage parameter alpha.
+        Square root of the signal strength (ss).
+        - If `corrupted = False`, represents the true signal strength
+        \gamma (square root of the limit of Var(X * \beta_0))
+        - If `corrupted = True`, represents the corrupted signal strength
+        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+        signal strength leave one out estimator).
     alpha : float
-        Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
+        Shrinkage hyperparameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : FloatArray | None
-        A 1D array of length 3 containing the initial starting values for `mu`, `b`,
-        and `sigma`. By default, None.
-    hermite_roots_weights : tuple[FloatArray, FloatArray] | None
+        A 1D array of starting values with (`mu`, `b`, `sigma`) with an optional,
+        `iota`/`theta` value if an intercept is included. By default, None.
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None, optional
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default, None.
     root_kwargs : dict[str, Any] | None, optional
@@ -636,27 +569,26 @@ def solve_state_equation(
         Additional keyword arguments passed directly to the initial minimizer
         (`scipy.optimize.minimize`).
     corrupted: bool, optional
-        If False, then `signal_strength` is the square root of the signal strength.
-        If True, then `signal_strength` is the square root of the corrupted signal
-        strength is the limit of the variance of the fitted values computed by
-        mdyplFit() with shrinkage parameter, alpha. By default, False.
+        If False, `signal_strength` is the true signal strength \gamma.
+        If True, `signal_strength` is the corrupted signal strength, \nu.
+        Default is False.
     intercept: float | None, optional
-        If `intercept` is None, then the solver, solves for the three stationary
-        points `mu`, `b` and `sigma`, using the MDYPL state equations without an
-        intercept. If `intercept` is a float, then what it represents depends on
-        the value of `corrupted`. If `corrupted` is False, then `intercept`
-        represents the oracle (true) value of the intercept of the model.
-        If `corrupted` is True  then the `intercept` represents the limit
-        `iota` of the MDYPL estimator of the oracle value of the intercept
-        of the model.
+        If None, the function minimizes residuals for the 3-equation system
+        without an intercept (`mu`,`b`, `sigma`).
+        If a float:
+        - If `corrupted = False`, `intercept` represents the true population
+        intercept \theta_0.
+        - If `corrupted = True`, `intercept` represents the limit, `iota`, of the
+        MDYPL sample-estimated intercept \hat{\theta}_0.
     transform : bool, optional
         If True, the input parameters (`mu`, `b`, `sigma`) are internally
-        log-transformed during the solver exploration to enforce strict positivity
-        and prevent numerical underflow/overflow. By default True.
+        log-transformed before being passed into scipy.optimize.root().
+        This enforces strict positivity and can improve convergence.
+        By default, True.
     init_iter : int, optional
-        The number of iterations to run the initial minimization algorithm. If set
-        to greater than 0, the result is passed as a warm start to the main solver.
-        By default 50.
+        The number of iterations to run the initial minimization algorithm. If
+        `init_iter` is greater than zero, the result from `_init_solver` is passed
+        into `_root_solver` as a warm start. By default, 50.
     init_method : str, optional
         The optimization method to be passed to `scipy.optimize.minimize` for the
         initial warm-start phase, by default "Nelder-Mead".
@@ -672,8 +604,8 @@ def solve_state_equation(
     tuple[SolverResult, str]
         A two-element tuple containing:
         - SolverResult: dataclass with the optimal real-space parameters
-          (`solution`), the evaluated residual vector (`func_value`), number
-          of iterations, and the main solver's converges success/message.
+          (`solution`), the evaluated residual vector (`func_value`)and
+          the main solver's converges success/message.
         - str: a summary of the optimization chain used (e.g. which
           initial and main methods were applied).
 

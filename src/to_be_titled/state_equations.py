@@ -17,38 +17,39 @@ def se_no_intercept(
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
 ) -> FloatArray:
-    """
+    r"""
 
     MDYPL state evolution functions with no intercept.
 
     Parameters
     ----------
     mu : float
-        Aggregate bias parameter.
+            Aggregate bias parameter bounded between (0,1).
     b : float
-        Parameter 'b' in state evolution functions.
+        State evolution system parameter, `b` > 0.
     sigma : float
-        Square root of aggregate variance of the MDYPL estimator.
+        Square root of the aggregate variance of the MDYPL estimator,
+        `sigma` > 0.
     kappa : float
-        Kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
-        in `(0,1)`
+        Asymptotic ratio of columns/rows of the design matrix. `kappa` should be
+        in `(0,1)`.
     gamma : float
-        Square root of the limit of the (corrupted) signal strength.
+        Square root of the limit of the variance of the linear predictor.
     alpha : float
         The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
-    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
-    default = None
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None
         A list with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
-        roots_hermite(200).
+        roots_hermite(200). By default, None.
     prox_tol : float, optional
-        Tolerance for the computation of the proximal operator, by default 1e-10
+        Convergence tolerance for the computation of the proximal operator,
+        by default 1e-10.
 
     Returns
     -------
     FloatArray
-        A 1D array containing the evaluated residuals of the three state evolution
-        equations.
+        A 1D array containing the three evaluated residuals of the MDYPL state
+        evolution equations without intercept.
 
     References
     -------
@@ -106,47 +107,47 @@ def se_with_intercept(
     kappa: float,
     gamma: float,
     alpha: float,
-    intercept: float,
+    theta: float,
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
 ) -> FloatArray:
-    """
-
-    MDYPL state evolution functions with an intercept.
+    r"""
+    Evaluates the system of 4 MDYPL state evolution equations with an intercept.
 
     Parameters
     ----------
     mu : float
-        Aggregate bias parameter.
+        Aggregate bias parameter bounded between (0,1).
     b : float
-        Parameter 'b' in state evolution functions.
+        State evolution system parameter, `b` > 0.
     sigma : float
-        Square root of aggregate variance of the MDYPL estimator.
+        Square root of the aggregate variance of the MDYPL estimator,
+        `sigma` > 0.
     iota: float
-        limits of the MDYPL estimate for the intercept as the sample
-        size goes to +Inf.
+        Asymptotic limit of the MDYPL sample estimated intercept \hat{\theta}_0
+        as n,p \to \infty with p/n \to \kappa.
     kappa : float
-        Kappa asymptotic ratio of columns/rows of the design matrix. `kappa` should be
-        in `(0,1)`
+        Asymptotic ratio of columns/rows of the design matrix. `kappa` should be
+        in `(0,1)`.
     gamma : float
-        Square root of the (corrupted) signal strength.
+        Square root of the limit of the variance of the linear predictor.
     alpha : float
         The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
-    intercept : float
-        The intercept of a logistic regression model.
-    hermite_roots_weights : tuple[FloatArray, FloatArray] | None,
-    default = None
-        A list with gauss-hermite quadrature nodes and weights as returned from by
+    theta : float
+        The true population intercept \theta_0 of the logistic regresion model.
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None
+        A tuple with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
-        roots_hermite(200).
+        roots_hermite(200). By default, None.
     prox_tol : float, optional
-        Tolerance for the computation of the proximal operator, by default 1e-10
+        Convergence tolerance for the computation of the proximal operator,
+        by default 1e-10
 
     Returns
     -------
     FloatArray
-        A 1D array containing the evaluated residuals of the four state evolution
-        equations.
+        A 1D array of length 4 containing the evaluated residuals of the
+        four state evolution equations.
 
     References
     -------
@@ -174,9 +175,10 @@ def se_with_intercept(
     # q1 and q2 are transformed values which allow us to perform GH quadrature
     a_frac = 0.5 * (1 + alpha)
 
+    # q1 and q2 specify the two transformations of variables required to perform
+    # Gauss-Hermite quadrature
     q1_no_int = np.sqrt(2) * gamma * x_grid
-
-    q1 = q1_no_int + intercept
+    q1 = q1_no_int + theta
 
     expit_q1_pos = np.asarray(expit(q1), dtype=np.float64)
     expit_q1_neg = np.asarray(expit(-q1), dtype=np.float64)
