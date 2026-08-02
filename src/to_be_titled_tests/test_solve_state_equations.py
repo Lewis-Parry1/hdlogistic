@@ -226,12 +226,7 @@ def test_solve_se1_retrieve_nu() -> None:
     )
     sol1 = res1.solution.to_array()
 
-    mu, _, sigma, iota = (
-        sol1[0],
-        sol1[1],
-        sol1[2],
-        sol1[3],
-    )
+    mu, _, sigma, iota = (sol1[0], sol1[1], sol1[2], sol1[3])
 
     # Compute the corrupted signal strength
     nu = np.sqrt(mu**2 * gamma**2 + kappa * sigma**2)

@@ -24,16 +24,17 @@ def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
 
     Transforms the empirical binary responses into pseudo-probabilities shifted
     toward the prior distribution. This specific formulation assumes a zero prior
-    mode, which evaluates the inverse link function to 0.5.
+    mode, which evaluates the sigmoid function to 0.5.
 
     Parameters
     ----------
     y : FloatArray
         Original binary response vector of shape (n_samples,) or (n_samples, 1).
     alpha : float
-        Prior shrinkage hyperparameter in [0, 1]. Lower values enforce stronger
-        shrinkage toward the prior weight of 0; alpha = 1.0 recovers the
-        original response vector.
+        Shrinkage parameter in [0, 1]. Lower values enforce stronger prior
+        regularization, pulling the pseudo-responses toward 0.5 (which shrinks
+        coefficient estimates toward the prior mode of 0). Setting alpha = 1.0
+        recovers standard unpenalized maximum likelihood estimation.
 
     Returns
     -------
@@ -101,8 +102,8 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
 def fit_diaconis_ylvisaker_logistic_regression(
     x: FloatArray,
     y: FloatArray,
-    alpha: float = 0.5,
     intercept_index: int | None = None,
+    alpha: float | None = None,
     solver: str = "fisher_scoring",
     solver_config: dict[str, Any] = {},
 ) -> DiaconisYlvisakerLogisticRegressionResult:
@@ -113,27 +114,22 @@ def fit_diaconis_ylvisaker_logistic_regression(
         properties of the Diaconis-Ylvisaker prior, simplifies to standard maximisation
         of the log-likelihood function, on an adjusted response vector.
 
-        Parameters
-        ----------
-        x : FloatArray
-            Design matrix of shape (n_samples, n_features).
-        y : FloatArray
-            Binary response vector of shape (n_samples,) or (n_samples, 1).
-        alpha : float, default=0.5
-            Prior shrinkage hyperparameter in [0, 1]. Controls the variance of
-            the prior distribution. As alpha approaches 0, estimates shrink toward
-            the prior mode, as alpha approaches 1, the maximum likelihood
-            estimate is recovered.
-        intercept_index : int | None, default=None
-            Zero-based column index of the intercept in the design matrix `x`.
-            If provided, the corresponding estimated coefficient is stored as
-            `theta_hat` in the result for downstream state evolution calculations.
-            If None, the model is treated as having no intercept.
-        solver : str, default="fisher_scoring"
-            The optimization solver backend to use.
-        solver_config : dict[str, Any]
-                Configuration options dictionary passed to the solver. Supported keys
-                depend on the chosen solver:
+    Parameters
+    ----------
+    x : FloatArray
+        Design matrix of shape (n_samples, n_features).
+    y : FloatArray
+        Binary response vector of shape (n_samples,) or (n_samples, 1).
+    alpha : float | None, default = None
+        The prior shrinkage parameter in [0, 1] in the Diaconis-Ylvisaker
+        prior penalty. Default is None, in which `alpha` is set to \\frac{n}{n+p}
+        or equivalently, \\frac{1}{1+kappa}. Setting `alpha` to 1, corresponds to
+        using maximum likelihood without penalisation.
+    solver : str, default="fisher_scoring"
+        The optimization solver backend to use.
+    solver_config : dict[str, Any]
+            Configuration options dictionary passed to the solver. Supported keys
+            depend on the chosen solver:
 
                 - For `"fisher_scoring"`:
                     * `"max_iterations"` (int, default=25): Maximum Fisher scoring
@@ -159,11 +155,11 @@ def fit_diaconis_ylvisaker_logistic_regression(
         LinAlgError
             If the Fisher information matrix is singular during solver operations.
 
-        References
-        ----------
-        .. [1] Sterzinger, P., & Kosmidis, I. (2024). Diaconis-Ylvisaker prior
-               penalized likelihood for p/n -> kappa in (0,1) logistic regression.
-               https://arxiv.org/abs/2311.07419
+    References
+    ----------
+    .. [1] Sterzinger, P., & Kosmidis, I. (2026). Diaconis-Ylvisaker prior
+           penalized likelihood for p/n -> kappa in (0,1) logistic regression.
+           https://arxiv.org/abs/2311.07419
     """
 
     if solver not in SOLVERS_REGISTRY:
@@ -173,11 +169,16 @@ def fit_diaconis_ylvisaker_logistic_regression(
         )
     solver_function = SOLVERS_REGISTRY[solver]
 
+    x_validated = _ensure_design_matrix(x)
+    y_validated = _ensure_column_vector(y)
+
+    if alpha is None:
+        n, p = x_validated.shape[0], x_validated.shape[1]
+        alpha = n / (n + p)
+
     if not 0.0 <= alpha <= 1.0:
         raise ValueError("alpha must be in [0, 1]")
 
-    x_validated = _ensure_design_matrix(x)
-    y_validated = _ensure_column_vector(y)
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
     # Delegate to the chosen solver function
