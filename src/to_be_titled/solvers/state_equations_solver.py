@@ -122,7 +122,7 @@ def _se_funcs(
                     pars_t[0],
                     pars_t[1],
                     pars_t[2],
-                    pars_t[3]
+                    pars_t[3],
                 )
 
                 with np.errstate(invalid="ignore"):
