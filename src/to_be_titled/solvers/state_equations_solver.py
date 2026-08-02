@@ -364,20 +364,17 @@ def _init_solver(
     )
 
     if has_intercept:
-        if corrupted:
-            mu, b, sigma, theta = soln
-            state_params = StateParameters(
-                mu=mu, b=b, sigma=sigma, iota=None, theta=theta
-            )
-        else:
-            mu, b, sigma, iota = soln
-            state_params = StateParameters(
-                mu=mu, b=b, sigma=sigma, iota=iota, theta=None
-            )
-
+        mu, b, sigma, intercept_est = soln
+        state_params = StateParameters(
+            mu=mu,
+            b=b,
+            sigma=sigma,
+            intercept_estimate=intercept_est,
+            corrupted=corrupted,
+        )
     else:
         mu, b, sigma = soln
-        state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=None, theta=None)
+        state_params = StateParameters(mu=mu, b=b, sigma=sigma, corrupted=corrupted)
 
     return SolverResult(
         solution=state_params,
@@ -494,20 +491,18 @@ def _root_solver(
         soln = raw_x
 
     if has_intercept:
-        if corrupted:
-            mu, b, sigma, theta = soln
-            state_params = StateParameters(
-                mu=mu, b=b, sigma=sigma, iota=None, theta=theta
-            )
-        else:
-            mu, b, sigma, iota = soln
-            state_params = StateParameters(
-                mu=mu, b=b, sigma=sigma, iota=iota, theta=None
-            )
-
+        mu, b, sigma, intercept_est = soln
+        state_params = StateParameters(
+            mu=mu,
+            b=b,
+            sigma=sigma,
+            intercept_estimate=intercept_est,
+            corrupted=corrupted,
+        )
     else:
         mu, b, sigma = soln
-        state_params = StateParameters(mu=mu, b=b, sigma=sigma, iota=None, theta=None)
+        state_params = StateParameters(mu=mu, b=b, sigma=sigma, corrupted=corrupted)
+
 
     return SolverResult(
         solution=state_params,
