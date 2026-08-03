@@ -3,34 +3,31 @@ import numpy as np
 from to_be_titled.types import FloatArray
 
 
-def _validate_domain(params: FloatArray, has_intercept: bool = False) -> None:
+def _validate_domain(params: FloatArray) -> None:
     """
     Validates `mu`, `b`, `sigma` and optional `intercept` lie within required domains.
     """
     mu, b, sigma = params[:3]
-    if has_intercept:
-        intercept = params[3]
-
-    if not (0 < mu < 1):
-        raise ValueError(f"`mu` must lie in (0,1). Received {mu}.")
+   
+    n_param = len(params)
+    
+    if not np.all(np.isfinite(params[:n_param])): 
+        raise ValueError(f"All parameters must be finite. Received {params}")
+    if mu <= 0:
+        raise ValueError(f"`mu` must be greater than 0. Received {mu}.")
     if b <= 0:
-        raise ValueError(f"`b` must be strictly positive; received {b}.")
+        raise ValueError(f"`b` must be strictly positive. Received {b}.")
     if sigma <= 0:
-        raise ValueError(f"`sigma` must be strictly positive; received {sigma}.")
-    if has_intercept:
-        if not np.isfinite(intercept):
-            raise ValueError(
-                f"`intercept` must be finite/not NaN: recieved {intercept}"
-            )
+        raise ValueError(f"`sigma` must be strictly positive. Received {sigma}.")
 
 
-def _is_valid_domain(params: FloatArray, has_intercept: bool) -> bool:
+def _is_valid_domain(params: FloatArray) -> bool:
     """
     Returns True if `mu`, `b`, `sigma` and optional intercept, are in
     valid domain. Returns False otherwise.
     """
     try:
-        _validate_domain(params, has_intercept=has_intercept)
+        _validate_domain(params)
     except ValueError:
         return False
     return True

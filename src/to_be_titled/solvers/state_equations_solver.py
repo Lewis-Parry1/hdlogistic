@@ -382,7 +382,8 @@ def _init_solver(
         soln_raw = _transform_parameters(res.x, has_intercept, reverse=True)
 
         # Ensure roots found lie within valid domain
-        if not validation._is_valid_domain(soln_raw, has_intercept):
+        # Otherwise no sense to pass in as warm start to _root_solver
+        if not validation._is_valid_domain(soln_raw):
             continue
 
         if (
@@ -520,6 +521,9 @@ def _root_solver(
     else:
         soln = raw_x
 
+    # Check that solution is in valid domain 
+    validation._validate_domain(soln)
+
     if has_intercept:
         mu, b, sigma, intercept_est = soln
         state_params = StateParameters(
@@ -646,7 +650,7 @@ def solve_state_equation(
 
     if start is not None:
         validation._validate_start_dims(start, has_intercept)
-        validation._validate_domain(start, has_intercept)
+        validation._validate_domain(start)
 
     root_kwargs = root_kwargs or {}
     minimize_kwargs = minimize_kwargs or {}
