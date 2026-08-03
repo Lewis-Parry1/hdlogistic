@@ -8,10 +8,10 @@ def _validate_domain(params: FloatArray) -> None:
     Validates `mu`, `b`, `sigma` and optional `intercept` lie within required domains.
     """
     mu, b, sigma = params[:3]
-   
+
     n_param = len(params)
-    
-    if not np.all(np.isfinite(params[:n_param])): 
+
+    if not np.all(np.isfinite(params[:n_param])):
         raise ValueError(f"All parameters must be finite. Received {params}")
     if mu <= 0:
         raise ValueError(f"`mu` must be greater than 0. Received {mu}.")

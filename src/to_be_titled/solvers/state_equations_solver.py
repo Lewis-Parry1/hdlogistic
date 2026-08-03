@@ -210,7 +210,7 @@ def _default_start(has_intercept: bool) -> FloatArray:
     return (
         np.asarray([0.5, 2.0, 2.0, 0.0], dtype=np.float64)
         if has_intercept
-        else np.asarray([0.5, 2.0, 1.0], dtype=np.float64)
+        else np.asarray([0.5, 2.0, 2.0], dtype=np.float64)
     )
 
 
@@ -521,8 +521,15 @@ def _root_solver(
     else:
         soln = raw_x
 
-    # Check that solution is in valid domain 
+    # Domain validity check
     validation._validate_domain(soln)
+    # Convergence check
+    if not res.success:
+        raise RuntimeError(
+            f"Root solver did not converge using {main_method}"
+            " with (kappa, ss, alpha)"
+            f"= ({kappa},{signal_strength},{alpha})"
+        )
 
     if has_intercept:
         mu, b, sigma, intercept_est = soln
@@ -539,7 +546,7 @@ def _root_solver(
 
     return SolverResult(
         solution=state_params,
-        func_value=g(res.x),
+        func_value=g(raw_x),
         message=res.message,
         success=res.success,
     )
@@ -673,6 +680,9 @@ def solve_state_equation(
             soln = init_result.solution
             start = soln.to_array()
             opt_chain = f"initial_method: {init_method} -> "
+
+        # If no candidate start converged for _init_solver, use user supplied
+        # or default start straight into root solver
         except RuntimeError:
             if start is None:
                 start = _default_start(has_intercept)
