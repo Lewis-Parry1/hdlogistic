@@ -40,7 +40,7 @@ def _se_funcs(
         \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
         signal strength leave one out estimator).
     alpha : float
-        Shrinkage hyperparamter of the MDYPL estimator. `alpha` should be in (0,1].
+        Shrinkage hyperparamter of the MDYPL estimator. `alpha` should be in `(0,1]`.
     hermite_roots_weights : tuple[FloatArray, FloatArray]
         Tuple of 1D arrays containing Gauss Hermite quadrature nodes and weights
         used to approximate the expected values in the state equations.
@@ -293,7 +293,7 @@ def _init_solver(
         \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
         signal strength leave one out estimator).
     alpha : float
-        Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
+        Shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1]`.
     start : FloatArray, optional
         A 1D array of starting values with (`mu`, `b`, `sigma`) with an optional,
         `iota`/`theta` value if an intercept is included. The first three parameters
@@ -457,7 +457,7 @@ def _root_solver(
         \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
         signal strength leave one out estimator).
     alpha : float
-        Shrinkage hyperparameter of the MDYPL estimator. `alpha` should be in (0,1).
+        Shrinkage hyperparameter of the MDYPL estimator. `alpha` should be in `(0,1]`.
     start : FloatArray
         A 1D array of starting values with (`mu`, `b`, `sigma`) with an optional,
         `iota`/`theta` value if an intercept is included. Especially, for exteme
@@ -579,7 +579,7 @@ def solve_state_equation(
         \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
         signal strength leave one out estimator).
     alpha : float
-        Shrinkage hyperparameter of the MDYPL estimator. `alpha` should be in (0,1).
+        Shrinkage hyperparameter of the MDYPL estimator. `alpha` should be in `(0,1]`.
     start : FloatArray | None
         A 1D array of starting values with (`mu`, `b`, `sigma`) with an optional,
         `iota`/`theta` value if an intercept is included. By default, None.

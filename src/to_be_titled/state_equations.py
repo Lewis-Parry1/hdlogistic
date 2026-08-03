@@ -36,7 +36,7 @@ def se_no_intercept(
     gamma : float
         Square root of the limit of the variance of the linear predictor.
     alpha : float
-        The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
+        The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1]`.
     hermite_roots_weights : tuple[FloatArray, FloatArray] | None
         A list with gauss-hermite quadrature nodes and weights as returned from by
         scipy.special.roots_hermite, by default is None. If None,`gh` is set to
@@ -132,7 +132,7 @@ def se_with_intercept(
     gamma : float
         Square root of the limit of the variance of the linear predictor.
     alpha : float
-        The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1)`.
+        The shrinkage parameter of the MDYPL estimator. `alpha` should be in `(0,1]`.
     theta : float
         The true population intercept \theta_0 of the logistic regresion model.
     hermite_roots_weights : tuple[FloatArray, FloatArray] | None
