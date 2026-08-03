@@ -79,7 +79,6 @@ def summary(
         )
 
         kappa = number_parameters / number_observations
-    
         pars, _ = solve_state_equation(
             kappa=kappa,
             signal_strength=signal_strength,
@@ -90,7 +89,6 @@ def summary(
         )
 
         mu_star = pars.solution.mu
-        
         rescaled_betas = result.betas / mu_star
 
         return np.asarray(rescaled_betas, dtype=np.float64)
