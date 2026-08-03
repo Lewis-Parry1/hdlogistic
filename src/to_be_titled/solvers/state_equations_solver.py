@@ -379,6 +379,7 @@ def _init_solver(
         )  # pyright: ignore[reportCallIssue]
 
         resid_norm = res.fun
+
         soln_raw = _transform_parameters(res.x, has_intercept, reverse=True)
 
         # Ensure roots found lie within valid domain
