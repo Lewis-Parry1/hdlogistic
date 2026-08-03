@@ -17,7 +17,11 @@ dev = [
     "uv",
     "scipy-stubs",
     "pre-commit",
-    "sphinx"
+    "sphinx",
+]
+experiments = [
+    "pandas>=2.2.0",
+    "matplotlib>=3.8.0",
 ]
 
 [tool.ruff]
