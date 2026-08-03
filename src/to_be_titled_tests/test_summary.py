@@ -3,6 +3,8 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
+from scipy.special import expit
+
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.summary import (
     _compute_leverages,  # pyright: ignore [reportPrivateUsage]
@@ -17,14 +19,16 @@ def _make_result(
     seed: int = 0,
 ) -> DiaconisYlvisakerLogisticRegressionResult:
     """Helper factory to construct mock estimation results."""
-    x_validated = np.arange(n_samples * n_features, dtype=np.float64).reshape(
-        n_samples,
-        n_features,
-    )
-    betas = np.arange(n_features, dtype=np.float64) + 1.0
-    linear_predictors = x_validated @ betas
-    mus = np.expand_dims(1 / (1 + np.exp(-linear_predictors)), axis=1)
-    y_adjusted = linear_predictors + 0.1
+    rng = np.random.default_rng(seed)
+
+    x_validated = rng.normal(size = (n_samples, n_features),)
+    seq = np.array([-1.5, -0.5, 0.0, 0.5, 1.5])
+    betas = np.resize(seq, n_features)
+
+    linear_predictors = x_validated @ betas 
+    mus = np.expand_dims(expit(linear_predictors), axis = 1)
+
+    y_adjusted = linear_predictors + rng.normal(scale=0.1, size=n_samples)
 
     return DiaconisYlvisakerLogisticRegressionResult(
         x_validated=x_validated,
@@ -53,7 +57,7 @@ def test_summary_with_high_dimensional_correction(
 
     # Mock _solve_state_equation to return a specific mu_star
     mock_mu_star = 0.5
-    fake_pars = StateParameters(mock_mu_star, 1, 1, iota=None, theta=None)
+    fake_pars = StateParameters(mock_mu_star, 1, 1)
 
     mock_solver_result = SolverResult(
         solution=fake_pars,
