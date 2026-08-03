@@ -42,6 +42,7 @@ def _compute_leverages(
 
 def summary(
     result: DiaconisYlvisakerLogisticRegressionResult,
+    start: FloatArray | None = None,
     high_dimensional_correction: bool = True,
 ) -> FloatArray:
     """Provides summary statistics from the provided model results and optionally
@@ -55,6 +56,10 @@ def summary(
     high_dimensional_correction : bool, optional
         Whether to apply a high-dimensional correction to the estimated coefficients,
         by default True.
+    start : FloatArray | None, optional
+            Starting values (`mu`, `b`, `sigma`, and optionally `beta_0`) passed to the
+            internal state evolution solver (`solve_state_equation`) when
+            `high_dimensional_correction=True`. If `None`, defaults to preset values.
 
     Returns
     -------
@@ -63,7 +68,8 @@ def summary(
     """
     if high_dimensional_correction:
         number_observations = result.x_validated.shape[0]
-        number_parameters = result.x_validated.shape[1]
+        has_intercept = result.theta_hat is not None
+        number_parameters = result.x_validated.shape[1] - (1 if has_intercept else 0)
 
         leverages = _compute_leverages(result.x_validated, result.mus)
         signal_strength = compute_sloe_estimator(
@@ -73,21 +79,21 @@ def summary(
         )
 
         kappa = number_parameters / number_observations
-
         pars, _ = solve_state_equation(
             kappa=kappa,
             signal_strength=signal_strength,
             alpha=result.alpha,
-            start=np.array([0.5, 1, 1]),  # Argument required by
-            # _solve_state_equation
-            hermite_roots_weights=None,
             corrupted=True,
+            intercept=result.theta_hat,
+            start=start,
         )
 
         mu_star = pars.solution.mu
-
         rescaled_betas = result.betas / mu_star
 
         return np.asarray(rescaled_betas, dtype=np.float64)
 
     return result.betas
+
+
+# TODO: add tests for with and without intercept and with and without starting value
