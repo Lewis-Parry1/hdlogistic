@@ -1,21 +1,28 @@
-from collections.abc import Callable
-from typing import Any, Literal
+from dataclasses import asdict
+from enum import StrEnum
+from typing import Any
 
 import numpy as np
 
+from to_be_titled.models import BaseSolverConfig, FisherScoringConfig, SolverEndpoint
 from to_be_titled.solvers.logistic_regression_fisher_solver import (
     fit_logistic_regression_fisher_scoring,
 )
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
-    LogisticRegressionResult,
 )
 
-SupportedSolver = Literal["fisher_scoring"]
 
-SOLVERS_REGISTRY: dict[SupportedSolver, Callable[..., LogisticRegressionResult]] = {
-    "fisher_scoring": fit_logistic_regression_fisher_scoring,
+class SolverKind(StrEnum):
+    FISHER_SCORING = "fisher_scoring"
+
+
+SOLVERS_REGISTRY: dict[SolverKind, SolverEndpoint] = {
+    SolverKind.FISHER_SCORING: SolverEndpoint(
+        method=fit_logistic_regression_fisher_scoring,
+        config_schema=FisherScoringConfig,
+    ),
 }
 
 
@@ -104,8 +111,8 @@ def fit_diaconis_ylvisaker_logistic_regression(
     y: FloatArray,
     intercept_index: int | None = None,
     alpha: float | None = None,
-    solver: str = "fisher_scoring",
-    solver_config: dict[str, Any] = {},
+    solver: SolverKind | str = SolverKind.FISHER_SCORING,
+    solver_config: BaseSolverConfig | dict[str, Any] | None = None,
 ) -> DiaconisYlvisakerLogisticRegressionResult:
     """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
         penalized likelihood.
@@ -117,43 +124,54 @@ def fit_diaconis_ylvisaker_logistic_regression(
     Parameters
     ----------
     x : FloatArray
-        Design matrix of shape (n_samples, n_features).
+        2-D design matrix of shape (n_samples, n_features).
     y : FloatArray
         Binary response vector of shape (n_samples,) or (n_samples, 1).
+    intercept_index : int | None, default = None
+        Zero-based column index corresponding to the scalar intercept term in the
+        design matrix `x`. If provided, the scalar parameter estimate `theta_hat`
+        is extracted from this position in the terminal coefficient vector.
     alpha : float | None, default = None
         The prior shrinkage parameter in [0, 1] in the Diaconis-Ylvisaker
-        prior penalty. Default is None, in which `alpha` is set to \\frac{n}{n+p}
-        or equivalently, \\frac{1}{1+kappa}. Setting `alpha` to 1, corresponds to
-        using maximum likelihood without penalisation.
-    solver : str, default="fisher_scoring"
-        The optimization solver backend to use.
-    solver_config : dict[str, Any]
-            Configuration options dictionary passed to the solver. Supported keys
-            depend on the chosen solver:
+        prior penalty. Default is None, in which `alpha` is set to n / (n + p)
+        or equivalently, 1 / (1 + kappa). Setting `alpha` to 1.0 corresponds to
+        using standard unpenalized maximum likelihood estimation.
+    solver : SolverKind | str, default = SolverKind.FISHER_SCORING
+        The numerical optimization solver backend to use. Supported values are
+        `SolverKind.FISHER_SCORING` (or `"fisher_scoring"`).
+    solver_config : BaseSolverConfig | dict[str, Any] | None, default = None
+        Configuration options passed to the solver backend, as either a typed
+        configuration dataclass instance or an untyped dictionary of options.
+        Supported keys depend on the chosen solver:
 
-                - For `"fisher_scoring"`:
-                    * `"max_iterations"` (int, default=25): Maximum Fisher scoring
-                    iterations.
-                    * `"tolerance"` (float, default=1e-6): Convergence threshold.
-                    * `"epsilon"` (float, default=1e-8): Numerical stability threshold.
+        - For `"fisher_scoring"` (`FisherScoringConfig`):
+            * `"max_iterations"` (int, default=25): Maximum number of scoring
+                iterations.
+            * `"tolerance"` (float, default=1e-6): Absolute step size convergence
+                threshold.
+            * `"epsilon"` (float, default=1e-8): Small positive scalar for numerical
+                stability.
 
-        Returns
-        -------
+    Returns
     -------
-        DiaconisYlvisakerLogisticRegressionResult
-            A dataclass containing the estimated coefficient vector, linear predictors,
-            fitted probabilities, adjusted response, validated design matrix, prior
-            shrinkage hyperparameter, and the estimated scalar intercept parameter
-            (`theta`)
+    DiaconisYlvisakerLogisticRegressionResult
+        A dataclass containing the estimated coefficient vector, linear predictors,
+        fitted probabilities, adjusted response vector, validated design matrix,
+        prior shrinkage hyperparameter (`alpha`), and the scalar intercept estimate
+        (`theta_hat`).
 
-        Raises
-        ------
-        ValueError
-            If `alpha` is not in the closed interval [0.0, 1.0].
-            If `solver` is not recognized.
-            If `x` or `y` fail structural checks during validation.
-        LinAlgError
-            If the Fisher information matrix is singular during solver operations.
+    Raises
+    ------
+    ValueError
+        If `alpha` is outside the closed interval [0.0, 1.0].
+        If `solver` is not a recognized `SolverKind` or valid solver string.
+        If `x` or `y` fail structural and dimensional checks during validation.
+    TypeError
+        If `solver_config` is a `BaseSolverConfig` instance that does not match
+        the required schema for the selected `solver`.
+    LinAlgError
+        If the Fisher information matrix is singular or ill-conditioned and cannot
+        be inverted during solver iterations.
 
     References
     ----------
@@ -162,12 +180,25 @@ def fit_diaconis_ylvisaker_logistic_regression(
            https://arxiv.org/abs/2311.07419
     """
 
-    if solver not in SOLVERS_REGISTRY:
+    try:
+        solver_kind = SolverKind(solver)
+    except ValueError:
+        valid_solvers = [s.value for s in SolverKind]
         raise ValueError(
-            f"Unknown solver '{solver}'. "
-            f"Available solvers: {list(SOLVERS_REGISTRY.keys())}"
-        )
-    solver_function = SOLVERS_REGISTRY[solver]
+            f"Unknown solver '{solver}'. Available solvers: {valid_solvers}"
+        ) from None
+
+    endpoint = SOLVERS_REGISTRY[solver_kind]
+
+    if isinstance(solver_config, BaseSolverConfig):
+        if not isinstance(solver_config, endpoint.config_schema):
+            raise TypeError(
+                f"Solver '{solver_kind.value}' expects a configuration of type "
+                f"{endpoint.config_schema.__name__}, got {type(solver_config).__name__}"
+            )
+        validated_config = solver_config
+    else:
+        validated_config = endpoint.config_schema.from_dict(solver_config or {})
 
     x_validated = _ensure_design_matrix(x)
     y_validated = _ensure_column_vector(y)
@@ -182,7 +213,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
     # Delegate to the chosen solver function
-    result = solver_function(x_validated, y_adjusted, config=solver_config)
+    result = endpoint.method(x_validated, y_adjusted, **asdict(validated_config))
 
     theta_hat = (
         float(result.betas[intercept_index, 0]) if intercept_index is not None else None

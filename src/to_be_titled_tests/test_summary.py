@@ -2,7 +2,6 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
-
 from scipy.special import expit
 
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
@@ -21,12 +20,14 @@ def _make_result(
     """Helper factory to construct mock estimation results."""
     rng = np.random.default_rng(seed)
 
-    x_validated = rng.normal(size = (n_samples, n_features),)
+    x_validated = rng.normal(
+        size=(n_samples, n_features),
+    )
     seq = np.array([-1.5, -0.5, 0.0, 0.5, 1.5])
     betas = np.resize(seq, n_features)
 
-    linear_predictors = x_validated @ betas 
-    mus = np.expand_dims(expit(linear_predictors), axis = 1)
+    linear_predictors = x_validated @ betas
+    mus = np.expand_dims(expit(linear_predictors), axis=1)
 
     y_adjusted = linear_predictors + rng.normal(scale=0.1, size=n_samples)
 
