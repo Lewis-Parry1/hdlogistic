@@ -1,13 +1,13 @@
 import numpy as np
 from scipy.linalg import solve
 
-from to_be_titled.inference import compute_sloe_estimator
-from to_be_titled.matrix_operations import compute_weighted_design_and_info
-from to_be_titled.solvers import solve_state_equation
-from to_be_titled.types import (
+from to_be_titled._inference import compute_sloe_estimator
+from to_be_titled._matrix_operations import compute_weighted_design_and_info
+from to_be_titled._types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
 )
+from to_be_titled.solvers import solve_state_equation
 
 
 def _compute_leverages(
@@ -78,8 +78,8 @@ def summary(
             y_adjusted=result.y_adjusted,
             leverages=leverages,
         )
-
         kappa = number_parameters / number_observations
+
         pars, _ = solve_state_equation(
             kappa=kappa,
             signal_strength=signal_strength,

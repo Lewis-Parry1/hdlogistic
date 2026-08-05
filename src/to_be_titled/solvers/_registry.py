@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from to_be_titled.models import (
+from to_be_titled._models import (
     FisherScoringConfig,
     NAGDConfig,
     SolverEndpoint,

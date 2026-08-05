@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import expit
 
-from to_be_titled.types import FloatArray
+from to_be_titled._types import FloatArray
 
 
 def compute_sloe_estimator(

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import expit
 
-from to_be_titled.types import FloatArray, LogisticRegressionResult
+from to_be_titled._types import FloatArray, LogisticRegressionResult
 
 
 def _check_convergence(velocity: FloatArray, tolerance: float) -> bool:

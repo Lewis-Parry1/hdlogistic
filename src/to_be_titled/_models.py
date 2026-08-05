@@ -4,7 +4,7 @@ from typing import Any, Self
 
 import numpy as np
 
-from to_be_titled.types import LogisticRegressionResult
+from to_be_titled._types import LogisticRegressionResult
 
 
 @dataclass(frozen=True, kw_only=True)

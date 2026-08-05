@@ -4,7 +4,9 @@ from typing import Any
 import numpy as np
 import pytest
 
-from to_be_titled import estimation
+from to_be_titled._estimation import (
+    fit_diaconis_ylvisaker_logistic_regression,
+)
 
 
 def test_fit_diaconis_ylvisaker_logistic_regression_balanced_dataset() -> None:
@@ -12,7 +14,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_balanced_dataset() -> None:
     y = np.array([[0.0], [0.0], [1.0], [1.0]], dtype=np.float64)
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
-    result = estimation.fit_diaconis_ylvisaker_logistic_regression(
+    result = fit_diaconis_ylvisaker_logistic_regression(
         x, y, alpha=1.0, solver_config=config
     )
     betas = result.betas
@@ -26,7 +28,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_returns_finite_values() -> N
     y = np.array([[0.0], [0.0], [1.0]], dtype=np.float64)
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
-    result = estimation.fit_diaconis_ylvisaker_logistic_regression(
+    result = fit_diaconis_ylvisaker_logistic_regression(
         x, y, alpha=0.5, solver_config=config
     )
     betas = result.betas
@@ -40,10 +42,10 @@ def test_fit_diaconis_ylvisaker_logistic_regression_shrinks_coefficients() -> No
     y = np.array([[0.0], [0.0], [1.0]], dtype=np.float64)
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
-    betas_mle = estimation.fit_diaconis_ylvisaker_logistic_regression(
+    betas_mle = fit_diaconis_ylvisaker_logistic_regression(
         x, y, alpha=1.0, solver_config=config
     ).betas
-    betas_shrunk = estimation.fit_diaconis_ylvisaker_logistic_regression(
+    betas_shrunk = fit_diaconis_ylvisaker_logistic_regression(
         x, y, alpha=0.5, solver_config=config
     ).betas
 
@@ -57,7 +59,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_accepts_flat_responses() -> 
     y = np.array([0.0, 0.0, 1.0], dtype=np.float64)
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
-    result = estimation.fit_diaconis_ylvisaker_logistic_regression(
+    result = fit_diaconis_ylvisaker_logistic_regression(
         x, y, alpha=0.5, solver_config=config
     )
     betas = result.betas
@@ -72,7 +74,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha() -> N
     config: dict[str, Any] = {"max_iterations": 100, "tolerance": 1e-8, "epsilon": 1e-8}
 
     with pytest.raises(ValueError, match=r"alpha must be in \[0, 1\]"):
-        estimation.fit_diaconis_ylvisaker_logistic_regression(
+        fit_diaconis_ylvisaker_logistic_regression(
             x, y, alpha=1.5, solver_config=config
         )
 
