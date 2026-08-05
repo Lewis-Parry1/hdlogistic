@@ -246,7 +246,7 @@ def test_se0_se1_is_equal() -> None:
     mu, b, sigma = 0.7, 1.2, 2.3
 
     sol0 = se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
-    sol1 = se_with_intercept(mu, b, sigma, 0, kappa, gamma, alpha, intercept=0)
+    sol1 = se_with_intercept(mu, b, sigma, 0, kappa, gamma, alpha, 0)
     # Assert, almost equal, a inisgniciant numerical differences
     # occur
     np.testing.assert_array_almost_equal(sol0, sol1[0:3])
