@@ -70,6 +70,45 @@ class FisherScoringConfig(BaseSolverConfig):
             )
 
 
+@dataclass(frozen=True, kw_only=True)
+class NAGDConfig(BaseSolverConfig):
+    """Configuration options and boundary checks for Nesterov Accelerated
+    Gradient Descent solver."""
+
+    max_iterations: int = 500
+    tolerance: float = 1e-6
+    learning_rate: float = 0.1
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.max_iterations, bool)
+            or not isinstance(self.max_iterations, (int, np.integer))
+            or self.max_iterations <= 0
+        ):
+            raise ValueError(
+                "NAGDConfig 'max_iterations' must be a positive integer, "
+                f"got {self.max_iterations!r}"
+            )
+        if (
+            isinstance(self.tolerance, bool)
+            or not isinstance(self.tolerance, (float, int, np.floating, np.integer))
+            or self.tolerance <= 0.0
+        ):
+            raise ValueError(
+                "NAGDConfig 'tolerance' must be a positive float, "
+                f"got {self.tolerance!r}"
+            )
+        if (
+            isinstance(self.learning_rate, bool)
+            or not isinstance(self.learning_rate, (float, int, np.floating, np.integer))
+            or self.learning_rate <= 0.0
+        ):
+            raise ValueError(
+                "NAGDConfig 'learning_rate' must be a positive float, "
+                f"got {self.learning_rate!r}"
+            )
+
+
 @dataclass(frozen=True)
 class SolverEndpoint:
     """Pairs a solver function with its specific configuration schema."""
