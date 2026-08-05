@@ -30,14 +30,15 @@ def _compute_leverages(
     Returns
     -------
     FloatArray
-        The leverage scores (diagonal elements of the hat matrix) for each observation.
+        The leverage scores (diagonal elements of the hat matrix) as a column
+        vector of shape (n_samples, 1).
     """
 
     wx, info = compute_weighted_design_and_info(x, mus, epsilon)
 
     solved_wx_t = solve(info, wx.T, assume_a="pos")
 
-    return np.asarray(np.sum(wx * solved_wx_t.T, axis=1))
+    return np.asarray(np.sum(wx * solved_wx_t.T, axis=1)).reshape(-1, 1)
 
 
 def summary(
