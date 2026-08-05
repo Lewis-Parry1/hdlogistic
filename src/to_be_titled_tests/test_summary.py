@@ -46,7 +46,7 @@ def test_compute_leverages_returns_shape_and_range() -> None:
     result = _make_result(n_samples=10, n_features=3, seed=0)
     leverages = _compute_leverages(result.x_validated, result.mus)
 
-    assert leverages.shape == (10,)
+    assert leverages.shape == (10, 1)
     assert np.all(leverages >= 0)
     assert np.all(leverages <= 1.0 + 1e-8)
 
