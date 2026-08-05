@@ -78,3 +78,4 @@ def test_fit_diaconis_ylvisaker_logistic_regression_rejects_invalid_alpha() -> N
 
 
 # TODO: Test for singular matrix
+# TODO: update to test intergration with different solvers and solver configs

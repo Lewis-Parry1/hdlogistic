@@ -98,3 +98,4 @@ def summary(
 
 
 # TODO: add tests for with and without intercept and with and without starting value
+# TODO: add tests the test the full pipeline e.g. fit a model and then call summary

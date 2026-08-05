@@ -5,10 +5,10 @@ from to_be_titled.models import (
     NAGDConfig,
     SolverEndpoint,
 )
-from to_be_titled.solvers._logistic_regression_fisher_solver import (
+from to_be_titled.solvers.logistic_regression_fisher_solver import (
     fit_logistic_regression_fisher_scoring,
 )
-from to_be_titled.solvers._logistic_regression_nesterov_gd_solver import (
+from to_be_titled.solvers.logistic_regression_nesterov_gd_solver import (
     fit_logistic_regression_nesterov_accelerated_gradient_descent,
 )
 
