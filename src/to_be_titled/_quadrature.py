@@ -2,7 +2,7 @@ from functools import cache
 
 from scipy.special import roots_hermite
 
-from to_be_titled.types import FloatArray
+from to_be_titled._types import FloatArray
 
 
 @cache

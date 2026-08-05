@@ -5,9 +5,15 @@ from warnings import warn
 import numpy as np
 from scipy.optimize import OptimizeResult, minimize, root
 
-from to_be_titled import state_equations, validation
-from to_be_titled.solvers.solver_types import SolverResult, StateParameters
-from to_be_titled.types import FloatArray
+from to_be_titled._state_equations import se_no_intercept, se_with_intercept
+from to_be_titled._types import FloatArray
+from to_be_titled._validation import (
+    is_valid_domain,
+    validate_domain,
+    validate_start_dims,
+    validate_state_equation_fixed_params,
+)
+from to_be_titled.solvers._solver_types import SolverResult, StateParameters
 
 
 def _se_funcs(
@@ -114,7 +120,7 @@ def _se_funcs(
                 iota_var = pars_t[3]
                 theta_fixed = intercept
 
-                return state_equations.se_with_intercept(
+                return se_with_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
@@ -127,7 +133,7 @@ def _se_funcs(
                     prox_tol=prox_tol,
                 )
             else:
-                return state_equations.se_no_intercept(
+                return se_no_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
@@ -146,7 +152,7 @@ def _se_funcs(
                 theta_var = pars_t[3]
                 # iota, is fixed and specified by estimated sample intercept
                 iota_fixed = intercept
-                return state_equations.se_with_intercept(
+                return se_with_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
@@ -159,7 +165,7 @@ def _se_funcs(
                     prox_tol=prox_tol,
                 )
             else:
-                return state_equations.se_no_intercept(
+                return se_no_intercept(
                     mu=mu,
                     b=b,
                     sigma=sigma,
@@ -385,7 +391,7 @@ def _init_solver(
 
         # Ensure roots found lie within valid domain
         # Otherwise no sense to pass in as warm start to _root_solver
-        if not validation._is_valid_domain(soln_raw):
+        if not is_valid_domain(soln_raw):
             continue
 
         if (
@@ -525,7 +531,7 @@ def _root_solver(
         soln = raw_x
 
     # Domain validity check
-    validation._validate_domain(soln)
+    validate_domain(soln)
     # Convergence check
     if not res.success:
         raise RuntimeError(
@@ -661,11 +667,11 @@ def solve_state_equation(
     """
     has_intercept = intercept is not None
 
-    validation._validate_state_equation_fixed_params(alpha, kappa, signal_strength)
+    validate_state_equation_fixed_params(alpha, kappa, signal_strength)
 
     if start is not None:
-        validation._validate_start_dims(start, has_intercept)
-        validation._validate_domain(start)
+        validate_start_dims(start, has_intercept)
+        validate_domain(start)
 
     root_kwargs = root_kwargs or {}
     minimize_kwargs = minimize_kwargs or {}

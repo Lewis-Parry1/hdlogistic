@@ -2,8 +2,8 @@ import numpy as np
 from scipy.linalg import solve
 from scipy.special import expit
 
-from to_be_titled.matrix_operations import compute_weighted_design_and_info
-from to_be_titled.types import FloatArray, LogisticRegressionResult
+from to_be_titled._matrix_operations import compute_weighted_design_and_info
+from to_be_titled._types import FloatArray, LogisticRegressionResult
 
 
 def _compute_fisher_scoring_components(

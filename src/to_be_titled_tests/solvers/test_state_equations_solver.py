@@ -1,8 +1,8 @@
 import numpy as np
 import pytest
 
+from to_be_titled._types import FloatArray
 from to_be_titled.solvers import solve_state_equation
-from to_be_titled.types import FloatArray
 
 
 # Compare solve_se to Candes and Sur results.

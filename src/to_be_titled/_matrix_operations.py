@@ -1,6 +1,6 @@
 import numpy as np
 
-from to_be_titled.types import FloatArray
+from to_be_titled._types import FloatArray
 
 
 def compute_weighted_design_and_info(

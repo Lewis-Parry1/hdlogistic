@@ -3,14 +3,14 @@ from typing import Any
 
 import numpy as np
 
-from to_be_titled.models import (
+from to_be_titled._models import (
     BaseSolverConfig,
 )
-from to_be_titled.types import (
+from to_be_titled._types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
 )
-from to_be_titled.solvers.registry import SOLVERS_REGISTRY, SolverKind
+from to_be_titled.solvers._registry import SOLVERS_REGISTRY, SolverKind
 
 
 def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:

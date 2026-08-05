@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from scipy.special import expit
 
-from to_be_titled.solvers.solver_types import SolverResult, StateParameters
-from to_be_titled.summary import (
+from to_be_titled._summary import (
     _compute_leverages,  # pyright: ignore [reportPrivateUsage]
     summary,
 )
-from to_be_titled.types import DiaconisYlvisakerLogisticRegressionResult
+from to_be_titled._types import DiaconisYlvisakerLogisticRegressionResult
+from to_be_titled.solvers._solver_types import SolverResult, StateParameters
 
 
 def _make_result(
@@ -68,11 +68,11 @@ def test_summary_with_high_dimensional_correction(
     )
 
     monkeypatch.setattr(
-        "to_be_titled.summary.solve_state_equation",
+        "to_be_titled._summary.solve_state_equation",
         MagicMock(return_value=(mock_solver_result, "success")),
     )
     monkeypatch.setattr(
-        "to_be_titled.summary.compute_sloe_estimator",
+        "to_be_titled._summary.compute_sloe_estimator",
         MagicMock(return_value=1.5),
     )
 
@@ -91,6 +91,7 @@ def test_summary_without_high_dimensional_correction() -> None:
 def test_summary_integration_success(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+
     result = _make_result(n_samples=10, n_features=3, seed=2)
     output = summary(result, high_dimensional_correction=True)
     assert output.shape == result.betas.shape
