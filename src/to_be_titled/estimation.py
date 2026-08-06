@@ -1,29 +1,16 @@
 from dataclasses import asdict
-from enum import StrEnum
 from typing import Any
 
 import numpy as np
 
-from to_be_titled.models import BaseSolverConfig, FisherScoringConfig, SolverEndpoint
-from to_be_titled.solvers.logistic_regression_fisher_solver import (
-    fit_logistic_regression_fisher_scoring,
+from to_be_titled.models import (
+    BaseSolverConfig,
 )
+from to_be_titled.solvers.registry import SOLVERS_REGISTRY, SolverKind
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
 )
-
-
-class SolverKind(StrEnum):
-    FISHER_SCORING = "fisher_scoring"
-
-
-SOLVERS_REGISTRY: dict[SolverKind, SolverEndpoint] = {
-    SolverKind.FISHER_SCORING: SolverEndpoint(
-        method=fit_logistic_regression_fisher_scoring,
-        config_schema=FisherScoringConfig,
-    ),
-}
 
 
 def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
