@@ -31,11 +31,7 @@ class RgiCubicInterpolators:
 
     def evaluate(self, kappa: float, gamma: float) -> FloatArray:
         """
-        Interpolate given arrays of kappa, gamma values, evaluated
-        elementwise as (kappa[i], gamma[i]) pairs. If the supplied
-        (kappa, gamma) pair lies outside of the boundary points
-        used to build the interpolators, the nearest boundary point
-        is supplied.
+        Interpolate paramater values given (kappa, gamma) pair.
 
         Parameters
         ----------
@@ -52,8 +48,8 @@ class RgiCubicInterpolators:
             `mu`, `b` and `sigma`.
         """
         # clip input such that it stays in boundaries
-        kappa_c = np.clip(kappa, self.kappa_arr[0], self.kappa_arr[-1])
-        gamma_c = np.clip(gamma, self.gamma_arr[0], self.gamma_arr[-1])
+        kappa_c = np.asarray(np.clip(kappa, self.kappa_arr[0], self.kappa_arr[-1]))
+        gamma_c = np.asarray(np.clip(gamma, self.gamma_arr[0], self.gamma_arr[-1]))
 
         out = np.stack(
             [
@@ -64,7 +60,7 @@ class RgiCubicInterpolators:
             axis=-1,
         )
 
-        return out
+        return out[0]
 
 
 def _rgi_field(
@@ -89,7 +85,7 @@ def _rgi_field(
 
 
 @lru_cache(maxsize=1)
-def build_rgi_cubic_interpolator() -> RgiCubicInterpolators:
+def _build_rgi_cubic_interpolator() -> RgiCubicInterpolators:
     """
     Build once and cache RegularGridInterpolators for `mu`, `b` and `sigma`
     over (kappa, gamma) grid of true values. Subsquent calls returns
