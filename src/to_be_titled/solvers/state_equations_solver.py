@@ -3,7 +3,7 @@ from typing import Any, cast
 from warnings import warn
 
 import numpy as np
-from scipy.optimize import OptimizeResult, minimize, root
+from scipy.optimize import minimize, root
 
 from to_be_titled import state_equations, validation
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
@@ -214,50 +214,6 @@ def _default_start(has_intercept: bool) -> FloatArray:
     )
 
 
-def _generate_warm_start_candidates(
-    start: FloatArray | None, signal_strength: float, has_intercept: bool
-) -> list[FloatArray]:
-    """
-    Internal function to create a list of possible warm starts for initial
-    solver.
-    """
-    user_start = (
-        np.asarray(start, dtype=np.float64)
-        if start is not None
-        else _default_start(has_intercept)
-    )
-
-    candidates: list[FloatArray] = [user_start]
-
-    # TODO: Find best alternative candidates
-    if has_intercept:
-        candidates.extend(
-            [
-                np.array(
-                    [0.5, signal_strength, signal_strength, 0.0]
-                ),  # state equation-scaled default
-                np.array([0.1, 1.0, 1.0, 0.0]),  # low-mu fallback
-                np.array(
-                    [0.9, signal_strength * 2, signal_strength, 0.0]
-                ),  # large mu fallback
-            ]
-        )
-    else:
-        candidates.extend(
-            [
-                np.array(
-                    [0.5, signal_strength, signal_strength]
-                ),  # state equation-scaled default
-                np.array([0.1, 1.0, 1.0]),  # low-mu fallback
-                np.array(
-                    [0.9, signal_strength * 2, signal_strength]
-                ),  # large mu fallback
-            ]
-        )
-
-    return candidates
-
-
 def _init_solver(
     kappa: float,
     signal_strength: float,
@@ -337,12 +293,8 @@ def _init_solver(
         solver's convergence status (`message`, `success`).
     """
     has_intercept = intercept is not None
-
-    # Appends additional warm start candidates to (optional) user start
-    # Allows for _init_solver to find the best possible warm start.
-    candidates = _generate_warm_start_candidates(start, signal_strength, has_intercept)
-
-    best: tuple[float, OptimizeResult] | None = None
+    if start is None:
+        start = _default_start(has_intercept)
 
     g = _se_funcs(
         kappa=kappa,
@@ -365,47 +317,21 @@ def _init_solver(
 
     options_override = minimize_kwargs.pop("options", {})
 
-    for cand in candidates:
-        cand = np.asarray(cand, dtype=np.float64)
+    # Log-transform parameters except `intercept` if exists
+    start_t = _transform_parameters(start, has_intercept, reverse=False)
 
-        # Log-transform parameters except `intercept` if exists
-        cand_t = _transform_parameters(cand, has_intercept, reverse=False)
+    res = minimize(
+        objective,
+        start_t,
+        method=cast(Any, init_method),
+        options=cast(Any, {"maxiter": init_iter, **options_override}),
+        **minimize_kwargs,
+    )  # pyright: ignore[reportCallIssue]
 
-        res = minimize(
-            objective,
-            cand_t,
-            method=cast(Any, init_method),
-            options=cast(Any, {"maxiter": init_iter, **options_override}),
-            **minimize_kwargs,
-        )  # pyright: ignore[reportCallIssue]
-
-        resid_norm = res.fun
-
-        soln_raw = _transform_parameters(res.x, has_intercept, reverse=True)
-
-        # Ensure roots found lie within valid domain
-        # Otherwise no sense to pass in as warm start to _root_solver
-        if not validation._is_valid_domain(soln_raw):
-            continue
-
-        if (
-            not np.isnan(resid_norm)
-            and res.success
-            and (best is None or resid_norm < best[0])
-        ):
-            best = (resid_norm, res)
-
-    if best is None:
-        raise RuntimeError(
-            f"No candidate start converged for kappa={kappa}, gamma={signal_strength}"
-        )
-
-    # transform best solution back into real space from log-space
-    res_best = best[1]
-    soln_best = _transform_parameters(res_best.x, has_intercept, reverse=True)
+    soln = _transform_parameters(res.x, has_intercept, reverse=True)
 
     if has_intercept:
-        mu, b, sigma, intercept_est = soln_best
+        mu, b, sigma, intercept_est = soln
         state_params = StateParameters(
             mu=mu,
             b=b,
@@ -414,14 +340,14 @@ def _init_solver(
             corrupted=corrupted,
         )
     else:
-        mu, b, sigma = soln_best
+        mu, b, sigma = soln
         state_params = StateParameters(mu=mu, b=b, sigma=sigma, corrupted=corrupted)
 
     return SolverResult(
         solution=state_params,
-        func_value=g(res_best.x),
-        message=res_best.message,
-        success=res_best.success,
+        func_value=g(res.x),
+        message=res.message,
+        success=res.success,
     )
 
 
@@ -523,16 +449,6 @@ def _root_solver(
         soln = _transform_parameters(raw_x, has_intercept, reverse=True)
     else:
         soln = raw_x
-
-    # Domain validity check
-    validation._validate_domain(soln)
-    # Convergence check
-    if not res.success:
-        raise RuntimeError(
-            f"Root solver did not converge using {main_method}"
-            " with (kappa, ss, alpha)"
-            f"= ({kappa},{signal_strength},{alpha})"
-        )
 
     if has_intercept:
         mu, b, sigma, intercept_est = soln
