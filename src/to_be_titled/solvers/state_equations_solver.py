@@ -10,14 +10,9 @@ from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_inter
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
-
 class SolverConvergenceError(RuntimeError):
     """Raised when every strategy in the solve cascade fails
     to converge to a valid, in-domain root."""
-
-
-def _is_valid(result: SolverResult) -> bool:
-    return result.success and validation._is_valid_domain(result.solution.to_array())
 
 
 def _transform_parameters(
@@ -550,7 +545,7 @@ def solve_state_equation(
     result = try_root(stage1_start)
     attempts.append((stage1_name, result))
 
-    if _is_valid(result):
+    if validation._is_valid(result):
         return result, f"{stage1_name} -> root-finding algorithm: {main_method}"
 
     ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
@@ -571,7 +566,7 @@ def solve_state_equation(
     result = try_root(warm_start)
     attempts.append((f"{init_method}_warm_start", result))
 
-    if _is_valid(result):
+    if validation._is_valid(result):
         return (
             result,
             f"minimize method: {init_method} -> root-finding algorithm: {main_method}",
