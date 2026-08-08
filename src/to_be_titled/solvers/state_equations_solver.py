@@ -6,8 +6,67 @@ import numpy as np
 from scipy.optimize import minimize, root
 
 from to_be_titled import state_equations, validation
+from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_interpolator
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
+
+
+class SolverConvergenceError(RuntimeError):
+    """Raised when every strategy in the solve cascade fails
+    to converge to a valid, in-domain root."""
+
+
+def _is_valid(result: SolverResult) -> bool:
+    return result.success and validation._is_valid_domain(result.solution.to_array())
+
+
+def _transform_parameters(
+    pars: FloatArray, has_intercept: bool, reverse: bool = False
+) -> FloatArray:
+    """
+    If `reverse = False`, parameters are assumed to be in real-space and
+    `mu`, `b`, `sigmas` and are subsequently transformed into log-space.
+    If `reverse = True` then `mu`, `b`, and `sigma` (not iota) are
+    assumed to be in log-space, and subsequently clipped and exponetiated
+    back into real-space.
+    """
+    if not reverse:
+        pars_log = (
+            np.concatenate([np.log(pars[:3]), pars[3:4]])
+            if has_intercept
+            else np.log(pars)
+        )
+        return pars_log
+    else:
+        pars_clipped = pars.copy()
+        pars_clipped[:3] = np.clip(pars[:3], -20, 20)
+
+        pars_exp = (
+            np.concatenate([np.exp(pars_clipped[:3]), pars_clipped[3:4]])
+            if has_intercept
+            else np.exp(pars_clipped)
+        )
+        return pars_exp
+
+
+def _derive_gamma_from_nu(
+    kappa: float, signal_strength: float, sigma: float, mu: float
+) -> float:
+    with np.errstate(invalid="ignore"):
+        gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
+    return float(gamma)
+
+
+def _default_start(has_intercept: bool) -> FloatArray:
+    """
+    Single arbitrary starting guess for `mu`, `b`, `sigma` and
+    optional `intercept` when the user supplies no start.
+    """
+    return (
+        np.asarray([0.5, 2.0, 2.0, 0.0], dtype=np.float64)
+        if has_intercept
+        else np.asarray([0.5, 2.0, 2.0], dtype=np.float64)
+    )
 
 
 def _se_funcs(
@@ -21,11 +80,11 @@ def _se_funcs(
     intercept: float | None = None,
 ) -> Callable[[FloatArray], FloatArray]:
     r"""
-    Construct the system of MDYPL state evolution equations.
     Returns a closure compatible with scipy.optimize.root and scipy.optimize.minimize.
     The closure evaluates the three (or four) state evolution equations
     using Gauss–Hermite quadrature and optionally performs a log-transformation
-    of the optimisation variables to enforce positivity.
+    of the optimisation variables to enforce strict positivity and improve
+    convergence.
 
     Parameters
     ----------
@@ -82,20 +141,13 @@ def _se_funcs(
         has_intercept = intercept is not None
 
         if transform:
-            # Transform (`mu`,`b`, `sigma`) parameters back into real-space
             pars_t = _transform_parameters(pars, has_intercept, reverse=True)
         else:
             pars_t = pars
         mu, b, sigma = pars_t[:3]
 
-        def _derive_gamma_from_nu() -> float:
-            with np.errstate(invalid="ignore"):
-                gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
-            return float(gamma)
-
         if corrupted:
-            gamma = _derive_gamma_from_nu()
-            # Check estimated gamma did not evaluate to NaN
+            gamma = _derive_gamma_from_nu(kappa, signal_strength, sigma, mu)
             if np.isnan(gamma):
                 warn(
                     "Estimated gamma evaluated to NaN (likely due to division by "
@@ -110,7 +162,7 @@ def _se_funcs(
         # Case 1: Oracle case, true population intercept known
         if not corrupted:
             if intercept is not None:
-                # iota is one of the variables in which we are trying to solve for
+                # iota is being solved
                 iota_var = pars_t[3]
                 theta_fixed = intercept
 
@@ -139,10 +191,10 @@ def _se_funcs(
                 )
 
         # Case 2: Empirical (corrupted) case; true population intercept not known
-        # Estimated sample intercept is given
+        # Estimated sample intercept is given from MLE
         else:
             if intercept is not None:
-                # true theta is now what we are trying to solve for
+                # attempting to solve for theta_0
                 theta_var = pars_t[3]
                 # iota, is fixed and specified by estimated sample intercept
                 iota_fixed = intercept
@@ -173,54 +225,12 @@ def _se_funcs(
     return g
 
 
-def _transform_parameters(
-    pars: FloatArray, has_intercept: bool, reverse: bool = False
-) -> FloatArray:
-    """
-    If `reverse = False`, parameters are assumed to be in real-space and
-    `mu`, `b`, `sigmas` are subsequently transformed into log-space.
-    If `reverse = True` then `mu`, `b`, and `sigma` (not iota) are
-    assumed to be in log-space, and subsequently clipped and exponetiated
-    back into real-space.
-    """
-    if not reverse:
-        pars_log = (
-            np.concatenate([np.log(pars[:3]), pars[3:4]])
-            if has_intercept
-            else np.log(pars)
-        )
-        return pars_log
-    else:
-        pars_clipped = pars.copy()
-        pars_clipped[:3] = np.clip(pars[:3], -20, 20)
-
-        pars_exp = (
-            np.concatenate([np.exp(pars_clipped[:3]), pars_clipped[3:4]])
-            if has_intercept
-            else np.exp(pars_clipped)
-        )
-        return pars_exp
-
-
-def _default_start(has_intercept: bool) -> FloatArray:
-    """
-    Single starting guess for `mu`, `b`, `sigma` and
-    optional `intercept` when the user supplies no start.
-    """
-    return (
-        np.asarray([0.5, 2.0, 2.0, 0.0], dtype=np.float64)
-        if has_intercept
-        else np.asarray([0.5, 2.0, 2.0], dtype=np.float64)
-    )
-
-
 def _init_solver(
     kappa: float,
     signal_strength: float,
     alpha: float,
     start: FloatArray | None = None,
-    init_method: str = "Nelder-Mead",
-    init_iter: int = 50,
+    init_method: str = "BFGS",
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
     corrupted: bool = False,
@@ -228,13 +238,11 @@ def _init_solver(
     **minimize_kwargs: Any,
 ) -> SolverResult:
     r"""
-    Performs an initial unconstrained minimization to find a robust starting
-    point for the main state evolution root-finding algorithm.
-
-    This function aims to minimize the sum of squared residuals
-    (the squared L2 norm) of the MDYPL state evolution equations. This prevents
-    the main trust-region or Newton-based root-finders from getting stuck in local
-    minima or flat gradients in extreme parameter regimes.
+    The initialisation solver aims to minimise the sum of squared residuals
+    of the MDYPL state-evolution equations. Root-finding algorithms can be
+    sensitive to starting values, hence the goal of this intial minimisation
+    algorithm is to find a starting vector, closer to the true roots of the
+    state-equations to be fed into a root-finding algorithm.
 
     Parameters
     ----------
@@ -259,7 +267,7 @@ def _init_solver(
         positivity and prevent underflow
     init_method : str, optional
         The optimization method passed into `scipy.optimize.minimize`
-        to minimize the sum of squared residuals, by default 'Nelder-Mead'.
+        to minimize the sum of squared residuals, by default 'BFGS'.
     init_iter : int, optional
         Maximum number of iterations for the initial minimization algorithm,
         by default 50.
@@ -293,6 +301,7 @@ def _init_solver(
         solver's convergence status (`message`, `success`).
     """
     has_intercept = intercept is not None
+
     if start is None:
         start = _default_start(has_intercept)
 
@@ -324,7 +333,7 @@ def _init_solver(
         objective,
         start_t,
         method=cast(Any, init_method),
-        options=cast(Any, {"maxiter": init_iter, **options_override}),
+        options=cast(Any, {**options_override}),
         **minimize_kwargs,
     )  # pyright: ignore[reportCallIssue]
 
@@ -365,13 +374,10 @@ def _root_solver(
     **root_kwargs: Any,
 ) -> SolverResult:
     r"""
-    Executes the main root-finding algorithm to estimate the stationary point
-    (`mu*`, `b*`, `sigma*`) of the MDYPL state evolution equations.
-
-    This function uses a dedicated root-finder to estimate the true roots
-    (`mu*`, `b*`, `sigma*`) where the evaluated residuals are exactly zero.
-    These roots fully characterize the aggregate bias, variance, and penalization
-    of the estimator in high dimensions.
+    NEW DOCSTRING NEEDED
+    Executes a root-finding algorithm to estimate the stationary point
+    (`mu*`, `b*`, `sigma*`) and an optional `iota`/`theta` of the MDYPL
+    state evolution equations.
 
     Parameters
     ----------
@@ -475,110 +481,23 @@ def solve_state_equation(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: FloatArray | None = None,
+    start: FloatArray | None,
+    *,
+    use_warm_start_interpolator: bool = True,
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     root_kwargs: dict[str, Any] | None = None,
     minimize_kwargs: dict[str, Any] | None = None,
     transform: bool = True,
     corrupted: bool = False,
     intercept: float | None = None,
-    init_iter: int = 50,
-    init_method: str = "Nelder-Mead",
+    init_method: str = "BFGS",
     main_method: str = "hybr",
     prox_tol: float = 1e-10,
 ) -> tuple[SolverResult, str]:
-    r"""
-    Solves the MDYPL state evolution equations.
 
-    This wrapper function executes the optional initial sum of squares minimizer to
-    obtain a warm start followed by a precise numerical root-finder.
-    It provides a robust mechanism for finding the stationary points
-    `mu*`, `b*`, and `sigma*` (and `iota`/`theta` if an intercept is included)
-    of the system's state equations.
-
-    Parameters
-    ----------
-    kappa : float
-        Asymptotic ratio of the columns/rows of the design matrix (p/n).
-        `kappa` should be in (0,1).
-    signal_strength : float
-        Square root of the signal strength (ss).
-        - If `corrupted = False`, represents the true signal strength
-        \gamma (square root of the limit of Var(X * \beta_0))
-        - If `corrupted = True`, represents the corrupted signal strength
-        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
-        signal strength leave one out estimator).
-    alpha : float
-        Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : FloatArray | None, optional
-            Initial values for the state evolution parameters. If `intercept` is None,
-            `start` must be a 1D array of length 3 containing (`mu`, `b`, `sigma`),
-            where `mu` lies in (0, 1), and `b` and `sigma` are strictly positive. If
-            `intercept` is provided, `start` must be a 1D array of length 4 containing
-            (`mu`, `b`, `sigma`, `iota`). Defaults to `[0.5, 1.0, 1.0]` when
-            `intercept` is None, or `[0.5, 1.0, 1.0, 0.0]` when an intercept is
-            specified.
-    hermite_roots_weights : tuple[FloatArray, FloatArray] | None
-        A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
-        used to approximate the system's expected values. By default, None.
-    root_kwargs : dict[str, Any] | None, optional
-        Additional keyword arguments passed directly to the main root solver
-        (`scipy.optimize.root`).
-    minimize_kwargs : dict[str, Any] | None, optional
-        Additional keyword arguments passed directly to the initial minimizer
-        (`scipy.optimize.minimize`).
-    corrupted: bool, optional
-        If False, `signal_strength` is the true signal strength \gamma.
-        If True, `signal_strength` is the corrupted signal strength, \nu.
-        Default is False.
-    intercept: float | None, optional
-        If None, the function minimizes residuals for the 3-equation system
-        without an intercept (`mu`,`b`, `sigma`).
-        If a float:
-        - If `corrupted = False`, `intercept` represents the true population
-        intercept \theta_0.
-        - If `corrupted = True`, `intercept` represents the limit, `iota`, of the
-        MDYPL sample-estimated intercept \hat{\theta}_0.
-    transform : bool, optional
-        If True, the input parameters (`mu`, `b`, `sigma`) are internally
-        log-transformed before being passed into scipy.optimize.root().
-        This enforces strict positivity and can improve convergence.
-        By default, True.
-    init_iter : int, optional
-        The number of iterations to run the initial minimization algorithm. If
-        `init_iter` is greater than zero, the result from `_init_solver` is passed
-        into `_root_solver` as a warm start. By default, 50.
-    init_method : str, optional
-        The optimization method to be passed to `scipy.optimize.minimize` for the
-        initial warm-start phase, by default "Nelder-Mead".
-    main_method : str, optional
-        The root-finding method to be passed to `scipy.optimize.root` for the exact
-        solution phase, by default "hybr".
-    prox_tol : float, optional
-        Convergence tolerance for the Newton-Raphson estimation of the
-        proximal operator, by default 1e-10.
-
-    Returns
-    -------
-    tuple[SolverResult, str]
-        A two-element tuple containing:
-        - SolverResult: dataclass with the optimal real-space parameters
-          (`solution`), the evaluated residual vector (`func_value`)and
-          the main solver's converges success/message.
-        - str: a summary of the optimization chain used (e.g. which
-          initial and main methods were applied).
-
-    Raises
-    ------
-    TypeError
-        If `start` is not an array-like sequence.
-    ValueError
-        If the number of parameters in `start` does not equal 3.
-    """
     has_intercept = intercept is not None
 
     validation._validate_state_equation_fixed_params(alpha, kappa, signal_strength)
-
     if start is not None:
         validation._validate_start_dims(start, has_intercept)
         validation._validate_domain(start)
@@ -586,51 +505,81 @@ def solve_state_equation(
     root_kwargs = root_kwargs or {}
     minimize_kwargs = minimize_kwargs or {}
 
-    if init_iter > 0:
-        try:
-            init_result = _init_solver(
-                kappa,
-                signal_strength,
-                alpha,
-                start,
-                init_method,
-                init_iter,
-                hermite_roots_weights,
-                prox_tol,
-                corrupted,
-                intercept,
-                **minimize_kwargs,
+    attempts: list[tuple[str, SolverResult]] = []
+
+    # --- Stage 1: Pick Initial Start --
+    if start is not None:
+        stage1_start, stage1_name = start, "user_start"
+    elif use_warm_start_interpolator:
+        interp = _build_rgi_cubic_interpolator()
+        if not corrupted:
+            stage1_start = interp.evaluate(kappa, signal_strength)
+        else:
+            start_temp = interp.evaluate(kappa, signal_strength)
+
+            # get estimate for gamma, given kappa, corrupted ss
+            # and interpolated values for `mu` and `sigma`
+            gamma_est = _derive_gamma_from_nu(
+                kappa, signal_strength, start_temp[2], start_temp[0]
             )
-            soln = init_result.solution
-            start = soln.to_array()
-            opt_chain = f"initial_method: {init_method} -> "
+            stage1_start = interp.evaluate(kappa, gamma_est)
 
-        # If no candidate start converged for _init_solver, use user supplied
-        # or default start straight into root solver
-        except RuntimeError:
-            if start is None:
-                start = _default_start(has_intercept)
-            opt_chain = f"initial_method: {init_method} (failed, fallback to start) -> "
+        if intercept is not None:
+            # use iota/theta as guess for theta/iota
+            stage1_start = np.append(stage1_start, intercept)
 
+        stage1_name = "interpolated_start"
     else:
-        if start is None:
-            start = _default_start(has_intercept)
-        opt_chain = ""
+        stage1_start, stage1_name = _default_start(has_intercept), "default_start"
 
-    result = _root_solver(
+    def try_root(candidate_start: FloatArray) -> SolverResult:
+        return _root_solver(
+            kappa,
+            signal_strength,
+            alpha,
+            candidate_start,
+            main_method,
+            hermite_roots_weights,
+            prox_tol,
+            corrupted,
+            transform,
+            intercept,
+            **root_kwargs,
+        )
+
+    result = try_root(stage1_start)
+    attempts.append((stage1_name, result))
+
+    if _is_valid(result):
+        return result, f"{stage1_name} -> root-finding algorithm: {main_method}"
+
+    ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
+    init_result = _init_solver(
         kappa,
         signal_strength,
         alpha,
-        start,
-        main_method,
+        stage1_start,
+        init_method,
         hermite_roots_weights,
         prox_tol,
         corrupted,
-        transform,
         intercept,
-        **root_kwargs,
+        **minimize_kwargs,
     )
+    warm_start = init_result.solution.to_array()
 
-    opt_chain += f"main_method: {main_method}"
+    result = try_root(warm_start)
+    attempts.append((f"{init_method}_warm_start", result))
 
-    return result, opt_chain
+    if _is_valid(result):
+        return (
+            result,
+            f"minimize method: {init_method} -> root-finding algorithm: {main_method}",
+        )
+
+    raise SolverConvergenceError(
+        f"All strategies failed to converge at kappa={kappa}, "
+        f"signal_strength={signal_strength}. "
+        f"Attempts: {[(name, r.success) for name, r in attempts]}"
+        "Try alternative start or allow for interpolation warm start."
+    )

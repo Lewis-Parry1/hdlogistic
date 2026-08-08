@@ -12,7 +12,6 @@ import numpy as np
 from to_be_titled.interpolators.build_interpolator import (
     _build_rgi_cubic_interpolator,
 )
-from to_be_titled.types import FloatArray
 
 GRID_PATH = (
     Path(__file__).resolve().parent.parent
@@ -65,14 +64,14 @@ class TestBuildRgiCubicInterpolator:
             )
 
         result = interp.evaluate(kappa=kappa_val, gamma=gamma_val)
-        np.testing.assert_allclose(result, expected_value, rtol= 1e-6)
+        np.testing.assert_allclose(result, expected_value, rtol=1e-6)
 
     def test_evaluate_clips_above(self) -> None:
         interp = _build_rgi_cubic_interpolator()
 
         kappa_max = float(interp.kappa_arr[-1])
 
-        kappa_beyond_max = kappa_max + 5.0 # non-sensical kappa, but will be clipped
+        kappa_beyond_max = kappa_max + 5.0  # non-sensical kappa, but will be clipped
 
         gamma_mid = float(interp.gamma_arr[len(interp.gamma_arr) // 2])
 
@@ -87,7 +86,7 @@ class TestBuildRgiCubicInterpolator:
         kappa_mid = float(interp.kappa_arr[len(interp.kappa_arr) // 2])
         gamma_min = float(interp.gamma_arr[0])
 
-        gamma_beyond_low = gamma_min - 5.0 # non-sensical gamma, but will be clipped
+        gamma_beyond_low = gamma_min - 5.0  # non-sensical gamma, but will be clipped
 
         at_boundary_pt = interp.evaluate(kappa_mid, gamma_min)
         beyond_boundary_pt = interp.evaluate(kappa_mid, gamma_beyond_low)
