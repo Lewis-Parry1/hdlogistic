@@ -57,4 +57,5 @@ packages = ["src/to_be_titled"]
 markers = [
     "candes_sur: tests comparing solver output against Candes & Sur Table 13",
     "brglm2: tests comparing output of any functions to output of brglm2",
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]

@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 import numpy as np
 import pytest
 
+from itertools import product
+
 from to_be_titled.inference import _derive_nu_from_gamma
-from to_be_titled.solvers import solve_state_equation
+from to_be_titled.solvers.state_equations_solver import solve_state_equation, SolverConvergenceError
 from to_be_titled.types import FloatArray
 
 
-# Compare solve_se to Candes and Sur results.
-# See Table 13, set alpha = 1, when gamma = np.sqrt(5 + beta0^2)
 @pytest.mark.candes_sur
 @pytest.mark.parametrize(
     "thetas, roots",
@@ -22,15 +24,16 @@ from to_be_titled.types import FloatArray
 def test_solve_state_equation_no_int_compare_candes_sur(
     thetas: float, roots: FloatArray
 ) -> None:
+    """Test to compare solver without intercept solution against known true 
+    values from Candes & Sur Table 13."""
     kappa = 0.2
     alpha = 1.0
     gamma = np.sqrt(5 + thetas**2)
 
     solver_result, chain = solve_state_equation(kappa, gamma, alpha)
 
-    print(chain)  # run pytest -s to see output
+    print(chain)  
 
-    # Ensure solver converged successfully
     assert solver_result.success is True, "Solver failed to converge"
     np.testing.assert_allclose(solver_result.solution.to_array(), roots, atol=1e-2)
 
@@ -51,6 +54,8 @@ def test_solve_state_equation_no_int_compare_candes_sur(
 def test_solve_state_equation_w_int_compare_candes_sur(
     thetas: float, roots: FloatArray
 ) -> None:
+    """Test to compare solver with intercept solution against known true 
+    values from Candes & Sur Table 13."""
     gamma = np.sqrt(5)
     kappa = 0.2
     alpha = 1.0
@@ -62,8 +67,6 @@ def test_solve_state_equation_w_int_compare_candes_sur(
     np.testing.assert_allclose(solver_result.solution.to_array(), roots, atol=1e-1)
 
 
-# Test against solve_state_equations w/o intecept against brglm2
-# for different kappa/gamma/alpha
 @pytest.mark.brglm2
 def test_solve_state_equations_against_se0_brglm2() -> None:
     """
@@ -85,8 +88,6 @@ def test_solve_state_equations_against_se0_brglm2() -> None:
     np.testing.assert_allclose(res.solution.to_array(), res_brglm2, atol=1e-7)
 
 
-# Test against solve_state_equations with intercept against brglm2
-# for different kappa/gamma/alpha
 @pytest.mark.brglm2
 def test_solve_state_equations_not_corrupt_against_se1_brglm2() -> None:
     """
@@ -256,3 +257,19 @@ def test_rigon_alverti_case() -> None:
     np.testing.assert_allclose(res.solution.to_array(), brglm2_res, atol = 1e-2) 
 
 
+KAPPAS = np.linspace(0.05, 0.95, 20)
+GAMMAS = np.linspace(0.5, 20, 20)
+GRID_POINTS = list(product(KAPPAS, GAMMAS))
+
+@pytest.mark.slow
+@pytest.mark.parametrize("kappa, gamma", GRID_POINTS)
+def test_grid_sweep_solver(kappa: float, gamma: float) -> None:
+    alpha = 1 / (1 + kappa)
+
+    try:
+        result, _ = solve_state_equation(kappa, gamma, alpha, start=None)
+    except SolverConvergenceError as exc:
+        pytest.fail(f"Solver failed to converge at kappa={kappa}, gamma={gamma}: {exc}")
+
+    np.testing.assert_allclose(
+        result.func_value, np.zeros_like(result.func_value), atol=1e-8, rtol = 1e-6)
