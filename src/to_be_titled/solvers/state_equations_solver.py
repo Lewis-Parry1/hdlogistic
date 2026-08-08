@@ -9,6 +9,7 @@ from to_be_titled import state_equations, validation
 from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_interpolator
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
+from to_be_titled.inference import _derive_gamma_from_nu
 
 
 class SolverConvergenceError(RuntimeError):
@@ -43,14 +44,6 @@ def _transform_parameters(
             else np.exp(pars_clipped)
         )
         return pars_exp
-
-
-def _derive_gamma_from_nu(
-    kappa: float, signal_strength: float, sigma: float, mu: float
-) -> float:
-    with np.errstate(invalid="ignore"):
-        gamma = np.sqrt(signal_strength**2 - kappa * sigma**2) / mu
-    return float(gamma)
 
 
 def _default_start(has_intercept: bool) -> FloatArray:
