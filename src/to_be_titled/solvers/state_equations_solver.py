@@ -10,6 +10,7 @@ from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_inter
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
+
 class SolverConvergenceError(RuntimeError):
     """Raised when every strategy in the solve cascade fails
     to converge to a valid, in-domain root."""
@@ -476,7 +477,7 @@ def solve_state_equation(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: FloatArray | None,
+    start: FloatArray | None = None,
     *,
     use_warm_start_interpolator: bool = True,
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,

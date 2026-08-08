@@ -4,6 +4,7 @@ of true values of `mu`, `b` and `sigma`.
 """
 
 from __future__ import annotations
+from typing import cast
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -60,7 +61,7 @@ class RgiCubicInterpolators:
             axis=-1,
         )
 
-        return out[0]
+        return cast(FloatArray, out[0])
 
 
 def _rgi_field(

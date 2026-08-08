@@ -47,3 +47,5 @@ def test_compute_sloe_estimator_happy_path() -> None:
 
 
 # TODO: Move these tests into a separate file for testing interface
+# TODO: Add two simple tests to ensure gamma_from_nu and nu_from_gamma return floats
+# of expected value
