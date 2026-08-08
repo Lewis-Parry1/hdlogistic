@@ -241,3 +241,18 @@ def test_solve_state_equation_int_transform_safely() -> None:
     np.testing.assert_array_almost_equal(
         soln.solution.to_array(), soln_t.solution.to_array()
     )
+
+@pytest.mark.brglm2
+def test_rigon_alverti_case() -> None: 
+    kappa = 0.5
+    gamma = np.sqrt(5)
+    alpha = 1 / (1 + kappa)
+
+    res, chain = solve_state_equation(kappa, gamma, alpha, corrupted=False)
+    print(chain)
+
+    brglm2_res = np.array([0.5095007, 6.3607799, 1.9872668])
+
+    np.testing.assert_allclose(res.solution.to_array(), brglm2_res, atol = 1e-2) 
+
+
