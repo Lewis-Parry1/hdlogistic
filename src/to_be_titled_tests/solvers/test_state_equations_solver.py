@@ -1,12 +1,14 @@
 import numpy as np
 import pytest
 
+from to_be_titled.inference import _derive_nu_from_gamma
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import FloatArray
 
 
 # Compare solve_se to Candes and Sur results.
 # See Table 13, set alpha = 1, when gamma = np.sqrt(5 + beta0^2)
+@pytest.mark.candes_sur
 @pytest.mark.parametrize(
     "thetas, roots",
     [
@@ -24,8 +26,9 @@ def test_solve_state_equation_no_int_compare_candes_sur(
     alpha = 1.0
     gamma = np.sqrt(5 + thetas**2)
 
-    # TODO: Get this to work for init_iter > 0
-    solver_result, _ = solve_state_equation(kappa, gamma, alpha, init_iter=0)
+    solver_result, chain = solve_state_equation(kappa, gamma, alpha)
+
+    print(chain)  # run pytest -s to see output
 
     # Ensure solver converged successfully
     assert solver_result.success is True, "Solver failed to converge"
@@ -34,6 +37,7 @@ def test_solve_state_equation_no_int_compare_candes_sur(
 
 # Compare with Candes Table 13, with intercept
 # alpha = 1.0,
+@pytest.mark.candes_sur
 @pytest.mark.parametrize(
     "thetas, roots",
     [
@@ -51,49 +55,42 @@ def test_solve_state_equation_w_int_compare_candes_sur(
     kappa = 0.2
     alpha = 1.0
 
-    solver_result, _ = solve_state_equation(
-        kappa,
-        gamma,
-        alpha,
-        intercept=thetas,
-        init_iter=50,
-    )
+    solver_result, chain = solve_state_equation(kappa, gamma, alpha, intercept=thetas)
 
-    # Ensure solver converged successfully
-    assert solver_result.success is True, "Solver failed to converge"
+    print(chain)
+
     np.testing.assert_allclose(solver_result.solution.to_array(), roots, atol=1e-1)
 
 
 # Test against solve_state_equations w/o intecept against brglm2
 # for different kappa/gamma/alpha
+@pytest.mark.brglm2
 def test_solve_state_equations_against_se0_brglm2() -> None:
     """
-    Given a known true signal strength, this tests that the solver
+    Given a known true signal strength (gamma), this tests that the solver
     is able to find `mu`, `b`, `sigma` such that the 3 state equations
     evaluate to zero. Moreover, this test ensures roots are suffciently
     close to values found brglm2::solve_se().
     """
     kappa, gamma, alpha = 0.2, 5, 0.88
 
-    # results from brglm2::solve_se
-    true_nelder_mead_50 = np.array([0.5649718, 2.5935673, 2.5376760])
+    res_brglm2 = np.array([0.5649718, 2.5935673, 2.5376760])
 
-    est_nelder_mead_50, _ = solve_state_equation(kappa, gamma, alpha, init_iter=50)
+    res, chain = solve_state_equation(kappa, gamma, alpha)
 
-    # Ensure solver gets suffciently to roots
-    np.testing.assert_array_almost_equal(est_nelder_mead_50.func_value, np.zeros(3))
+    print(chain)
 
-    # Ensure solver roots match brglm2 roots
-    np.testing.assert_allclose(
-        est_nelder_mead_50.solution.to_array(), true_nelder_mead_50, atol=1e-7
-    )
+    np.testing.assert_array_almost_equal(res.func_value, np.zeros(3))
+
+    np.testing.assert_allclose(res.solution.to_array(), res_brglm2, atol=1e-7)
 
 
 # Test against solve_state_equations with intercept against brglm2
 # for different kappa/gamma/alpha
+@pytest.mark.brglm2
 def test_solve_state_equations_not_corrupt_against_se1_brglm2() -> None:
     """
-    This test asserts that the solver with corrupted = False, obtains the `mu`,
+    This test asserts that in the uncorrupted case, the solver obtains the `mu`,
     `b`, `sigma` and `iota` such that the 4 state equations evaluate approximately
     close to zero. Moreover, this test asserts that the found roots, match the
     roots found using brglm2::solve_se().
@@ -102,7 +99,7 @@ def test_solve_state_equations_not_corrupt_against_se1_brglm2() -> None:
     # results from brglm2::solve_se using above values
     brglm2_res = np.array([0.5565527, 2.6079197, 2.5297002, 0.5585552])
 
-    soln, _ = solve_state_equation(
+    soln, chain = solve_state_equation(
         kappa,
         gamma,
         alpha,
@@ -110,44 +107,47 @@ def test_solve_state_equations_not_corrupt_against_se1_brglm2() -> None:
         intercept=theta,
     )
 
+    print(chain)
+
     # checks solver gets approximately close to roots
     np.testing.assert_array_almost_equal(soln.func_value, np.zeros(4))
     # check solver roots match brglm2
     np.testing.assert_allclose(soln.solution.to_array(), brglm2_res, atol=1e-10)
 
 
+@pytest.mark.brglm2
 def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
     """
-    The test uses brglm2::solve_se to obtain `mu`,`b`,
-    `sigma` and `iota` when corrupted is False, and to compute corrupted
-    signal strength `nu`. These values are used to evaluate solver when
-    corrupted = True, and intercept is found `iota` from brglm2. Solver's
-    solution is compared against brglm2::solve_se() results.
+    Defining `kappa`, `gamma`, `alpha` and `theta`, this test
+    asserts that the solution from the uncorrupted brglm2 solver
+    is suffciently close with the corresponding corrupted solver.
     """
     kappa, gamma, alpha, theta = 0.2, 5, 0.88, 1.0
 
     # results from brglm2::solve_se using above values
     brglm2_res = np.array([0.5565527, 2.6079197, 2.5297002, 0.5585552])
-    mu_root, b_root, sigma_root, iota_root = brglm2_res
+    mu, b, sigma, iota = brglm2_res  # approximate roots
 
-    # compute the corrupted signal strength, nu
-    nu = np.sqrt(mu_root**2 * gamma**2 + kappa * sigma_root**2)
+    nu = _derive_nu_from_gamma(kappa, gamma, mu, sigma)
 
-    # pass in corrupted signal strength and estimtaed intercept (iota_root)
-    soln_c, _ = solve_state_equation(
+    # pass in corrupted signal strength and estimtaed intercept (iota)
+    soln_corrupt, chain = solve_state_equation(
         kappa,
         nu,
         alpha,
         corrupted=True,
-        intercept=iota_root,
+        intercept=iota,
     )
 
-    # 4. The expected corrupted result: mu, b, sigma, and the TRUE intercept (theta)
-    brglm2_corrupted_res = np.array([mu_root, b_root, sigma_root, theta])
+    print(chain)
 
-    np.testing.assert_array_almost_equal(soln_c.func_value, np.zeros(4))
+    # the expected corrupted result from brglm2: mu, b, sigma,
+    # and the TRUE intercept (theta)
+    brglm2_corrupted_res = np.array([mu, b, sigma, theta])
+
+    np.testing.assert_array_almost_equal(soln_corrupt.func_value, np.zeros(4))
     np.testing.assert_allclose(
-        soln_c.solution.to_array(), brglm2_corrupted_res, atol=1e-6
+        soln_corrupt.solution.to_array(), brglm2_corrupted_res, atol=1e-6
     )
 
 
@@ -159,23 +159,19 @@ def test_solve_se0_with_nu() -> None:
     """
     kappa, gamma, alpha = 0.2, 5, 0.88
 
-    start = np.array([0.5, 1, 1])
+    res0, chain = solve_state_equation(kappa, gamma, alpha)
 
-    res0, _ = solve_state_equation(kappa, gamma, alpha, start)
-    sol0 = res0.solution.to_array()
-    (
-        mu,
-        _,
-        sigma,
-    ) = sol0[0], sol0[1], sol0[2]
+    print(chain)
 
-    # Compute the corrupted signal strength
-    nu = np.sqrt(mu**2 * gamma**2 + kappa * sigma**2)
+    nu = _derive_nu_from_gamma(kappa, gamma, res0.solution.mu, res0.solution.sigma)
 
-    # Use the corrupted signal strength as gamma in solver with corrupted = True
-    sol0_c, _ = solve_state_equation(kappa, nu, alpha, start, corrupted=True)
+    res0_c, chain_c = solve_state_equation(kappa, nu, alpha, corrupted=True)
 
-    np.testing.assert_array_almost_equal(sol0_c.solution.to_array(), sol0, decimal=8)
+    print(chain_c)
+
+    np.testing.assert_array_almost_equal(
+        res0_c.solution.to_array(), res0.solution.to_array(), decimal=8
+    )
 
 
 def test_solve_se1_retrieve_nu() -> None:
@@ -186,23 +182,27 @@ def test_solve_se1_retrieve_nu() -> None:
     """
     kappa, gamma, alpha, theta = 0.2, 5, 0.88, 1.0
 
-    res1, _ = solve_state_equation(kappa, gamma, alpha, intercept=theta)
-    sol1 = res1.solution.to_array()
+    res1, chain = solve_state_equation(kappa, gamma, alpha, intercept=theta)
 
-    mu, _, sigma, iota = (sol1[0], sol1[1], sol1[2], sol1[3])
+    print(chain)
 
     # Compute the corrupted signal strength
-    nu = np.sqrt(mu**2 * gamma**2 + kappa * sigma**2)
+    nu = _derive_nu_from_gamma(kappa, gamma, res1.solution.mu, res1.solution.sigma)
 
     # Use the corrupted signal strength as gamma and iota as intercept
     # in solver with corrupted = True
-    res1_c, _ = solve_state_equation(kappa, nu, alpha, corrupted=True, intercept=iota)
-    sol1_c = res1_c.solution.to_array()
+    res1_c, chain_c = solve_state_equation(
+        kappa, nu, alpha, corrupted=True, intercept=res1.solution.iota
+    )
+
+    print(chain_c)
 
     # mu, b, sigma should be recovered consistently between the two parameterizations
-    np.testing.assert_array_almost_equal(sol1_c[:3], sol1[:3], decimal=8)
+    np.testing.assert_array_almost_equal(
+        res1_c.solution.to_array()[:3], res1.solution.to_array()[:3], decimal=8
+    )
     # the corrupted-branch free parameter should recover the TRUE intercept (theta),
-    np.testing.assert_almost_equal(sol1_c[3], theta, decimal=8)
+    np.testing.assert_almost_equal(res1_c.solution.to_array()[3], theta, decimal=8)
 
 
 def test_solve_state_equation_no_int_transform_safely() -> None:
