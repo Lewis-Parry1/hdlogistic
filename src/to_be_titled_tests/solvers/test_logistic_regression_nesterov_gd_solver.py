@@ -4,7 +4,7 @@ from numpy.testing import assert_allclose
 from scipy.special import expit
 
 from to_be_titled.solvers.logistic_regression_nesterov_gd_solver import (
-    fit_logistic_regression_nesterov_accelerated_gradient_descent,
+    fit_logistic_regression_nagd,
 )
 from to_be_titled.types import LogisticRegressionResult
 
@@ -20,7 +20,7 @@ def test_fit_logistic_regression_nagd_single_iteration_success() -> None:
     y = np.array([[1.0], [0.0]], dtype=np.float64)
 
     # Execute exactly 1 iteration
-    result = fit_logistic_regression_nesterov_accelerated_gradient_descent(
+    result = fit_logistic_regression_nagd(
         x=x,
         y=y,
         max_iterations=1,
@@ -54,7 +54,7 @@ def test_fit_logistic_regression_nagd_output_shapes_and_types(
     x = rng.normal(size=(n_samples, n_features))
     y = rng.integers(0, 2, size=(n_samples, 1)).astype(np.float64)
 
-    result = fit_logistic_regression_nesterov_accelerated_gradient_descent(
+    result = fit_logistic_regression_nagd(
         x=x,
         y=y,
         max_iterations=5,  # Keep low for shape testing
@@ -79,12 +79,12 @@ def test_fit_logistic_regression_nagd_early_stopping_on_convergence() -> None:
     y = np.array([[1.0], [0.0]])
 
     # Run with an extremely high tolerance to force immediate convergence
-    result_high_tol = fit_logistic_regression_nesterov_accelerated_gradient_descent(
+    result_high_tol = fit_logistic_regression_nagd(
         x=x, y=y, max_iterations=500, tolerance=10.0, learning_rate=0.1
     )
 
     # Run with standard tolerance
-    result_std_tol = fit_logistic_regression_nesterov_accelerated_gradient_descent(
+    result_std_tol = fit_logistic_regression_nagd(
         x=x, y=y, max_iterations=500, tolerance=1e-6, learning_rate=0.1
     )
 

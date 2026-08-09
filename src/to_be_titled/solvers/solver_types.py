@@ -1,8 +1,9 @@
 from dataclasses import dataclass
+from typing import Protocol
 
 import numpy as np
 
-from to_be_titled.types import FloatArray
+from to_be_titled.types import FloatArray, LogisticRegressionResult
 
 
 @dataclass
@@ -73,3 +74,11 @@ class SolverResult:
     func_value: FloatArray
     message: str
     success: bool
+
+
+class SolverFunction(Protocol):
+    def __call__(
+        self,
+        x: FloatArray,
+        y: FloatArray,
+    ) -> LogisticRegressionResult: ...
