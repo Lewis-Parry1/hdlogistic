@@ -28,6 +28,11 @@ def resolve_solver(
     solver_kwargs: dict[str, Any] | None,
 ) -> SolverFunction:
     """Resolves string/callable into an execution-ready solver and validates kwargs."""
+    if not isinstance(solver, str):
+        raise TypeError(
+            f"`solver` must be a string or Callable, got {type(solver).__name__}"
+        )
+
     if callable(solver):
         if solver_kwargs is not None:
             raise ValueError(
