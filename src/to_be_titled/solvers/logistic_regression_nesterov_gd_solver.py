@@ -89,7 +89,8 @@ def fit_logistic_regression_nagd(
         learning_rate, (float, int, np.floating, np.integer)
     ):  # pyright: ignore[reportUnnecessaryIsInstance]
         raise TypeError(
-            f"learning_rate must be a real-valued number, got {type(learning_rate).__name__}."
+            f"learning_rate must be a real-valued number, got"
+            f"{type(learning_rate).__name__}."
         )
     if learning_rate <= 0.0:
         raise ValueError(
