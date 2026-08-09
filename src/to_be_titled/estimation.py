@@ -1,9 +1,8 @@
-import inspect
 from typing import Any, overload
 
 import numpy as np
 
-from to_be_titled.solvers.registry import _SOLVERS_REGISTRY
+from to_be_titled.solvers._registry import resolve_solver
 from to_be_titled.solvers.solver_types import SolverFunction
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
@@ -203,32 +202,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
-    # Delegate to the chosen solver function
-    if callable(solver):
-        if solver_kwargs is not None:
-            raise ValueError(
-                "`solver_kwargs` cannot be provided when `solver` is a "
-                "pre-configured callable. "
-                "Pass arguments directly via `functools.partial` instead."
-            )
-        result = solver(x_validated, y_adjusted)
-    else:
-        if solver not in _SOLVERS_REGISTRY:
-            valid_solvers = list(_SOLVERS_REGISTRY.keys())
-            raise ValueError(
-                f"Unknown solver '{solver}'. Available solvers: {valid_solvers}"
-            )
+    solver_function = resolve_solver(solver, solver_kwargs)
 
-        solver_function = _SOLVERS_REGISTRY[solver]
-        kwargs = solver_kwargs or {}
-
-        solver_function_signature = inspect.signature(solver_function)
-        try:
-            solver_function_signature.bind(x_validated, y_adjusted, **kwargs)
-        except TypeError as e:
-            raise TypeError(f"Invalid arguments for solver '{solver}': {e}") from None
-
-        result = solver_function(x_validated, y_adjusted, **kwargs)
+    result = solver_function(x_validated, y_adjusted)
 
     theta_hat = (
         float(result.betas[intercept_index, 0]) if intercept_index is not None else None

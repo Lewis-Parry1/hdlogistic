@@ -1,5 +1,7 @@
+import inspect
 from collections.abc import Callable
-from typing import TypeVar
+from functools import partial
+from typing import Any, TypeVar
 
 from to_be_titled.solvers.solver_types import SolverFunction
 
@@ -19,3 +21,39 @@ def register_solver(name: str) -> Callable[[F], F]:
         return func
 
     return decorator
+
+
+def resolve_solver(
+    solver: str | SolverFunction,
+    solver_kwargs: dict[str, Any] | None,
+) -> SolverFunction:
+    """Resolves string/callable into an execution-ready solver and validates kwargs."""
+    if callable(solver):
+        if solver_kwargs is not None:
+            raise ValueError(
+                "`solver_kwargs` cannot be provided when `solver` is a pre-configured callable. "
+                "Pass arguments directly via `functools.partial` instead."
+            )
+        return solver
+
+    solver_key = solver.lower().strip()
+    if solver_key not in SOLVERS_REGISTRY:
+        valid_solvers = list(SOLVERS_REGISTRY.keys())
+        raise ValueError(
+            f"Unknown solver '{solver}'. Available solvers: {valid_solvers}"
+        )
+
+    solver_function = SOLVERS_REGISTRY[solver_key]
+    kwargs = solver_kwargs or {}
+
+    solver_function_signature = inspect.signature(solver_function)
+    try:
+        # Validate that kwargs match the solver's signature without requiring x and y
+        solver_function_signature.bind_partial(**kwargs)
+    except TypeError as e:
+        raise TypeError(f"Invalid arguments for solver '{solver}': {e}") from None
+
+    if kwargs:
+        return partial(solver_function, **kwargs)
+
+    return solver_function
