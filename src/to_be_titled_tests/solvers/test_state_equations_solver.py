@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from itertools import product
+
 import numpy as np
 import pytest
 
-from itertools import product
-
 from to_be_titled.inference import _derive_nu_from_gamma
-from to_be_titled.solvers.state_equations_solver import solve_state_equation, SolverConvergenceError
+from to_be_titled.solvers.state_equations_solver import (
+    SolverConvergenceError,
+    solve_state_equation,
+)
 from to_be_titled.types import FloatArray
 
 
@@ -24,7 +27,7 @@ from to_be_titled.types import FloatArray
 def test_solve_state_equation_no_int_compare_candes_sur(
     thetas: float, roots: FloatArray
 ) -> None:
-    """Test to compare solver without intercept solution against known true 
+    """Test to compare solver without intercept solution against known true
     values from Candes & Sur Table 13."""
     kappa = 0.2
     alpha = 1.0
@@ -32,7 +35,7 @@ def test_solve_state_equation_no_int_compare_candes_sur(
 
     solver_result, chain = solve_state_equation(kappa, gamma, alpha)
 
-    print(chain)  
+    print(chain)
 
     assert solver_result.success is True, "Solver failed to converge"
     np.testing.assert_allclose(solver_result.solution.to_array(), roots, atol=1e-2)
@@ -54,7 +57,7 @@ def test_solve_state_equation_no_int_compare_candes_sur(
 def test_solve_state_equation_w_int_compare_candes_sur(
     thetas: float, roots: FloatArray
 ) -> None:
-    """Test to compare solver with intercept solution against known true 
+    """Test to compare solver with intercept solution against known true
     values from Candes & Sur Table 13."""
     gamma = np.sqrt(5)
     kappa = 0.2
@@ -243,8 +246,9 @@ def test_solve_state_equation_int_transform_safely() -> None:
         soln.solution.to_array(), soln_t.solution.to_array()
     )
 
+
 @pytest.mark.brglm2
-def test_rigon_alverti_case() -> None: 
+def test_rigon_alverti_case() -> None:
     kappa = 0.5
     gamma = np.sqrt(5)
     alpha = 1 / (1 + kappa)
@@ -254,12 +258,13 @@ def test_rigon_alverti_case() -> None:
 
     brglm2_res = np.array([0.5095007, 6.3607799, 1.9872668])
 
-    np.testing.assert_allclose(res.solution.to_array(), brglm2_res, atol = 1e-2) 
+    np.testing.assert_allclose(res.solution.to_array(), brglm2_res, atol=1e-2)
 
 
 KAPPAS = np.linspace(0.05, 0.95, 20)
 GAMMAS = np.linspace(0.5, 20, 20)
 GRID_POINTS = list(product(KAPPAS, GAMMAS))
+
 
 @pytest.mark.slow
 @pytest.mark.parametrize("kappa, gamma", GRID_POINTS)
@@ -272,4 +277,5 @@ def test_grid_sweep_solver(kappa: float, gamma: float) -> None:
         pytest.fail(f"Solver failed to converge at kappa={kappa}, gamma={gamma}: {exc}")
 
     np.testing.assert_allclose(
-        result.func_value, np.zeros_like(result.func_value), atol=1e-8, rtol = 1e-6)
+        result.func_value, np.zeros_like(result.func_value), atol=1e-8, rtol=1e-6
+    )

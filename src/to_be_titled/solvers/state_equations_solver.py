@@ -6,10 +6,10 @@ import numpy as np
 from scipy.optimize import minimize, root
 
 from to_be_titled import state_equations, validation
+from to_be_titled.inference import _derive_gamma_from_nu
 from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_interpolator
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
-from to_be_titled.inference import _derive_gamma_from_nu
 
 
 class SolverConvergenceError(RuntimeError):

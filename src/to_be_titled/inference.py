@@ -71,8 +71,7 @@ def compute_sloe_estimator(
 def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
     return float(np.sqrt(mu**2 * gamma**2 + kappa * sigma**2))
 
-def _derive_gamma_from_nu(
-    kappa: float, nu: float, sigma: float, mu: float
-) -> float:
+
+def _derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
     with np.errstate(invalid="ignore"):
         return float(np.sqrt(nu**2 - kappa * sigma**2) / mu)

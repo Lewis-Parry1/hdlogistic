@@ -4,22 +4,24 @@ of true values of `mu`, `b` and `sigma`.
 """
 
 from __future__ import annotations
-from typing import cast
 
 from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 from to_be_titled.types import FloatArray
 
-GRID_PATH = (Path(__file__).resolve().parent.parent.parent.parent 
-             / "scripts" 
-             / "data" 
-             / "true_reference_param_grid.npz")
+GRID_PATH = (
+    Path(__file__).resolve().parent.parent.parent.parent
+    / "scripts"
+    / "data"
+    / "true_reference_param_grid.npz"
+)
 
 FieldFunc = Callable[[FloatArray, FloatArray], FloatArray]
 
