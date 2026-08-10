@@ -22,7 +22,7 @@ from to_be_titled.solvers.state_equations_solver import (
 from to_be_titled.types import FloatArray
 from to_be_titled.validation import _is_valid_domain
 
-OUTPUT_PATH = Path(__file__).resolve().parent / "true_reference_param_grid.npz"
+OUTPUT_PATH = Path(__file__).resolve().parent / "data" / "true_reference_param_grid.npz"
 
 
 def _solver_strategy(

@@ -16,7 +16,10 @@ from scipy.interpolate import RegularGridInterpolator
 
 from to_be_titled.types import FloatArray
 
-GRID_PATH = Path(__file__).resolve().parent / "true_reference_param_grid.npz"
+GRID_PATH = (Path(__file__).resolve().parent.parent.parent.parent 
+             / "scripts" 
+             / "data" 
+             / "true_reference_param_grid.npz")
 
 FieldFunc = Callable[[FloatArray, FloatArray], FloatArray]
 
