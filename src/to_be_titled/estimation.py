@@ -1,12 +1,9 @@
-from dataclasses import asdict
-from typing import Any
+from typing import Any, overload
 
 import numpy as np
 
-from to_be_titled.models import (
-    BaseSolverConfig,
-)
-from to_be_titled.solvers.registry import SOLVERS_REGISTRY, SolverKind
+from to_be_titled.solvers._registry import resolve_solver
+from to_be_titled.solvers.solver_types import SolverFunction
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
@@ -93,20 +90,45 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
     return y
 
 
+@overload
 def fit_diaconis_ylvisaker_logistic_regression(
     x: FloatArray,
     y: FloatArray,
     intercept_index: int | None = None,
     alpha: float | None = None,
-    solver: SolverKind | str = SolverKind.FISHER_SCORING,
-    solver_config: BaseSolverConfig | dict[str, Any] | None = None,
+    *,
+    solver: str = "fisher_scoring",
+    solver_kwargs: dict[str, Any] | None = None,
+) -> DiaconisYlvisakerLogisticRegressionResult: ...
+
+
+@overload
+def fit_diaconis_ylvisaker_logistic_regression(
+    x: FloatArray,
+    y: FloatArray,
+    intercept_index: int | None = None,
+    alpha: float | None = None,
+    *,
+    solver: SolverFunction,
+    solver_kwargs: None = None,
+) -> DiaconisYlvisakerLogisticRegressionResult: ...
+
+
+def fit_diaconis_ylvisaker_logistic_regression(
+    x: FloatArray,
+    y: FloatArray,
+    intercept_index: int | None = None,
+    alpha: float | None = None,
+    *,
+    solver: str | SolverFunction = "fisher_scoring",
+    solver_kwargs: dict[str, Any] | None = None,
 ) -> DiaconisYlvisakerLogisticRegressionResult:
     """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
-        penalized likelihood.
+    penalized likelihood.
 
-        Estimates regression coefficients using a Fisher scoring method. Due to the
-        properties of the Diaconis-Ylvisaker prior, simplifies to standard maximisation
-        of the log-likelihood function, on an adjusted response vector.
+    Estimates regression coefficients using a Fisher scoring method. Due to the
+    properties of the Diaconis-Ylvisaker prior, simplifies to standard maximisation
+    of the log-likelihood function, on an adjusted response vector.
 
     Parameters
     ----------
@@ -123,21 +145,15 @@ def fit_diaconis_ylvisaker_logistic_regression(
         prior penalty. Default is None, in which `alpha` is set to n / (n + p)
         or equivalently, 1 / (1 + kappa). Setting `alpha` to 1.0 corresponds to
         using standard unpenalized maximum likelihood estimation.
-    solver : SolverKind | str, default = SolverKind.FISHER_SCORING
-        The numerical optimization solver backend to use. Supported values are
-        `SolverKind.FISHER_SCORING` (or `"fisher_scoring"`).
-    solver_config : BaseSolverConfig | dict[str, Any] | None, default = None
-        Configuration options passed to the solver backend, as either a typed
-        configuration dataclass instance or an untyped dictionary of options.
-        Supported keys depend on the chosen solver:
-
-        - For `"fisher_scoring"` (`FisherScoringConfig`):
-            * `"max_iterations"` (int, default=25): Maximum number of scoring
-                iterations.
-            * `"tolerance"` (float, default=1e-6): Absolute step size convergence
-                threshold.
-            * `"epsilon"` (float, default=1e-8): Small positive scalar for numerical
-                stability.
+    solver : str, SolverKind, or callable, default = SolverKind.FISHER_SCORING
+        The numerical optimization solver backend to use. Accepts a registered
+        solver name (e.g., `"fisher_scoring"`, `"nesterov_gradient_descent"`), a
+        `SolverKind` enum, or a custom pre-configured callable (e.g., via
+        `functools.partial` or lambda functions).
+    solver_kwargs : dict[str, Any] | None, default = None
+        Additional keyword arguments passed directly to the solver function when
+        using string or enum dispatch. Must be `None` if `solver` is a pre-configured
+        callable. See the respective solver function docstring for accepted options.
 
     Returns
     -------
@@ -152,13 +168,20 @@ def fit_diaconis_ylvisaker_logistic_regression(
     ValueError
         If `alpha` is outside the closed interval [0.0, 1.0].
         If `solver` is not a recognized `SolverKind` or valid solver string.
+        If `solver_kwargs` is provided alongside a pre-configured callable `solver`.
         If `x` or `y` fail structural and dimensional checks during validation.
     TypeError
-        If `solver_config` is a `BaseSolverConfig` instance that does not match
-        the required schema for the selected `solver`.
+        If the provided `solver_kwargs` are invalid for the chosen solver's signature.
     LinAlgError
         If the Fisher information matrix is singular or ill-conditioned and cannot
         be inverted during solver iterations.
+
+    See Also
+    --------
+    to_be_titled.solvers.fit_logistic_regression_fisher_scoring :
+        Fisher scoring solver backend options.
+    to_be_titled.solvers.fit_logistic_regression_nesterov_accelerated_gradient_descent :
+        Nesterov Accelerated Gradient Descent solver backend options.
 
     References
     ----------
@@ -166,27 +189,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
            penalized likelihood for p/n -> kappa in (0,1) logistic regression.
            https://arxiv.org/abs/2311.07419
     """
-
-    try:
-        solver_kind = SolverKind(solver)
-    except ValueError:
-        valid_solvers = [s.value for s in SolverKind]
-        raise ValueError(
-            f"Unknown solver '{solver}'. Available solvers: {valid_solvers}"
-        ) from None
-
-    endpoint = SOLVERS_REGISTRY[solver_kind]
-
-    if isinstance(solver_config, BaseSolverConfig):
-        if not isinstance(solver_config, endpoint.config_schema):
-            raise TypeError(
-                f"Solver '{solver_kind.value}' expects a configuration of type "
-                f"{endpoint.config_schema.__name__}, got {type(solver_config).__name__}"
-            )
-        validated_config = solver_config
-    else:
-        validated_config = endpoint.config_schema.from_dict(solver_config or {})
-
+    # TODO: Add examples of usage with partial, lambda and string dispatch
     x_validated = _ensure_design_matrix(x)
     y_validated = _ensure_column_vector(y)
 
@@ -199,8 +202,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
-    # Delegate to the chosen solver function
-    result = endpoint.method(x_validated, y_adjusted, **asdict(validated_config))
+    solver_function = resolve_solver(solver, solver_kwargs)
+
+    result = solver_function(x_validated, y_adjusted)
 
     theta_hat = (
         float(result.betas[intercept_index, 0]) if intercept_index is not None else None
