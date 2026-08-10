@@ -1,16 +1,20 @@
-import numpy as np
-import statsmodels.api as sm # pyright: ignore reportMissingTypeStubs
 from typing import Any
 
-from to_be_titled.types import FloatArray
-from to_be_titled.solvers.solver_types import LogisticRegressionResult 
-from to_be_titled.solvers import register_solver
+import numpy as np
+import statsmodels.api as sm  # pyright: ignore reportMissingTypeStubs
 
-@register_solver("statsmodels_glm")
-def fit_statsmodels_glm_logistic_regression(
-    x: FloatArray, 
-    y: FloatArray, 
-    **kwargs: Any
+from to_be_titled.types import FloatArray, LogisticRegressionResult
+
+
+def fit_logistic_regression(
+    x: FloatArray,
+    y: FloatArray,
+    *,
+    start_params: FloatArray | None = None,
+    maxiter: int | None = None,
+    tol: float | None = None,
+    method: str | None = None,
+    fit_kwargs: dict[str, Any] | None = None,
 ) -> LogisticRegressionResult:
     """Fit a logistic regression model using the statsmodels GLM framework.
 
@@ -20,9 +24,17 @@ def fit_statsmodels_glm_logistic_regression(
         2-D design matrix of shape (n_samples, n_features).
     y : FloatArray
         2-D response vector of shape (n_samples, 1).
-    **kwargs : Any
-        Additional keyword arguments forwarded directly to the underlying `statsmodels` 
-        GLM fit method (e.g., `maxiter`, `tol`, `method`, `cov_type`).
+    start_params : FloatArray | None, default = None
+        Initial values for the regression coefficients.
+    maxiter : int | None, default = None
+        Maximum number of optimization iterations.
+    tol : float | None, default = None
+        Convergence tolerance for optimization.
+    method : str | None, default = None
+        Optimization solver method (e.g., `'IRLS'`).
+    fit_kwargs : dict[str, Any] | None, default = None
+        Additional keyword arguments forwarded directly to the underlying `statsmodels`
+        GLM fit method (e.g., `cov_type`, `scale`).
 
     Returns
     -------
@@ -32,12 +44,26 @@ def fit_statsmodels_glm_logistic_regression(
 
     See Also
     --------
-    statsmodels.genmod.generalized_linear_model.GLM.fit : 
-        Official `statsmodels` documentation for supported fitting keyword arguments and optimization options.
-    """    
+    statsmodels.genmod.generalized_linear_model.GLM.fit :
+        Official `statsmodels` documentation for supported fitting keyword arguments
+        and optimization options.
+    """
     model = sm.GLM(endog=y, exog=x, family=sm.families.Binomial())
-    
-    sm_result = model.fit(**kwargs) # pyright: ignore[reportUnknownMemberType]
+
+    kwargs: dict[str, Any] = {}
+    if start_params is not None:
+        kwargs["start_params"] = start_params
+    if maxiter is not None:
+        kwargs["maxiter"] = maxiter
+    if tol is not None:
+        kwargs["tol"] = tol
+    if method is not None:
+        kwargs["method"] = method
+
+    if fit_kwargs:
+        kwargs.update(fit_kwargs)
+
+    sm_result = model.fit(**kwargs)  # pyright: ignore[reportUnknownMemberType]
 
     betas = np.asarray(sm_result.params).reshape(-1, 1)
     mus = np.asarray(sm_result.mu).reshape(-1, 1)

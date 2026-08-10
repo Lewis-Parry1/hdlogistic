@@ -1,9 +1,10 @@
-from typing import Any, overload
+from typing import Any
 
 import numpy as np
 
-from to_be_titled.solvers._registry import resolve_solver
-from to_be_titled.solvers.solver_types import SolverFunction
+from to_be_titled.solvers.logistic_regression_statsmodels_solver import (
+    fit_logistic_regression,
+)
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
@@ -90,45 +91,24 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
     return y
 
 
-@overload
 def fit_diaconis_ylvisaker_logistic_regression(
     x: FloatArray,
     y: FloatArray,
     intercept_index: int | None = None,
     alpha: float | None = None,
     *,
-    solver: str = "fisher_scoring",
-    solver_kwargs: dict[str, Any] | None = None,
-) -> DiaconisYlvisakerLogisticRegressionResult: ...
-
-
-@overload
-def fit_diaconis_ylvisaker_logistic_regression(
-    x: FloatArray,
-    y: FloatArray,
-    intercept_index: int | None = None,
-    alpha: float | None = None,
-    *,
-    solver: SolverFunction,
-    solver_kwargs: None = None,
-) -> DiaconisYlvisakerLogisticRegressionResult: ...
-
-
-def fit_diaconis_ylvisaker_logistic_regression(
-    x: FloatArray,
-    y: FloatArray,
-    intercept_index: int | None = None,
-    alpha: float | None = None,
-    *,
-    solver: str | SolverFunction = "fisher_scoring",
-    solver_kwargs: dict[str, Any] | None = None,
+    start_params: FloatArray | None = None,
+    maxiter: int | None = None,
+    tol: float | None = None,
+    method: str | None = None,
+    fit_kwargs: dict[str, Any] | None = None,
 ) -> DiaconisYlvisakerLogisticRegressionResult:
     """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
     penalized likelihood.
 
     Estimates regression coefficients using a Fisher scoring method. Due to the
     properties of the Diaconis-Ylvisaker prior, simplifies to standard maximisation
-    of the log-likelihood function, on an adjusted response vector.
+    of the log-likelihood function on an adjusted response vector.
 
     Parameters
     ----------
@@ -145,15 +125,16 @@ def fit_diaconis_ylvisaker_logistic_regression(
         prior penalty. Default is None, in which `alpha` is set to n / (n + p)
         or equivalently, 1 / (1 + kappa). Setting `alpha` to 1.0 corresponds to
         using standard unpenalized maximum likelihood estimation.
-    solver : str, SolverKind, or callable, default = SolverKind.FISHER_SCORING
-        The numerical optimization solver backend to use. Accepts a registered
-        solver name (e.g., `"fisher_scoring"`, `"nesterov_gradient_descent"`), a
-        `SolverKind` enum, or a custom pre-configured callable (e.g., via
-        `functools.partial` or lambda functions).
-    solver_kwargs : dict[str, Any] | None, default = None
-        Additional keyword arguments passed directly to the solver function when
-        using string or enum dispatch. Must be `None` if `solver` is a pre-configured
-        callable. See the respective solver function docstring for accepted options.
+    start_params : FloatArray | None, default = None
+        Initial values for the regression coefficients passed to the GLM solver.
+    maxiter : int | None, default = None
+        Maximum number of optimization iterations.
+    tol : float | None, default = None
+        Convergence tolerance for optimization.
+    method : str | None, default = None
+        Optimization method (e.g., `'IRLS'`).
+    fit_kwargs : dict[str, Any] | None, default = None
+        Additional keyword arguments forwarded directly to `statsmodels.GLM.fit`.
 
     Returns
     -------
@@ -167,21 +148,10 @@ def fit_diaconis_ylvisaker_logistic_regression(
     ------
     ValueError
         If `alpha` is outside the closed interval [0.0, 1.0].
-        If `solver` is not a recognized `SolverKind` or valid solver string.
-        If `solver_kwargs` is provided alongside a pre-configured callable `solver`.
         If `x` or `y` fail structural and dimensional checks during validation.
-    TypeError
-        If the provided `solver_kwargs` are invalid for the chosen solver's signature.
     LinAlgError
         If the Fisher information matrix is singular or ill-conditioned and cannot
         be inverted during solver iterations.
-
-    See Also
-    --------
-    to_be_titled.solvers.fit_logistic_regression_fisher_scoring :
-        Fisher scoring solver backend options.
-    to_be_titled.solvers.fit_logistic_regression_nesterov_accelerated_gradient_descent :
-        Nesterov Accelerated Gradient Descent solver backend options.
 
     References
     ----------
@@ -189,7 +159,6 @@ def fit_diaconis_ylvisaker_logistic_regression(
            penalized likelihood for p/n -> kappa in (0,1) logistic regression.
            https://arxiv.org/abs/2311.07419
     """
-    # TODO: Add examples of usage with partial, lambda and string dispatch
     x_validated = _ensure_design_matrix(x)
     y_validated = _ensure_column_vector(y)
 
@@ -202,9 +171,15 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
-    solver_function = resolve_solver(solver, solver_kwargs)
-
-    result = solver_function(x_validated, y_adjusted)
+    result = fit_logistic_regression(
+        x_validated,
+        y_adjusted,
+        start_params=start_params,
+        maxiter=maxiter,
+        tol=tol,
+        method=method,
+        fit_kwargs=fit_kwargs,
+    )
 
     theta_hat = (
         float(result.betas[intercept_index, 0]) if intercept_index is not None else None
