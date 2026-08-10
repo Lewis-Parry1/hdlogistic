@@ -46,13 +46,14 @@ def _transform_parameters(
         return pars_exp
 
 
-def _default_start(has_intercept: bool) -> FloatArray:
+def _default_start(intercept: float | None = None) -> FloatArray:
     """
     Single arbitrary starting guess for `mu`, `b`, `sigma` and
     optional `intercept` when the user supplies no start.
     """
+    has_intercept = intercept is not None
     return (
-        np.asarray([0.5, 2.0, 2.0, 0.0], dtype=np.float64)
+        np.asarray([0.5, 2.0, 2.0, intercept], dtype=np.float64)
         if has_intercept
         else np.asarray([0.5, 2.0, 2.0], dtype=np.float64)
     )
@@ -218,7 +219,7 @@ def _init_solver(
     kappa: float,
     signal_strength: float,
     alpha: float,
-    start: FloatArray | None = None,
+    start: FloatArray,
     init_method: str = "BFGS",
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
@@ -247,7 +248,7 @@ def _init_solver(
         signal strength leave one out estimator).
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
-    start : FloatArray | None, optional
+    start : FloatArray
         Initial starting values for the state evolution parameters. If `intercept`
         is None, a 1D array of length 3 containing (`mu`, `b`, `sigma`), where `mu`
         lies in (0, 1) and `b`, `sigma` are strictly positive. If `intercept` is
@@ -290,9 +291,6 @@ def _init_solver(
         solver's convergence status (`message`, `success`).
     """
     has_intercept = intercept is not None
-
-    if start is None:
-        start = _default_start(has_intercept)
 
     g = _se_funcs(
         kappa=kappa,
@@ -363,7 +361,6 @@ def _root_solver(
     **root_kwargs: Any,
 ) -> SolverResult:
     r"""
-    NEW DOCSTRING NEEDED
     Executes a root-finding algorithm to estimate the stationary point
     (`mu*`, `b*`, `sigma*`) and an optional `iota`/`theta` of the MDYPL
     state evolution equations.
@@ -483,6 +480,100 @@ def solve_state_equation(
     main_method: str = "hybr",
     prox_tol: float = 1e-10,
 ) -> tuple[SolverResult, str]:
+    r"""
+    Solves the MDYPL state equations.
+
+    This wrapper function executes a root-finding algorithm to locate the stationary
+    points of the 3-4 MDYPL state equations. As root-finding algorithms can be sensitive
+    to the initial start, if it is unsucessful the function executes
+    `scipy.optimize.minimize` with the previous initial start to attempt to minimize
+    the sum of squared residuals of the state equations. The solution of this minimizer
+    is used as the "warm" start for the root-finding algorithm for a second time.
+
+    Parameters
+    ----------
+    kappa : float
+        Asymptotic ratio of the columns/rows of the design matrix (p/n).
+        `kappa` should be in (0,1).
+    signal_strength : float
+        Square root of the signal strength (ss).
+        - If `corrupted = False`, represents the true signal strength
+        \gamma (square root of the limit of Var(X * \beta_0))
+        - If `corrupted = True`, represents the corrupted signal strength
+        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+        signal strength leave one out estimator).
+    alpha : float
+        Shrinkage parameter of the MDYPL estimator. `alpha` should be in [0,1].
+    start : FloatArray | None, optional
+        Initial values for the state evolution parameters. If `intercept` is None,
+        `start` must be a 1D array of length 3 containing (`mu`, `b`, `sigma`),
+        where `mu` lies in (0, 1), and `b` and `sigma` are strictly positive. If
+        `intercept` is provided, `start` must be a 1D array of length 4 containing
+        (`mu`, `b`, `sigma`, `iota`). If `use_warm_start_interpolator` is False,
+        this defaults to `[0.5, 2.0, 2.0]` when `intercept` is None, or
+        `[0.5, 2.0, 2.0, intercept]` when an intercept is specified,
+        by default None.
+    use_warm_start_interpolator : bool, optional
+        A cubic `RegularGridInterpolator` is fit on a grid of 100x100 approximate
+        true values of the state equations in the uncorrupted case without an
+        intercept. If `use_warm_start_interpolator` is True, the true parameter
+        values are interpolated using `kappa` and `signal_strength` and is used as
+        default start. By default, True.
+    hermite_roots_weights : tuple[FloatArray, FloatArray] | None, optional
+        A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
+        used to approximate the system's expected values. Defaults to None, wherein
+        200 nodes are used to approximate bivariate integrals within state equations.
+    root_kwargs : dict[str, Any] | None, optional
+        Additional keyword arguments passed directly to the main root solver
+        (`scipy.optimize.root`). By default None
+    minimize_kwargs : dict[str, Any] | None, optional
+        Additional keyword arguments passed directly to the initial minimizer
+        (`scipy.optimize.minimize`), by default None
+    transform : bool, optional
+        If True, the input parameters (`mu`, `b`, `sigma`) are internally
+        log-transformed before being passed into scipy.optimize.root().
+        This enforces strict positivity and can improve convergence.
+        By default, True.
+    corrupted : bool, optional
+        If False, `signal_strength` is the true signal strength \gamma.
+        If True, `signal_strength` is the corrupted signal strength, \nu.
+        Default is False
+    intercept : float | None, optional
+        If None, the function minimizes residuals for the 3-equation system
+        without an intercept (`mu`,`b`, `sigma`).
+        If a float:
+        - If `corrupted = False`, `intercept` represents the true population
+        intercept \theta_0, which is appended as the intial guess for `iota`
+        if `start` is None.
+        - If `corrupted = True`, `intercept` represents the limit, `iota`, of the
+        MDYPL sample-estimated intercept \hat{\theta}_0, which is appended as the
+        initial guess for `theta0` if `start` is None.
+    init_method : str, optional
+        The optimization method to be passed to `scipy.optimize.minimize` for the
+        initial warm-start phase, by default "BFGS"
+    main_method : str, optional
+        The root-finding method to be passed to `scipy.optimize.root` for the exact
+        solution phase, by default "hybr".
+    prox_tol : float, optional
+        Convergence tolerance for the Newton-Raphson estimation of the
+        proximal operator, by default 1e-10.
+
+    Returns
+    -------
+    tuple[SolverResult, str]
+        A two-element tuple containing:
+        - SolverResult: dataclass with the optimal real-space parameters
+          (`solution`), the evaluated residual vector (`func_value`)and
+          the main solver's converges success/message.
+        - str: a summary of the chain of optimisers used in order to converge
+        (or fail to converge) to a solution.
+
+    Raises
+    ------
+    SolverConvergenceError
+        If every strategy in the solve cascade fails to converge to a valid,
+        in-domain root.
+    """
 
     has_intercept = intercept is not None
 
@@ -519,7 +610,7 @@ def solve_state_equation(
 
         stage1_name = "interpolated_start"
     else:
-        stage1_start, stage1_name = _default_start(has_intercept), "default_start"
+        stage1_start, stage1_name = _default_start(intercept), "default_start"
 
     def try_root(candidate_start: FloatArray) -> SolverResult:
         return _root_solver(
