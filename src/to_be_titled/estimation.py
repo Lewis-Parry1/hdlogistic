@@ -193,4 +193,5 @@ def fit_diaconis_ylvisaker_logistic_regression(
         x_validated=x_validated,
         alpha=alpha,
         theta_hat=theta_hat,
+        leverages=result.leverages,
     )

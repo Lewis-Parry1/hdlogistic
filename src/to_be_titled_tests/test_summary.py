@@ -6,7 +6,6 @@ from scipy.special import expit
 
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.summary import (
-    _compute_leverages,  # pyright: ignore [reportPrivateUsage]
     summary,
 )
 from to_be_titled.types import DiaconisYlvisakerLogisticRegressionResult
@@ -39,16 +38,8 @@ def _make_result(
         mus=mus,
         alpha=1.0,
         theta_hat=None,
+        leverages=np.full((n_samples, 1), 0.1),
     )
-
-
-def test_compute_leverages_returns_shape_and_range() -> None:
-    result = _make_result(n_samples=10, n_features=3, seed=0)
-    leverages = _compute_leverages(result.x_validated, result.mus)
-
-    assert leverages.shape == (10, 1)
-    assert np.all(leverages >= 0)
-    assert np.all(leverages <= 1.0 + 1e-8)
 
 
 def test_summary_with_high_dimensional_correction(

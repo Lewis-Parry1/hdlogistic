@@ -1,44 +1,11 @@
 import numpy as np
-from scipy.linalg import solve
 
 from to_be_titled.inference import compute_sloe_estimator
-from to_be_titled.matrix_operations import compute_weighted_design_and_info
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
     DiaconisYlvisakerLogisticRegressionResult,
     FloatArray,
 )
-
-
-def _compute_leverages(
-    x: FloatArray,
-    mus: FloatArray,
-    epsilon: float = 1e-8,
-) -> FloatArray:
-    """Compute the diagonal leverage scores (hat values) for a logistic regression
-    model.
-
-    Parameters
-    ----------
-    x : FloatArray
-        The validated design matrix of shape (n_samples, n_features).
-    mus : FloatArray
-        The fitted probabilities of shape (n_samples, 1).
-    epsilon : float, default=1e-8
-        Small regularization constant passed to the internal weighting routine.
-
-    Returns
-    -------
-    FloatArray
-        The leverage scores (diagonal elements of the hat matrix) as a column
-        vector of shape (n_samples, 1).
-    """
-
-    wx, info = compute_weighted_design_and_info(x, mus, epsilon)
-
-    solved_wx_t = solve(info, wx.T, assume_a="pos")
-
-    return np.asarray(np.sum(wx * solved_wx_t.T, axis=1)).reshape(-1, 1)
 
 
 def summary(
@@ -72,11 +39,10 @@ def summary(
         has_intercept = result.theta_hat is not None
         number_parameters = result.x_validated.shape[1] - (1 if has_intercept else 0)
 
-        leverages = _compute_leverages(result.x_validated, result.mus)
         signal_strength = compute_sloe_estimator(
             linear_predictors=result.linear_predictors,
             y_adjusted=result.y_adjusted,
-            leverages=leverages,
+            leverages=result.leverages,
         )
 
         kappa = number_parameters / number_observations

@@ -69,8 +69,14 @@ def fit_logistic_regression(
     mus = np.asarray(sm_result.mu).reshape(-1, 1)
     linear_predictors = x @ betas
 
+    # Compute leverages directly to avoid additional computation done by get_influence()
+    weights = mus * (1.0 - mus)
+    cov = np.asarray(sm_result.cov_params())
+    leverages = weights * np.sum((x @ cov) * x, axis=1, keepdims=True)
+
     return LogisticRegressionResult(
         betas=betas,
         mus=mus,
         linear_predictors=linear_predictors,
+        leverages=leverages,
     )
