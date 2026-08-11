@@ -1,6 +1,11 @@
 import numpy as np
 
+from to_be_titled.solvers.solver_types import SolverResult
 from to_be_titled.types import FloatArray
+
+
+def _is_valid(result: SolverResult) -> bool:
+    return result.success and _is_valid_domain(result.solution.to_array())
 
 
 def _validate_domain(params: FloatArray) -> None:
