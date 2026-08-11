@@ -86,7 +86,7 @@ def _se_funcs(
         - If `corrupted = False`, represents the true signal strength
         \gamma (square root of the limit of Var(X * \beta_0))
         - If `corrupted = True`, represents the corrupted signal strength
-        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+        \nu (square root of the limit of Var(X * hat{\beta}) estimated via the
         signal strength leave one out estimator).
     alpha : float
         Shrinkage hyperparamter of the MDYPL estimator. `alpha` should be in `(0,1]`.
