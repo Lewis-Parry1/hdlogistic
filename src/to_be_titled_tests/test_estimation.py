@@ -103,3 +103,24 @@ def test_fit_diaconis_ylvisaker_logistic_regression_applies_var_weights() -> Non
 
     # Verify that the calculated leverages account for the variance weights
     assert not np.allclose(result_unweighted.leverages, result_weighted.leverages)
+
+
+def test_fit_diaconis_ylvisaker_logistic_regression_applies_offset() -> None:
+    x = np.array([[0.5], [1.0], [2.0]], dtype=np.float64)
+    y = np.array([[0.0], [0.0], [1.0]], dtype=np.float64)
+
+    result_no_offset = estimation.fit_diaconis_ylvisaker_logistic_regression(
+        x, y, alpha=0.5, maxiter=100, tol=1e-8
+    )
+
+    offset = np.array([[2.0], [2.0], [-2.0]], dtype=np.float64)
+    result_with_offset = estimation.fit_diaconis_ylvisaker_logistic_regression(
+        x, y, alpha=0.5, offset=offset, maxiter=100, tol=1e-8
+    )
+
+    assert not np.allclose(result_no_offset.betas, result_with_offset.betas)
+
+    expected_eta = (x @ result_with_offset.betas) + offset
+    np.testing.assert_allclose(
+        result_with_offset.linear_predictors, expected_eta, rtol=1e-12
+    )

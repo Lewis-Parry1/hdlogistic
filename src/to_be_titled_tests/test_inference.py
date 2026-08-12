@@ -39,3 +39,26 @@ def test_predict_rejects_invalid_type() -> None:
         match=r"Invalid prediction type 'invalid'. Expected 'response' or 'link'.",
     ):
         predict(x, betas, type="invalid")  # type: ignore[arg-type]
+
+
+def test_predict_with_offset_link_and_response_scales() -> None:
+    x = np.array([[1.0, 0.0], [1.0, 2.0]], dtype=np.float64)
+    betas = np.array([[0.0], [0.5]], dtype=np.float64)
+
+    offset = np.array([[1.0], [-0.5]], dtype=np.float64)
+
+    expected_eta = np.array([[1.0], [0.5]], dtype=np.float64)
+    eta = predict(x, betas, offset=offset, type="link")
+
+    assert eta.shape == (2, 1)
+    assert eta.dtype == np.float64
+    np.testing.assert_allclose(eta, expected_eta, rtol=1e-12)
+
+    expected_probs = np.array(
+        [[0.7310585786300049], [0.6224593312018546]], dtype=np.float64
+    )
+    probs = predict(x, betas, offset=offset, type="response")
+
+    assert probs.shape == (2, 1)
+    assert probs.dtype == np.float64
+    np.testing.assert_allclose(probs, expected_probs, rtol=1e-12)

@@ -74,10 +74,11 @@ def predict(
     x: FloatArray,
     betas: FloatArray,
     *,
+    offset: FloatArray | None = None,
     type: Literal["response", "link"] = "response",
 ) -> FloatArray:
-    """Compute predictions for new observations given a design matrix and coefficient
-    vector.
+    """Compute predictions for new observations given a design matrix, coefficient
+    vector, and optional offset.
 
     Parameters
     ----------
@@ -88,10 +89,13 @@ def predict(
         Can be uncorrected estimates (`result.betas`) or high-dimensionally
         corrected estimates (e.g., from
         `summary(result, high_dimensional_correction=True)`).
+    offset : FloatArray | None, default = None
+        1-D or 2-D array of a priori known components to be included in the
+        linear predictor. Must match the number of samples in `x`.
     type : Literal["response", "link"], default = "response"
         Type of prediction to compute:
         - `"response"`: Fitted probabilities in [0.0, 1.0] via inverse logit.
-        - `"link"`: Linear predictors (eta = x @ betas).
+        - `"link"`: Linear predictors (eta = x @ betas + offset).
 
     Returns
     -------
@@ -116,6 +120,9 @@ def predict(
     """
 
     eta = np.asarray(x, dtype=np.float64) @ np.asarray(betas, dtype=np.float64)
+
+    if offset is not None:
+        eta = eta + np.asarray(offset, dtype=np.float64).reshape(-1, 1)
 
     if type == "response":
         return np.asarray(expit(eta), dtype=np.float64)

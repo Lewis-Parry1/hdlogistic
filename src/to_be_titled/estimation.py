@@ -98,6 +98,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     alpha: float | None = None,
     *,
     var_weights: FloatArray | None = None,
+    offset: FloatArray | None = None,
     start_params: FloatArray | None = None,
     maxiter: int | None = None,
     tol: float | None = None,
@@ -129,6 +130,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
     var_weights : FloatArray | None, default = None
         1-D or 2-D array of variance weights assigned to each observation passed
         to the underlying GLM solver.
+    offset : FloatArray | None, default = None
+        1-D or 2-D array of offset to be included in the
+        linear predictor.
     start_params : FloatArray | None, default = None
         Initial values for the regression coefficients passed to the GLM solver.
     maxiter : int | None, default = None
@@ -145,8 +149,8 @@ def fit_diaconis_ylvisaker_logistic_regression(
     DiaconisYlvisakerLogisticRegressionResult
         A dataclass containing the estimated coefficient vector, linear predictors,
         fitted probabilities, adjusted response vector, validated design matrix,
-        prior shrinkage hyperparameter (`alpha`), and the scalar intercept estimate
-        (`theta_hat`).
+        prior shrinkage hyperparameter (`alpha`), scalar intercept estimate
+        (`theta_hat`), and leverage values.
 
     Raises
     ------
@@ -166,13 +170,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
     x_validated = _ensure_design_matrix(x)
     y_validated = _ensure_column_vector(y)
 
-    if var_weights is None:
-        weights_array = np.ones((x.shape[0], 1), dtype=np.float64)
-    else:
-        weights_array = np.asarray(var_weights, dtype=np.float64).reshape(-1, 1)
+    n, p = x_validated.shape[0], x_validated.shape[1]
 
     if alpha is None:
-        n, p = x_validated.shape[0], x_validated.shape[1]
         alpha = n / (n + p)
 
     if not 0.0 <= alpha <= 1.0:
@@ -180,10 +180,22 @@ def fit_diaconis_ylvisaker_logistic_regression(
 
     y_adjusted = _adjust_response(y_validated, alpha=alpha)
 
+    offset_array = (
+        np.zeros(n, dtype=np.float64)
+        if offset is None
+        else np.asarray(offset, dtype=np.float64).ravel()
+    )
+    weights_array = (
+        np.ones(n, dtype=np.float64)
+        if var_weights is None
+        else np.asarray(var_weights, dtype=np.float64).ravel()
+    )
+
     result = fit_logistic_regression(
         x_validated,
         y_adjusted,
         var_weights=weights_array,
+        offset=offset_array,
         start_params=start_params,
         maxiter=maxiter,
         tol=tol,
