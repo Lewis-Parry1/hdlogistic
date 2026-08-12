@@ -50,18 +50,13 @@ def fit_logistic_regression(
     statsmodels.genmod.generalized_linear_model.GLM.fit :
         Official `statsmodels` documentation for supported fitting keyword arguments
         and optimization options.
-    """'
-    
-    if var_weights is None:
-        weights_array = np.ones((x.shape[0], 1), dtype=np.float64)
-    else:
-        weights_array = np.asarray(var_weights, dtype=np.float64).reshape(-1, 1)
+    """
 
     model = sm.GLM(
         endog=y,
         exog=x,
         family=sm.families.Binomial(),
-        var_weights=weights_array,
+        var_weights=var_weights,
     )
 
     kwargs: dict[str, Any] = {}
@@ -84,9 +79,11 @@ def fit_logistic_regression(
     linear_predictors = x @ betas
 
     # Compute leverages directly using the resolved weights array (no branching)
-    working_weights = weights_array * mus * (1.0 - mus)
+    working_weights = var_weights * mus * (1.0 - mus)
     normalized_cov = np.asarray(sm_result.normalized_cov_params)
-    leverages = working_weights * np.sum((x @ normalized_cov) * x, axis=1, keepdims=True)
+    leverages = working_weights * np.sum(
+        (x @ normalized_cov) * x, axis=1, keepdims=True
+    )
 
     return LogisticRegressionResult(
         betas=betas,
