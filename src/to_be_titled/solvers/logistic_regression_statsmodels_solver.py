@@ -78,7 +78,6 @@ def fit_logistic_regression(
     mus = np.asarray(sm_result.mu).reshape(-1, 1)
     linear_predictors = x @ betas
 
-    # Compute leverages directly using the resolved weights array (no branching)
     working_weights = var_weights * mus * (1.0 - mus)
     normalized_cov = np.asarray(sm_result.normalized_cov_params)
     leverages = working_weights * np.sum(
