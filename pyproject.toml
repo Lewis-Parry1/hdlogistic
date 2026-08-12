@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy <= 2",
     "scipy",
+    "statsmodels",
 ]
 
 [dependency-groups]
@@ -43,7 +44,8 @@ python_version = "3.12"
 strict = true
 
 [[tool.mypy.overrides]]
-module = "*.plugins.*"
+module = ["*.plugins.*", "statsmodels.*"]
+
 ignore_missing_imports = true
 
 [build-system]

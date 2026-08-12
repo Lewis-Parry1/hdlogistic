@@ -38,6 +38,7 @@ class DiaconisYlvisakerLogisticRegressionResult:
     x_validated: FloatArray
     alpha: float
     theta_hat: float | None
+    leverages: FloatArray
 
 
 @dataclass
@@ -58,3 +59,4 @@ class LogisticRegressionResult:
     betas: FloatArray
     mus: FloatArray
     linear_predictors: FloatArray
+    leverages: FloatArray
