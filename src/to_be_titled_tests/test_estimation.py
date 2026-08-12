@@ -81,3 +81,25 @@ def test_fit_diaconis_ylvisaker_logistic_regression_forwards_fit_kwargs() -> Non
 
     assert result.betas.shape == (1, 1)
     assert np.isfinite(result.betas).all()
+
+
+def test_fit_diaconis_ylvisaker_logistic_regression_applies_var_weights() -> None:
+    x = np.array([[0.5], [1.0], [2.0]], dtype=np.float64)
+    y = np.array([[0.0], [0.0], [1.0]], dtype=np.float64)
+
+    # Baseline unweighted fit
+    result_unweighted = estimation.fit_diaconis_ylvisaker_logistic_regression(
+        x, y, alpha=0.5, maxiter=100, tol=1e-8
+    )
+
+    # Weighted fit
+    var_weights = np.array([1.0, 1.0, 10.0], dtype=np.float64)
+    result_weighted = estimation.fit_diaconis_ylvisaker_logistic_regression(
+        x, y, alpha=0.5, var_weights=var_weights, maxiter=100, tol=1e-8
+    )
+
+    # Verify that applying weights alters the estimated coefficients
+    assert not np.allclose(result_unweighted.betas, result_weighted.betas)
+
+    # Verify that the calculated leverages account for the variance weights
+    assert not np.allclose(result_unweighted.leverages, result_weighted.leverages)
