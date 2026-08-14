@@ -85,9 +85,9 @@ def predict(
     x : FloatArray
         2-D design matrix of shape (n_samples, n_features).
     betas : FloatArray
-        2-D column vector of regression coefficients of shape (n_features, 1).
-        Can be uncorrected estimates (`result.betas`) or high-dimensionally
-        corrected estimates (e.g., from
+        2-D column vector of regression coefficients of shape (n_features, 1)
+        or 1-D array of shape (n_features,). Can be uncorrected estimates
+        (`result.betas`) or high-dimensionally corrected estimates (e.g., from
         `summary(result, high_dimensional_correction=True)`).
     offset : FloatArray | None, default = None
         1-D or 2-D array of a priori known components to be included in the
@@ -109,8 +109,9 @@ def predict(
 
     Examples
     --------
-    >>> result = fit_diaconis_ylvisaker_logistic_regression(X_train, y_train,
-    >>> intercept_index=0)
+    >>> result = fit_diaconis_ylvisaker_logistic_regression(
+    ...     X_train, y_train, intercept_index=0
+    ... )
     >>> # Predict using high-dimensionally corrected coefficients:
     >>> corrected_betas = summary(result, high_dimensional_correction=True)
     >>> y_pred = predict(X_test, corrected_betas)
@@ -118,20 +119,23 @@ def predict(
     >>> # Predict using raw, uncorrected Diaconis-Ylvisaker estimates:
     >>> y_pred_raw = predict(X_test, result.betas)
     """
+    if type not in {"response", "link"}:
+        raise ValueError(f"Invalid type '{type}'. Expected 'response' or 'link'.")
 
-    eta = np.asarray(x, dtype=np.float64) @ np.asarray(betas, dtype=np.float64)
+    x_arr = np.asarray(x, dtype=np.float64)
+    betas_arr = np.asarray(betas, dtype=np.float64)
+
+    eta = (x_arr @ betas_arr).ravel()
 
     if offset is not None:
-        eta = eta + np.asarray(offset, dtype=np.float64).reshape(-1, 1)
+        eta += np.asarray(offset, dtype=np.float64).ravel()
 
-    if type == "response":
-        return np.asarray(expit(eta), dtype=np.float64)
-    elif type == "link":
+    eta = eta.reshape(-1, 1)
+
+    if type == "link":
         return eta
-    else:
-        raise ValueError(
-            f"Invalid prediction type '{type}'. Expected 'response' or 'link'."
-        )
+
+    return expit(eta)
 
 
 def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:

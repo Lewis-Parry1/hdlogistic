@@ -36,7 +36,7 @@ def test_predict_rejects_invalid_type() -> None:
 
     with pytest.raises(
         ValueError,
-        match=r"Invalid prediction type 'invalid'. Expected 'response' or 'link'.",
+        match=r"Invalid type 'invalid'\. Expected 'response' or 'link'\.",
     ):
         predict(x, betas, type="invalid")  # type: ignore[arg-type]
 
