@@ -38,7 +38,8 @@ def _make_result(
         mus=mus,
         alpha=1.0,
         theta_hat=None,
-        leverages=np.full((n_samples, 1), 0.1),
+        leverages=np.full((n_samples, 1), 0.1),#
+        intercept_index=None,
     )
 
 
