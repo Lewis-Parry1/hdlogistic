@@ -83,7 +83,8 @@ def predict(
     Parameters
     ----------
     x : FloatArray
-    2-D design matrix of shape (n_samples, n_features) or 1-D array of shape (n_samples,) for single-feature models.
+    2-D design matrix of shape (n_samples, n_features) or 1-D array of shape
+    (n_samples,) for single-feature models.
     betas : FloatArray
         2-D column vector of regression coefficients of shape (n_features, 1)
         or 1-D array of shape (n_features,).
