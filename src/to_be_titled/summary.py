@@ -1,5 +1,3 @@
-import numpy as np
-
 from to_be_titled.inference import compute_sloe_estimator
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
@@ -21,46 +19,47 @@ def summary(
     result : DiaconisYlvisakerLogisticRegressionResult
         A dataclass containing the results of the Diaconis-Ylvisaker logistic
         regression fit.
-    high_dimensional_correction : bool, optional
-        Whether to apply a high-dimensional correction to the estimated coefficients,
-        by default True.
-    start : FloatArray | None, optional
-            Starting values (`mu`, `b`, `sigma`, and optionally `beta_0`) passed to the
-            internal state evolution solver (`solve_state_equation`) when
-            `high_dimensional_correction=True`. If `None`, defaults to preset values.
+    start : FloatArray | None, default = None
+        Starting values (`mu`, `b`, `sigma`, and optionally `beta_0`) passed to the
+        internal state evolution solver (`solve_state_equation`) when
+        `high_dimensional_correction=True`. If `None`, defaults to preset values.
+    high_dimensional_correction : bool, default = True
+        Whether to apply a high-dimensional correction to the estimated coefficients.
 
     Returns
     -------
     FloatArray
-    Rescaled estimated coefficient vector of shape (n_features, 1)
+        Rescaled estimated coefficient vector of shape (n_features, 1).
     """
-    if high_dimensional_correction:
-        number_observations = result.x_validated.shape[0]
-        has_intercept = result.theta_hat is not None
-        number_parameters = result.x_validated.shape[1] - (1 if has_intercept else 0)
+    if not high_dimensional_correction:
+        return result.betas
 
-        signal_strength = compute_sloe_estimator(
-            linear_predictors=result.linear_predictors,
-            y_adjusted=result.y_adjusted,
-            leverages=result.leverages,
-        )
+    n_obs, n_features = result.x_validated.shape
+    has_intercept = result.intercept_index is not None
+    n_params = n_features - int(has_intercept)
 
-        kappa = number_parameters / number_observations
-        pars, _ = solve_state_equation(
-            kappa=kappa,
-            signal_strength=signal_strength,
-            alpha=result.alpha,
-            corrupted=True,
-            intercept=result.theta_hat,
-            start=start,
-        )
+    signal_strength = compute_sloe_estimator(
+        linear_predictors=result.linear_predictors,
+        y_adjusted=result.y_adjusted,
+        leverages=result.leverages,
+    )
 
-        mu_star = pars.solution.mu
-        rescaled_betas = result.betas / mu_star
+    pars, _ = solve_state_equation(
+        kappa=n_params / n_obs,
+        signal_strength=signal_strength,
+        alpha=result.alpha,
+        corrupted=True,
+        intercept=result.theta_hat,
+        start=start,
+    )
 
-        return np.asarray(rescaled_betas, dtype=np.float64)
+    
+    rescaled_betas = result.betas / pars.solution.mu
 
-    return result.betas
+    if has_intercept:
+        rescaled_betas[result.intercept_index, 0] = pars.solution.beta_0
+
+    return rescaled_betas
 
 
 # TODO: add tests for with and without intercept and with and without starting value

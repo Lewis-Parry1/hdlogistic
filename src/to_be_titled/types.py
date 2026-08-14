@@ -38,6 +38,7 @@ class DiaconisYlvisakerLogisticRegressionResult:
     x_validated: FloatArray
     alpha: float
     theta_hat: float | None
+    intercept_index: int | None
     leverages: FloatArray
 
 
