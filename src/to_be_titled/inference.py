@@ -125,6 +125,8 @@ def predict(
         raise ValueError(
             f"Invalid prediction type '{type}'. Expected 'response' or 'link'."
         )
+
+
 def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
     return float(np.sqrt(mu**2 * gamma**2 + kappa * sigma**2))
 

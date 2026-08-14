@@ -10,6 +10,7 @@ def fit_logistic_regression(
     x: FloatArray,
     y: FloatArray,
     *,
+    var_weights: FloatArray | None = None,
     start_params: FloatArray | None = None,
     maxiter: int | None = None,
     tol: float | None = None,
@@ -24,6 +25,8 @@ def fit_logistic_regression(
         2-D design matrix of shape (n_samples, n_features).
     y : FloatArray
         2-D response vector of shape (n_samples, 1).
+    var_weights : FloatArray | None, default = None
+        1-D or 2-D array of variance weights assigned to each observation.
     start_params : FloatArray | None, default = None
         Initial values for the regression coefficients.
     maxiter : int | None, default = None
@@ -48,7 +51,13 @@ def fit_logistic_regression(
         Official `statsmodels` documentation for supported fitting keyword arguments
         and optimization options.
     """
-    model = sm.GLM(endog=y, exog=x, family=sm.families.Binomial())
+
+    model = sm.GLM(
+        endog=y,
+        exog=x,
+        family=sm.families.Binomial(),
+        var_weights=var_weights,
+    )
 
     kwargs: dict[str, Any] = {}
     if start_params is not None:
@@ -69,10 +78,11 @@ def fit_logistic_regression(
     mus = np.asarray(sm_result.mu).reshape(-1, 1)
     linear_predictors = x @ betas
 
-    # Compute leverages directly to avoid additional computation done by get_influence()
-    weights = mus * (1.0 - mus)
+    working_weights = var_weights * mus * (1.0 - mus)
     normalized_cov = np.asarray(sm_result.normalized_cov_params)
-    leverages = weights * np.sum((x @ normalized_cov) * x, axis=1, keepdims=True)
+    leverages = working_weights * np.sum(
+        (x @ normalized_cov) * x, axis=1, keepdims=True
+    )
 
     return LogisticRegressionResult(
         betas=betas,

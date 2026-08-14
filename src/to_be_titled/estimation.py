@@ -97,6 +97,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     intercept_index: int | None = None,
     alpha: float | None = None,
     *,
+    var_weights: FloatArray | None = None,
     start_params: FloatArray | None = None,
     maxiter: int | None = None,
     tol: float | None = None,
@@ -125,6 +126,9 @@ def fit_diaconis_ylvisaker_logistic_regression(
         prior penalty. Default is None, in which `alpha` is set to n / (n + p)
         or equivalently, 1 / (1 + kappa). Setting `alpha` to 1.0 corresponds to
         using standard unpenalized maximum likelihood estimation.
+    var_weights : FloatArray | None, default = None
+        1-D or 2-D array of variance weights assigned to each observation passed
+        to the underlying GLM solver.
     start_params : FloatArray | None, default = None
         Initial values for the regression coefficients passed to the GLM solver.
     maxiter : int | None, default = None
@@ -162,6 +166,11 @@ def fit_diaconis_ylvisaker_logistic_regression(
     x_validated = _ensure_design_matrix(x)
     y_validated = _ensure_column_vector(y)
 
+    if var_weights is None:
+        weights_array = np.ones((x.shape[0], 1), dtype=np.float64)
+    else:
+        weights_array = np.asarray(var_weights, dtype=np.float64).reshape(-1, 1)
+
     if alpha is None:
         n, p = x_validated.shape[0], x_validated.shape[1]
         alpha = n / (n + p)
@@ -174,6 +183,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     result = fit_logistic_regression(
         x_validated,
         y_adjusted,
+        var_weights=weights_array,
         start_params=start_params,
         maxiter=maxiter,
         tol=tol,
