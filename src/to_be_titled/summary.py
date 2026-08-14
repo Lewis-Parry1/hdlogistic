@@ -57,7 +57,7 @@ def summary(
     rescaled_betas = result.betas / pars.solution.mu
 
     if has_intercept:
-        rescaled_betas[result.intercept_index, 0] = pars.solution.beta_0
+        rescaled_betas[result.intercept_index, 0] = pars.solution.intercept_estimate
 
     return rescaled_betas
 
