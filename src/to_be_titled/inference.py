@@ -18,7 +18,7 @@ def compute_sloe_estimator(
     Yadlowsky et al. (2021) when the model is estimated using maximum
     likelihood (i.e., when the shrinkage parameter alpha = 1). The SLOE
     adaptation when estimation is through maximum Diaconis-Ylvisaker prior
-    penalized likelihood has been put forward in Sterzinger & Kosmidis (2025).
+    penalized likelihood has been put forward in Sterzinger & Kosmidis (2026).
 
     In particular, `compute_sloe_estimator` computes an estimate of the
     corrupted signal strength which is the limit: nu^2
