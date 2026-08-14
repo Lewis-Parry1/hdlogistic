@@ -29,6 +29,9 @@ class DiaconisYlvisakerLogisticRegressionResult:
     theta_hat : float | None
         The estimated scalar intercept coefficient from the fitted model.
         Set to None if the model is fitted without an intercept.
+    intercept_index : int | None
+        The index of the intercept column in the design matrix, if present.
+        Set to None if the model is fitted without an intercept.
     """
 
     betas: FloatArray
