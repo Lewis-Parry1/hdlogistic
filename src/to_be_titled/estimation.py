@@ -171,6 +171,10 @@ def fit_diaconis_ylvisaker_logistic_regression(
     y_validated = _ensure_column_vector(y)
 
     n, p = x_validated.shape[0], x_validated.shape[1]
+    if var_weights is None:
+        weights_array = np.ones((x.shape[0], 1), dtype=np.float64)
+    else:
+        weights_array = np.asarray(var_weights, dtype=np.float64).reshape(-1, 1)
 
     if alpha is None:
         alpha = n / (n + p)

@@ -103,7 +103,7 @@ def test_fit_diaconis_ylvisaker_logistic_regression_applies_var_weights() -> Non
 
     # Verify that the calculated leverages account for the variance weights
     assert not np.allclose(result_unweighted.leverages, result_weighted.leverages)
-
+    
 
 def test_fit_diaconis_ylvisaker_logistic_regression_applies_offset() -> None:
     x = np.array([[0.5], [1.0], [2.0]], dtype=np.float64)
