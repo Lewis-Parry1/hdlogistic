@@ -10,7 +10,8 @@ def fit_logistic_regression(
     x: FloatArray,
     y: FloatArray,
     *,
-    var_weights: FloatArray | None = None,
+    var_weights: FloatArray,
+    offset: FloatArray,
     start_params: FloatArray | None = None,
     maxiter: int | None = None,
     tol: float | None = None,
@@ -25,8 +26,11 @@ def fit_logistic_regression(
         2-D design matrix of shape (n_samples, n_features).
     y : FloatArray
         2-D response vector of shape (n_samples, 1).
-    var_weights : FloatArray | None, default = None
+    var_weights : FloatArray
         1-D or 2-D array of variance weights assigned to each observation.
+    offset : FloatArray
+        1-D or 2-D array of offset to be included in the
+        linear predictor.
     start_params : FloatArray | None, default = None
         Initial values for the regression coefficients.
     maxiter : int | None, default = None
@@ -43,7 +47,7 @@ def fit_logistic_regression(
     -------
     LogisticRegressionResult
         A dataclass containing the estimated coefficient vector, linear predictors,
-        and fitted probabilities.
+        fitted probabilities, and leverage values.
 
     See Also
     --------
@@ -57,6 +61,7 @@ def fit_logistic_regression(
         exog=x,
         family=sm.families.Binomial(),
         var_weights=var_weights,
+        offset=offset,
     )
 
     kwargs: dict[str, Any] = {}
@@ -68,7 +73,6 @@ def fit_logistic_regression(
         kwargs["tol"] = tol
     if method is not None:
         kwargs["method"] = method
-
     if fit_kwargs:
         kwargs.update(fit_kwargs)
 
@@ -76,9 +80,10 @@ def fit_logistic_regression(
 
     betas = np.asarray(sm_result.params).reshape(-1, 1)
     mus = np.asarray(sm_result.mu).reshape(-1, 1)
-    linear_predictors = x @ betas
 
-    working_weights = var_weights * mus * (1.0 - mus)
+    linear_predictors = (x @ betas) + offset[:, None]
+
+    working_weights = var_weights[:, None] * mus * (1.0 - mus)
     normalized_cov = np.asarray(sm_result.normalized_cov_params)
     leverages = working_weights * np.sum(
         (x @ normalized_cov) * x, axis=1, keepdims=True
