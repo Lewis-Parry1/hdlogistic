@@ -3,9 +3,9 @@ from typing import Literal
 import numpy as np
 from scipy.linalg import solve_triangular
 
-from to_be_titled.types import DYLogisticRegressionResult
+from to_be_titled.types import MDYPLResults
 
-def compute_taus(result : DYLogisticRegressionResult):
+def compute_taus(result : MDYPLResults):
     """
     ...
 
@@ -36,7 +36,7 @@ def compute_taus(result : DYLogisticRegressionResult):
     return np.sqrt(rss / (n - p + 1.0))
      
 
-def compute_sloe(result: DYLogisticRegressionResult) -> float:
+def compute_sloe(result: MDYPLResults) -> float:
     """
     Estimate the corrupted signal strength in a model with (sub-)Gaussian covariates.
 
