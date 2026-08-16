@@ -3,9 +3,9 @@ from typing import Literal
 import numpy as np
 from scipy.linalg import solve_triangular
 
-from to_be_titled.types import MDYPLResults
+from to_be_titled.types import MDYPLResults, FloatArray
 
-def compute_taus(result : MDYPLResults):
+def compute_taus(x : FloatArray, intercept_index : int | None) -> FloatArray:
     """
     ...
 
@@ -16,8 +16,8 @@ def compute_taus(result : MDYPLResults):
         logistic regression fit obtained from fit_DY_logistic_regression().
     """
     mat_X = (
-        result.x_validated if result.intercept_index 
-        is None else np.delete(result.x_validated, result.intercept_index, axis = 1)
+        x if intercept_index 
+        is None else np.delete(x, intercept_index, axis = 1)
         ) 
 
     n, p = mat_X.shape[0], mat_X.shape[1]

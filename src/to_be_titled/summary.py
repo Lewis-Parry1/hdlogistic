@@ -46,6 +46,9 @@ class MDYPLSummary:
 
         se_params = solve_state_equation(**solve_se_kwargs)
 
+        xx = pass # need to figure out how to remove collinear, non intercept cols?
+        taus = compute_taus(xx, mdypl_res.intercept_idx)
+
         
         
         
