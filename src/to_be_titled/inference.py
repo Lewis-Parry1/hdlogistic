@@ -1,12 +1,39 @@
 from typing import Literal
 
 import numpy as np
-from scipy.special import expit
+from scipy.linalg import solve_triangular
 
-from to_be_titled.types import FloatArray, DYLogisticRegressionResult
+from to_be_titled.types import DYLogisticRegressionResult
 
-def compute_taus(X : FloatArray):
-    pass
+def compute_taus(result : DYLogisticRegressionResult):
+    """
+    ...
+
+    Parameters
+    ----------
+    result : DYLogisticRegressionResult
+        A dataclass which hold the results of the Diaconis-Ylvisaker 
+        logistic regression fit obtained from fit_DY_logistic_regression().
+    """
+    mat_X = (
+        result.x_validated if result.intercept_index 
+        is None else np.delete(result.x_validated, result.intercept_index, axis = 1)
+        ) 
+
+    n, p = mat_X.shape[0], mat_X.shape[1]
+
+    _, mat_R = np.linalg.qr(mat_X)
+
+    mat_R_inv_T = solve_triangular(
+        mat_R, 
+        np.eye(p),
+        trans="T", 
+        lower = False
+    )
+
+    rss = 1.0 / np.sum(mat_R_inv_T**2, axis = 0)
+
+    return np.sqrt(rss / (n - p + 1.0))
      
 
 def compute_sloe_estimator(result: DYLogisticRegressionResult) -> float:
