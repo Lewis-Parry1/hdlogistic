@@ -85,14 +85,16 @@ class MDYPLModel(GLM):
             raise ValueError("Internal mismatch between detected intercept in design" \
             "matrix and `statsmodels` constant column detection.")
 
-        self.y_raw = np.asarray(y_val)
-        self.y_adj = y_adj
+        self.y_raw = np.asarray(y_val, dtype=np.float64)
+        self.y_adj = np.asarray(y_adj, dtype= np.float64)
+        self.weights = weights
+        self.offset = offset 
         self.alpha = alpha 
         self.has_intercept = has_intercept
         self.intercept_idx = intercept_idx
         self.fit_kwargs = fit_kwargs or {}
     
-    def fit(self, **kwargs):
+    def fit(self, **kwargs) -> MDYPLResults:
         fit_kwargs = {**self.fit_kwargs, **kwargs}
         allowed_args = {"tol", "maxiter", "method", "start_params"}
         unexpected = set(fit_kwargs) - allowed_args

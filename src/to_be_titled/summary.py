@@ -1,13 +1,62 @@
+import numpy as np  
+
 from to_be_titled.inference import compute_sloe, compute_taus
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
-    FloatArray,
+    FloatArray, MDYPLResults
 )
 
 class MDYPLSummary:
-    pass 
+
+    def __init__(
+            self, 
+            results: MDYPLResults, 
+            hd_correction: bool = True, 
+            solve_se_kwargs: dict | None = None, 
+    ): 
+        self.results = results
+        self.hd_correction = hd_correction
+
+        if hd_correction: 
+            self._apply_hd_correction(solve_se_kwargs or {})
+
+    def _apply_hd_correction(self, solve_se_kwargs: dict): 
+        mdypl_res = self.results
+
+        nobs = mdypl_res.nobs
+        coef = np.asarray(mdypl_res.params, dtype=np.float64)
+
+        fw = mdypl_res.model.freq_weights if mdypl_res.model.freq_weights is not None else np.ones(nobs)
+        nobs_eff = float(fw) 
+
+        has_intercept = mdypl_res.has_intercept
+        p = len(coef) - int(has_intercept)
+
+        theta_hat = mdypl_res.intercept # None if no intercept 
+
+        nu_sloe = compute_sloe(mdypl_res)
+
+        solve_se_kwargs.update(
+            kappa = p / nobs_eff,
+            ss = nu_sloe, 
+            alpha = mdypl_res.alpha, 
+            intercept = theta_hat, 
+            corrupted = True,
+        )
+
+        se_params = solve_state_equation(**solve_se_kwargs)
+
+        
+        
+        
+        
+
+
 
 ####
+
+
+
 
 def summary(
     result,

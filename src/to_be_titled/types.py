@@ -1,8 +1,7 @@
-from dataclasses import dataclass
-
 import numpy as np
 from numpy.typing import NDArray
-from statsmodels.genmod.generalized_linear_model import GLMResults
+from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
+from typing import Any 
 
 from to_be_titled.mdypl_fit import MDYPLModel
 
@@ -10,7 +9,7 @@ from to_be_titled.mdypl_fit import MDYPLModel
 type FloatArray = NDArray[np.float64]
 
 class MDYPLResults:
-    def __init__(self, model: MDYPLModel, glm_results: GLMResults):
+    def __init__(self, model: MDYPLModel, glm_results: GLMResultsWrapper | Any):
         self.model = model
         self._results = glm_results
 
@@ -19,6 +18,12 @@ class MDYPLResults:
         self.alpha = model.alpha 
         self.has_intercept = model.has_intercept
         self.intercept_idx = model.intercept_idx
+
+        # cache commonly accessed values from glm_results 
+        self.coef = np.asarray(glm_results.params, dtype=np.float64).copy() 
+        self.nobs = glm_results.nobs
+        self.fitted_probs = np.asarray(glm_results.fittedvalues, dtype = np.float64).copy()
+        self.linear_predictors = np.asarray(model.exog) @ self.coef + (model.offset)
 
     def __getattr__(self, name): 
         return getattr(self._results, name)
