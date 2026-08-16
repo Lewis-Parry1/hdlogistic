@@ -6,7 +6,7 @@ from to_be_titled.solvers.logistic_regression_statsmodels_solver import (
     fit_logistic_regression,
 )
 from to_be_titled.types import (
-    DiaconisYlvisakerLogisticRegressionResult,
+    DYLogisticRegressionResult,
     FloatArray,
 )
 
@@ -91,7 +91,7 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
     return y
 
 
-def fit_diaconis_ylvisaker_logistic_regression(
+def fit_DY_logistic_regression(
     x: FloatArray,
     y: FloatArray,
     intercept_index: int | None = None,
@@ -104,7 +104,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
     tol: float | None = None,
     method: str | None = None,
     fit_kwargs: dict[str, Any] | None = None,
-) -> DiaconisYlvisakerLogisticRegressionResult:
+) -> DYLogisticRegressionResult:
     """Fit a logistic regression model using maximum Diaconis-Ylvisaker prior
     penalized likelihood.
 
@@ -207,7 +207,7 @@ def fit_diaconis_ylvisaker_logistic_regression(
         float(result.betas[intercept_index, 0]) if intercept_index is not None else None
     )
 
-    return DiaconisYlvisakerLogisticRegressionResult(
+    return DYLogisticRegressionResult(
         betas=result.betas,
         linear_predictors=result.linear_predictors,
         mus=result.mus,

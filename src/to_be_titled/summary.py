@@ -1,13 +1,13 @@
 from to_be_titled.inference import compute_sloe_estimator
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
-    DiaconisYlvisakerLogisticRegressionResult,
+    DYLogisticRegressionResult,
     FloatArray,
 )
 
 
 def summary(
-    result: DiaconisYlvisakerLogisticRegressionResult,
+    result: DYLogisticRegressionResult,
     start: FloatArray | None = None,
     high_dimensional_correction: bool = True,
 ) -> FloatArray:
@@ -39,9 +39,7 @@ def summary(
     n_params = n_features - int(has_intercept)
 
     signal_strength = compute_sloe_estimator(
-        linear_predictors=result.linear_predictors,
-        y_adjusted=result.y_adjusted,
-        leverages=result.leverages,
+        result=result
     )
 
     pars, _ = solve_state_equation(

@@ -7,7 +7,7 @@ type FloatArray = NDArray[np.float64]
 
 
 @dataclass
-class DiaconisYlvisakerLogisticRegressionResult:
+class DYLogisticRegressionResult:
     """
     A dataclass to hold the results of the Diaconis-Ylvisaker logistic regression fit.
 
