@@ -1,13 +1,16 @@
 from to_be_titled.inference import compute_sloe, compute_taus
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
-    DYLogisticRegressionResult,
     FloatArray,
 )
 
+class MDYPLSummary:
+    pass 
+
+####
 
 def summary(
-    result: DYLogisticRegressionResult,
+    result,
     start: FloatArray | None = None,
     high_dimensional_correction: bool = True,
 ) -> FloatArray:

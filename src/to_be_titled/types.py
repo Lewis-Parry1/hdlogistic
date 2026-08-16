@@ -2,65 +2,33 @@ from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
+from to_be_titled.mdypl_fit import MDYPLModel
+from to_be_titled.summary import 
 
 type FloatArray = NDArray[np.float64]
 
+class MDYPLResults:
+    def __init__(self, model: MDYPLModel, glm_results):
+        self.model = model
+        self._results = glm_results
 
-@dataclass
-class DYLogisticRegressionResult:
-    """
-    A dataclass to hold the results of the Diaconis-Ylvisaker logistic regression fit.
+        self.y_raw = model.y_raw
+        self.y_adj = model.y_adj
+        self.alpha = model.alpha 
+        self.has_intercept = model.has_intercept
+        self.intercept_idx = model.intercept_idx
 
-    Attributes
-    ----------
-    betas : FloatArray
-        Estimated coefficient vector of shape (n_features, 1).
-    linear_predictors : FloatArray
-        The fitted linear predictors (eta = X*beta) from the model.
-    mus : FloatArray
-        The fitted probabilities of shape (n_samples, 1).
-    y_adjusted : FloatArray
-        The adjusted or true binary response vector (y).
-    x_validated : FloatArray
-        The validated design matrix of shape (n_samples, n_features).
-    alpha : float
-        Prior shrinkage hyperparameter used in the model fit to adjust responses,
-        in the interval [0, 1].
-    theta_hat : float | None
-        The estimated scalar intercept coefficient from the fitted model.
-        Set to None if the model is fitted without an intercept.
-    intercept_index : int | None
-        The index of the intercept column in the design matrix, if present.
-        Set to None if the model is fitted without an intercept.
-    """
+    def __getattr__(self, name): 
+        return getattr(self._results, name)
 
-    betas: FloatArray
-    linear_predictors: FloatArray
-    fitted_probs: FloatArray
-    y_adjusted: FloatArray
-    x_validated: FloatArray
-    alpha: float
-    theta_hat: float | None
-    intercept_index: int | None
-    leverages: FloatArray
+    @property
+    def intercept(self) -> float | None: 
+        """The fitted intercept coeffcient, or None if the model has 
+        no intercept. 
 
+        Returns
+        -------
+        float | None
+            Intercept of the fitted MDYPL model. 
+        """
 
-@dataclass
-class LogisticRegressionResult:
-    """
-    A dataclass to hold the results of the logistic regression fit.
-
-    Attributes
-    ----------
-    betas : FloatArray
-        Estimated coefficient vector of shape (n_features, 1).
-    mus : FloatArray
-        The fitted probabilities of shape (n_samples, 1).
-    linear_predictors : FloatArray
-        The fitted linear predictors (eta = X*beta) from the model.
-    """
-
-    betas: FloatArray
-    fitted_probs: FloatArray
-    linear_predictors: FloatArray
-    leverages: FloatArray

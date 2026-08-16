@@ -1,4 +1,4 @@
-from to_be_titled.solvers.logistic_regression_statsmodels_solver import (
+from to_be_titled.mdypl_fit import (
     fit_logistic_regression,
 )
 from to_be_titled.solvers.state_equations_solver import solve_state_equation

@@ -4,8 +4,8 @@ from statsmodels.genmod.families import Binomial
 from statsmodels.genmod.families.links import Logit
 
 
-from to_be_titled.types import FloatArray
-from to_be_titled.utils import _adjust_response, _has_constant_col
+from to_be_titled.types import FloatArray, MDYPLResults
+from to_be_titled.utils import _adjust_response, _has_constant_col, _get_intercept_idx
 from to_be_titled.validation import _ensure_column_vector, _ensure_design_matrix
 
 
@@ -50,6 +50,7 @@ class MDYPLModel(GLM):
 
         n, p = x_val.shape[0], x_val.shape[1]
         has_intercept = _has_constant_col(x_val)
+        intercept_idx = _get_intercept_idx(x_val)
 
         if not (isinstance(family, Binomial) and isinstance(family.link, Logit)):
             raise ValueError("MDYPLModel currently only supports Binomial family" \
@@ -88,6 +89,7 @@ class MDYPLModel(GLM):
         self.y_adj = y_adj
         self.alpha = alpha 
         self.has_intercept = has_intercept
+        self.intercept_idx = intercept_idx
         self.fit_kwargs = fit_kwargs or {}
     
     def fit(self, **kwargs):
@@ -102,102 +104,17 @@ class MDYPLModel(GLM):
         return MDYPLResults(self, glm_results)
         
 
-class MDYPLResults:
-    def __init__(self, model: MDYPLModel, glm_results):
-        self.model = model
-        self._results = glm_results
 
-        self.y_raw = model.y_raw
-        self.y_adj = model.y_adj
-        self.alpha = model.alpha 
-        self.has_intercept = model.has_intercept
-
-    def __getattr__(self, name): 
-        return getattr(self._results, name)
-
-    def summary(
-            self, 
-            hd_correction: bool = True, 
-            solve_se_kwargs : dict | None = None,
-            **kwargs
-    ):
-        pass # TODO: Build MDYPL Summary 
-
-
+####
 
 
 
 def fit_logistic_regression(
-    x: FloatArray,
-    y: FloatArray,
-    *,
-    var_weights: FloatArray,
-    offset: FloatArray,
-    start_params: FloatArray | None = None,
-    maxiter: int | None = None,
-    tol: float | None = None,
-    method: str | None = None,
-    fit_kwargs: dict[str, Any] | None = None,
+
 ) -> LogisticRegressionResult:
-    """Fit a logistic regression model using the statsmodels GLM framework.
+    """Fit a logistic regression model using the statsmodels GLM framework."""
 
-    Parameters
-    ----------
-    x : FloatArray
-        2-D design matrix of shape (n_samples, n_features).
-    y : FloatArray
-        2-D response vector of shape (n_samples, 1).
-    var_weights : FloatArray
-        1-D or 2-D array of variance weights assigned to each observation.
-    offset : FloatArray
-        1-D or 2-D array of offset to be included in the
-        linear predictor.
-    start_params : FloatArray | None, default = None
-        Initial values for the regression coefficients.
-    maxiter : int | None, default = None
-        Maximum number of optimization iterations.
-    tol : float | None, default = None
-        Convergence tolerance for optimization.
-    method : str | None, default = None
-        Optimization solver method (e.g., `'IRLS'`).
-    fit_kwargs : dict[str, Any] | None, default = None
-        Additional keyword arguments forwarded directly to the underlying `statsmodels`
-        GLM fit method (e.g., `cov_type`, `scale`).
 
-    Returns
-    -------
-    LogisticRegressionResult
-        A dataclass containing the estimated coefficient vector, linear predictors,
-        fitted probabilities, and leverage values.
-
-    See Also
-    --------
-    statsmodels.genmod.generalized_linear_model.GLM.fit :
-        Official `statsmodels` documentation for supported fitting keyword arguments
-        and optimization options.
-    """
-
-    model = sm.GLM(
-        endog=y,
-        exog=x,
-        family=sm.families.Binomial(),
-        var_weights=var_weights,
-        offset=offset,
-    )
-
-    kwargs: dict[str, Any] = {}
-    if start_params is not None:
-        kwargs["start_params"] = start_params
-    if maxiter is not None:
-        kwargs["maxiter"] = maxiter
-    if tol is not None:
-        kwargs["tol"] = tol
-    if method is not None:
-        kwargs["method"] = method
-    if fit_kwargs:
-        kwargs.update(fit_kwargs)
-
-    sm_result = model.fit(**kwargs)  # pyright: ignore[reportUnknownMemberType]
 
     betas = np.asarray(sm_result.params).reshape(-1, 1)
     mus = np.asarray(sm_result.mu).reshape(-1, 1)
