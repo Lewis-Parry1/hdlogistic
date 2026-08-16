@@ -62,3 +62,56 @@ def _validate_state_equation_fixed_params(
             "`gamma` is less than or equal to zero. Variance must be "
             f"strictly positive. Received `gamma` = {gamma}"
         )
+
+def _ensure_design_matrix(x: FloatArray) -> FloatArray:
+    """Convert input to a 2-D float64 design matrix and validate dimensions.
+
+    Parameters
+    ----------
+    x : FloatArray
+        Input feature array-like structure.
+
+    Returns
+    -------
+    FloatArray
+        Validated 2-D design matrix of shape (n_samples, n_features).
+
+    Raises
+    ------
+    ValueError
+        If `x` cannot be reshaped into or validated as a 2-D matrix.
+    """
+    x = np.asarray(x, dtype=np.float64)
+    if x.ndim == 1:
+        x = x.reshape(-1, 1)
+    elif x.ndim != 2:
+        raise ValueError("x must be a 2-D design matrix")
+    return x
+
+def _ensure_column_vector(y: FloatArray) -> FloatArray:
+    """Convert input to a 1-D float64 column vector and validate dimensions.
+
+    Accepts a 1-D array or a 2-D array with a single column, and returns it
+    as 1-D to be passed into `statsmodels.GLM()`. 
+
+    Parameters
+    ----------
+    y : FloatArray
+        Input response array-like structure.
+
+    Returns
+    -------
+    FloatArray
+        Validated 1-D column vector of shape (n_samples, ).
+
+    Raises
+    ------
+    ValueError
+        If `y` cannot be represented as a 1-D vector.
+    """
+    y = np.asarray(y, dtype=np.float64)
+    if y.ndim == 2 and y.shape[1] == 1: 
+        y = y.ravel()
+    if y.ndim != 1: 
+        raise ValueError("y must be a 1-D response vector or a 2-D column vector")
+    return y

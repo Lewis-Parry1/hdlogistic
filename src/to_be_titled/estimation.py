@@ -11,84 +11,11 @@ from to_be_titled.types import (
 )
 
 
-def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
-    """Compute the adjusted response vector under a Diaconis-Ylvisaker prior.
-
-    Transforms the empirical binary responses into pseudo-probabilities shifted
-    toward the prior distribution. This specific formulation assumes a zero prior
-    mode, which evaluates the sigmoid function to 0.5.
-
-    Parameters
-    ----------
-    y : FloatArray
-        Original binary response vector of shape (n_samples,) or (n_samples, 1).
-    alpha : float
-        Shrinkage parameter in [0, 1]. Lower values enforce stronger prior
-        regularization, pulling the pseudo-responses toward 0.5 (which shrinks
-        coefficient estimates toward the prior mode of 0). Setting alpha = 1.0
-        recovers standard unpenalized maximum likelihood estimation.
-
-    Returns
-    -------
-    FloatArray
-        Adjusted response vector of the same shape as y, with values continuous
-        on the interval [0, 1].
-    """
-    return alpha * y + (1 - alpha) / 2
 
 
-def _ensure_design_matrix(x: FloatArray) -> FloatArray:
-    """Convert input to a 2-D float64 design matrix and validate dimensions.
-
-    Parameters
-    ----------
-    x : FloatArray
-        Input feature array-like structure.
-
-    Returns
-    -------
-    FloatArray
-        Validated 2-D design matrix of shape (n_samples, n_features).
-
-    Raises
-    ------
-    ValueError
-        If `x` cannot be reshaped into or validated as a 2-D matrix.
-    """
-    x = np.asarray(x, dtype=np.float64)
-    if x.ndim == 1:
-        x = x.reshape(-1, 1)
-    elif x.ndim != 2:
-        raise ValueError("x must be a 2-D design matrix")
-    return x
 
 
-def _ensure_column_vector(y: FloatArray) -> FloatArray:
-    """Convert input to a 2-D float64 column vector and validate dimensions.
 
-    Parameters
-    ----------
-    y : FloatArray
-        Input response array-like structure.
-
-    Returns
-    -------
-    FloatArray
-        Validated 2-D column vector of shape (n_samples, 1).
-
-    Raises
-    ------
-    ValueError
-        If `y` cannot be represented as a 1-D vector or a 2-D column vector.
-    """
-    y = np.asarray(y, dtype=np.float64)
-    if y.ndim == 1:
-        y = y.reshape(-1, 1)
-    elif y.ndim == 2 and y.shape[1] != 1:
-        raise ValueError("y must be a 1-D response vector or a 2-D column vector")
-    elif y.ndim > 2:
-        raise ValueError("y must be a 1-D response vector or a 2-D column vector")
-    return y
 
 
 def fit_DY_logistic_regression(
