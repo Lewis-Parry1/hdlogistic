@@ -210,7 +210,7 @@ def fit_DY_logistic_regression(
     return DYLogisticRegressionResult(
         betas=result.betas,
         linear_predictors=result.linear_predictors,
-        mus=result.mus,
+        fitted_probs=result.fitted_probs,
         y_adjusted=y_adjusted,
         x_validated=x_validated,
         alpha=alpha,

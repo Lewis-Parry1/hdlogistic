@@ -91,7 +91,7 @@ def fit_logistic_regression(
 
     return LogisticRegressionResult(
         betas=betas,
-        mus=mus,
+        fitted_probs=mus,
         linear_predictors=linear_predictors,
         leverages=leverages,
     )

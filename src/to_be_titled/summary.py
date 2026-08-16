@@ -1,4 +1,4 @@
-from to_be_titled.inference import compute_sloe_estimator
+from to_be_titled.inference import compute_sloe, compute_taus
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
     DYLogisticRegressionResult,
@@ -38,7 +38,7 @@ def summary(
     has_intercept = result.intercept_index is not None
     n_params = n_features - int(has_intercept)
 
-    signal_strength = compute_sloe_estimator(
+    signal_strength = compute_sloe(
         result=result
     )
 

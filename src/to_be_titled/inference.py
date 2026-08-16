@@ -36,7 +36,7 @@ def compute_taus(result : DYLogisticRegressionResult):
     return np.sqrt(rss / (n - p + 1.0))
      
 
-def compute_sloe_estimator(result: DYLogisticRegressionResult) -> float:
+def compute_sloe(result: DYLogisticRegressionResult) -> float:
     """
     Estimate the corrupted signal strength in a model with (sub-)Gaussian covariates.
 
@@ -74,21 +74,21 @@ def compute_sloe_estimator(result: DYLogisticRegressionResult) -> float:
        Advances in Neural Information Processing Systems, 34, 29517–29528.
 
     """
-    logistic_variances = result.mus * (1.0 - result.mus)
+    bernoulli_variances = result.fitted_probs * (1.0 - result.fitted_probs)
 
     with np.errstate(
         divide="ignore", invalid="ignore"
     ):  # Ignore warnings for division by zero and invalid operations
-        loo_adjusted_predictors = result.linear_predictors - (
-            ((result.y_adjusted - result.mus) / logistic_variances)
+        sloe_scores = result.linear_predictors - (
+            ((result.y_adjusted - result.fitted_probs) / bernoulli_variances)
             * (result.leverages / (1.0 - result.leverages))
         )
 
-    finite_adjusted_predictors = loo_adjusted_predictors[
-        np.isfinite(loo_adjusted_predictors)
+    finite_scores = sloe_scores[
+        np.isfinite(sloe_scores)
     ]
 
-    return float(np.std(finite_adjusted_predictors, ddof=1))
+    return float(np.std(finite_scores, ddof=1))
 
 
 def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:

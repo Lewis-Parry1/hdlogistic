@@ -36,7 +36,7 @@ class DYLogisticRegressionResult:
 
     betas: FloatArray
     linear_predictors: FloatArray
-    mus: FloatArray
+    fitted_probs: FloatArray
     y_adjusted: FloatArray
     x_validated: FloatArray
     alpha: float
@@ -61,6 +61,6 @@ class LogisticRegressionResult:
     """
 
     betas: FloatArray
-    mus: FloatArray
+    fitted_probs: FloatArray
     linear_predictors: FloatArray
     leverages: FloatArray
