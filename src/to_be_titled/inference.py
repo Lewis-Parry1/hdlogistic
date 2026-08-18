@@ -2,12 +2,13 @@ from typing import cast
 
 import numpy as np
 from scipy.linalg import solve_triangular
+from scipy.special import betaln 
 
 from to_be_titled.types import MDYPLResults, FloatArray
 
 def compute_taus(result: MDYPLResults) -> FloatArray:
     """
-    
+    TODO:
 
     Parameters
     ----------
@@ -58,9 +59,9 @@ def compute_sloe(result: MDYPLResults) -> float:
 
     Parameters
     ----------
-    result: DYLogisticRegressionResult
+    result: MDYPLResults
         A dataclass which hold the results of the Diaconis-Ylvisaker 
-        logistic regression fit obtained from fit_DY_logistic_regression().
+        logistic regression fit.
 
     Returns
     -------
@@ -102,3 +103,87 @@ def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -
 def _derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
     with np.errstate(invalid="ignore"):
         return float(np.sqrt(nu**2 - kappa * sigma**2) / mu)
+
+def _dy_binomial_coeffcient(
+        x: FloatArray,
+        size: FloatArray | float,
+        prob: FloatArray,
+        log: bool = False,
+) -> FloatArray:
+    r"""Generalised binomial probability mass function which allows non-integer x. 
+
+    Parameters
+    ----------
+    x : FloatArray
+        Success rate. 
+    size : FloatArray | float
+        _description_
+    prob : FloatArray | float
+    log : bool, optional
+        _description_, by default False
+
+    Returns
+    -------
+    FloatArray
+        _description_
+    """
+    size = np.asarray(size, dtype=float)
+    prob = np.asarray(prob, dtype=float)
+
+    successes = x
+    failures = size - x 
+
+    # betaln is natual log of absolute value of beta function 
+    # allows us to find log(\frac{m!}{s!(m-s)!}) ie. log of binomial coeffcient
+    log_db = (
+        successes * np.log(prob)
+        + failures * np.log(1 - prob)
+        - betaln(successes + 1.0, failures + 1.0) 
+        - np.log(size + 1.0)
+    )
+
+    log_db = np.where(size < successes, -np.inf, log_db)
+
+    if log: 
+        return log_db
+    return np.exp(log_db)
+
+
+
+def _logist_aic(
+        y_adjusted: FloatArray, 
+        fitted_probs: FloatArray, 
+        freq_weights: FloatArray,
+) -> float:
+    """Calculates the -2 log likelihood component of the logistic AIC used
+    by MYDPL. 
+
+    Parameters
+    ----------
+    y_adjusted : FloatArray
+        True (pseudo-)responses used to fit the model. If the responses are not
+        adjusted, this is simply the usual log likelihood for standard logistic
+        regression model.
+    fitted_probs : FloatArray
+        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
+        using rescaled coeffcients if `hd_correction` was True.
+    freq_weights : FloatArray
+        Frequency weights used to fit model. If no frequency weights were supplied 
+        this is simply a vector of 1s of shape (n,). 
+
+    Returns
+    -------
+    float
+        The -2 log likelihood value. 
+    """
+    m = freq_weights
+    prob_clipped = np.clip(fitted_probs, 1e-8, 1.0 - 1e-8)
+
+    log_likelihood = _dy_binomial_coeffcient(x = m * y_adjusted,
+                                             size = m,
+                                             prob = prob_clipped,
+                                             log = True)
+
+    return float(-2.0 * np.sum(log_likelihood))
+
+   

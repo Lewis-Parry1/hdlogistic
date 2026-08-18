@@ -1,8 +1,9 @@
 import numpy as np  
 
 from scipy.stats import norm
+from typing import cast
 
-from to_be_titled.inference import compute_sloe, compute_taus, _derive_gamma_from_nu
+from to_be_titled.inference import compute_sloe, compute_taus, _derive_gamma_from_nu, _logist_aic
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
     FloatArray, MDYPLResults
@@ -10,7 +11,6 @@ from to_be_titled.types import (
 
 
 class MDYPLSummary:
-
     def __init__(
             self, 
             results: MDYPLResults, 
@@ -33,9 +33,7 @@ class MDYPLSummary:
     def _apply_hd_correction(self, solve_se_kwargs: dict): 
         mdypl_res = self.results
 
-        nobs = mdypl_res.nobs
-        fw = mdypl_res.model.freq_weights 
-        nobs_eff = float(np.sum(fw)) if fw is not None else float(nobs)
+        nobs_eff = float(np.sum(mdypl_res.model.weights)) 
 
         has_intercept = mdypl_res.has_intercept
         intercept_idx = mdypl_res.intercept_idx
@@ -85,6 +83,18 @@ class MDYPLSummary:
                                                      self.se_params.sigma, 
                                                      self.se_params.mu) **2)
         self.nu_sloe = nu_sloe
+
+        linear_predictor = cast(FloatArray, mdypl_res.model.exog) @ self.params
+        fitted_probs = (mdypl_res.model.family.link.inverse(linear_predictor))
+        # save these ^ ?
+
+        # TODO: Note len(self.params) will need to be updated to rank, if we 
+        # decide to drop columns which are linearly dependent in the future
+        self.aic = (_logist_aic(mdypl_res.y_adj, fitted_probs, mdypl_res.model.weights)
+                    + 2.0 * len(self.params)
+                    )
+
+        # Deviance
         
 
 

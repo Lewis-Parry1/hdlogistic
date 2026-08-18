@@ -22,9 +22,8 @@ class MDYPLResults:
 
         # cache commonly accessed values from glm_results 
         self.params = np.asarray(glm_results.params, dtype=np.float64).copy() 
-        self.nobs = glm_results.nobs
         self.fitted_probs = np.asarray(glm_results.fittedvalues, dtype = np.float64).copy()
-        self.linear_predictors = cast(FloatArray, model.exog) @ self.params + (model.offset)
+        self.linear_predictors = cast(FloatArray, model.exog) @ self.params + model.offset 
     
 
     def __getattr__(self, name): 
