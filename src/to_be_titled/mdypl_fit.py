@@ -90,8 +90,6 @@ class MDYPLModel(GLM):
 
         self.y_raw = np.asarray(y_val, dtype=np.float64)
         self.y_adj = np.asarray(y_adj, dtype= np.float64)
-        self.weights = weights
-        self.offset = offset 
         self.alpha = alpha 
         self.has_intercept = has_intercept
         self.intercept_idx = intercept_idx
