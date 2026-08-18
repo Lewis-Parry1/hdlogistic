@@ -1,10 +1,13 @@
 import numpy as np  
 
-from to_be_titled.inference import compute_sloe, compute_taus
+from scipy.stats import norm
+
+from to_be_titled.inference import compute_sloe, compute_taus, _derive_gamma_from_nu
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import (
     FloatArray, MDYPLResults
 )
+
 
 class MDYPLSummary:
 
@@ -17,25 +20,32 @@ class MDYPLSummary:
         self.results = results
         self.hd_correction = hd_correction
 
+        self.params = np.asarray(results.params, dtype= np.float64).copy()
+        self.bse = np.asarray(results.bse, dtype = np.float64).copy()
+        self.tvalues = np.asarray(results.tvalues, dtype= np.float64).copy()
+        self.pvalues = np.asarray(results.pvalues, dtype=np.float64).copy()
+        self.alpha = results.alpha
+
         if hd_correction: 
             self._apply_hd_correction(solve_se_kwargs or {})
+
 
     def _apply_hd_correction(self, solve_se_kwargs: dict): 
         mdypl_res = self.results
 
         nobs = mdypl_res.nobs
-        coef = np.asarray(mdypl_res.params, dtype=np.float64)
-
-        fw = mdypl_res.model.freq_weights if mdypl_res.model.freq_weights is not None else np.ones(nobs)
-        nobs_eff = float(fw) 
+        fw = mdypl_res.model.freq_weights 
+        nobs_eff = float(np.sum(fw)) if fw is not None else float(nobs)
 
         has_intercept = mdypl_res.has_intercept
-        p = len(coef) - int(has_intercept)
+        intercept_idx = mdypl_res.intercept_idx
+        p = len(self.params) - int(has_intercept)
 
         theta_hat = mdypl_res.intercept # None if no intercept 
 
         nu_sloe = compute_sloe(mdypl_res)
 
+        solve_se_kwargs = dict(solve_se_kwargs) # Don't mutate caller's dict 
         solve_se_kwargs.update(
             kappa = p / nobs_eff,
             ss = nu_sloe, 
@@ -44,76 +54,38 @@ class MDYPLSummary:
             corrupted = True,
         )
 
-        se_params = solve_state_equation(**solve_se_kwargs)
+        se_params, opt_chain = solve_state_equation(**solve_se_kwargs)
 
-        xx = pass # need to figure out how to remove collinear, non intercept cols?
-        taus = compute_taus(xx, mdypl_res.intercept_idx)
+        # TODO: Design matrix rank defciency check conversation needed. 
+        taus = compute_taus(mdypl_res)
 
+        no_int = np.ones(len(self.params), dtype = bool)
+        if has_intercept: 
+            no_int[intercept_idx] = False 
+
+        # Rescale onto MDYPLSummary's own properties 
+        self.params[no_int] = self.params[no_int] / se_params.solution.mu
+
+        self.bse[no_int] = (se_params.solution.sigma / 
+                                (np.sqrt(nobs_eff) * taus * se_params.solution.mu))
+
+        self.tvalues = self.params / self.bse
+        self.pvalues = 2 * norm.sf(- np.abs(self.tvalues))
+
+        if mdypl_res.has_intercept: 
+            self.params[intercept_idx] = se_params.solution.intercept_estimate
+            self.bse[intercept_idx] = np.nan
+            self.tvalues[intercept_idx] = np.nan
+            self.pvalues[intercept_idx] = np.nan
+
+        self.kappa = p / nobs_eff
+        self.se_params = se_params.solution
+        self.signal_strength = (_derive_gamma_from_nu(self.kappa, 
+                                                     nu_sloe, 
+                                                     self.se_params.sigma, 
+                                                     self.se_params.mu) **2)
+        self.nu_sloe = nu_sloe
         
-        
-        
-        
 
 
 
-####
-
-
-
-
-def summary(
-    result,
-    start: FloatArray | None = None,
-    high_dimensional_correction: bool = True,
-) -> FloatArray:
-    """Provides summary statistics from the provided model results and optionally
-    applies a high-dimensional correction to the estimated coefficients.
-
-    Parameters
-    ----------
-    result : DiaconisYlvisakerLogisticRegressionResult
-        A dataclass containing the results of the Diaconis-Ylvisaker logistic
-        regression fit.
-    start : FloatArray | None, default = None
-        Starting values (`mu`, `b`, `sigma`, and optionally `beta_0`) passed to the
-        internal state evolution solver (`solve_state_equation`) when
-        `high_dimensional_correction=True`. If `None`, defaults to preset values.
-    high_dimensional_correction : bool, default = True
-        Whether to apply a high-dimensional correction to the estimated coefficients.
-
-    Returns
-    -------
-    FloatArray
-        Rescaled estimated coefficient vector of shape (n_features, 1).
-    """
-    if not high_dimensional_correction:
-        return result.betas
-
-    n_obs, n_features = result.x_validated.shape
-    has_intercept = result.intercept_index is not None
-    n_params = n_features - int(has_intercept)
-
-    signal_strength = compute_sloe(
-        result=result
-    )
-
-    pars, _ = solve_state_equation(
-        kappa=n_params / n_obs,
-        signal_strength=signal_strength,
-        alpha=result.alpha,
-        corrupted=True,
-        intercept=result.theta_hat,
-        start=start,
-    )
-
-    
-    rescaled_betas = result.betas / pars.solution.mu
-
-    if has_intercept:
-        rescaled_betas[result.intercept_index, 0] = pars.solution.intercept_estimate
-
-    return rescaled_betas
-
-
-# TODO: add tests for with and without intercept and with and without starting value
-# TODO: add tests the test the full pipeline e.g. fit a model and then call summary

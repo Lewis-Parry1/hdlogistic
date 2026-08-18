@@ -1,13 +1,13 @@
-from typing import Literal
+from typing import cast
 
 import numpy as np
 from scipy.linalg import solve_triangular
 
 from to_be_titled.types import MDYPLResults, FloatArray
 
-def compute_taus(x : FloatArray, intercept_index : int | None) -> FloatArray:
+def compute_taus(result: MDYPLResults) -> FloatArray:
     """
-    ...
+    
 
     Parameters
     ----------
@@ -15,14 +15,19 @@ def compute_taus(x : FloatArray, intercept_index : int | None) -> FloatArray:
         A dataclass which hold the results of the Diaconis-Ylvisaker 
         logistic regression fit obtained from fit_DY_logistic_regression().
     """
+    x = cast(FloatArray, result.model.exog)
+    n = x.shape[0]
+    
     mat_X = (
-        x if intercept_index 
-        is None else np.delete(x, intercept_index, axis = 1)
+        x if result.intercept_idx 
+        is None else np.delete(x, result.intercept_idx, axis = 1)
         ) 
 
-    n, p = mat_X.shape[0], mat_X.shape[1]
+    p = mat_X.shape[1]
 
     _, mat_R = np.linalg.qr(mat_X)
+
+    # TODO: Rank defciency check needed 
 
     mat_R_inv_T = solve_triangular(
         mat_R, 
@@ -47,11 +52,9 @@ def compute_sloe(result: MDYPLResults) -> float:
     penalized likelihood has been put forward in Sterzinger & Kosmidis (2026).
 
     In particular, `compute_sloe_estimator` computes an estimate of the
-    corrupted signal strength which is the limit: nu^2
-
-    of var(X^T beta(alpha)), where beta(alpha) is the
-    maximum Diaconis-Ylvisaker prior penalized likelihood (MDYPL) estimator
-    with shrinkage parameter alpha.
+    corrupted signal strength which is the limit: nu^2 of var(X^T beta(alpha)), 
+    where beta(alpha) is the maximum Diaconis-Ylvisaker prior penalized likelihood 
+    (MDYPL) estimator with shrinkage parameter alpha.
 
     Parameters
     ----------
@@ -72,16 +75,17 @@ def compute_sloe(result: MDYPLResults) -> float:
     .. [2] Yadlowsky, S., Yun, T., McLean, C. Y., D'Amour, A. (2021). SLOE: A Faster
        Method for Statistical Inference in High-Dimensional Logistic Regression.
        Advances in Neural Information Processing Systems, 34, 29517–29528.
-
     """
     bernoulli_variances = result.fitted_probs * (1.0 - result.fitted_probs)
+
+    leverages = result.leverages
 
     with np.errstate(
         divide="ignore", invalid="ignore"
     ):  # Ignore warnings for division by zero and invalid operations
         sloe_scores = result.linear_predictors - (
-            ((result.y_adjusted - result.fitted_probs) / bernoulli_variances)
-            * (result.leverages / (1.0 - result.leverages))
+            ((result.y_adj - result.fitted_probs) / bernoulli_variances)
+            * (leverages / (1.0 - leverages))
         )
 
     finite_scores = sloe_scores[

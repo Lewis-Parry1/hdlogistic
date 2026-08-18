@@ -1,7 +1,8 @@
 import numpy as np
 from numpy.typing import NDArray
 from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
-from typing import Any 
+from typing import Any, cast
+from functools import cached_property
 
 from to_be_titled.mdypl_fit import MDYPLModel
 
@@ -20,10 +21,11 @@ class MDYPLResults:
         self.intercept_idx = model.intercept_idx
 
         # cache commonly accessed values from glm_results 
-        self.coef = np.asarray(glm_results.params, dtype=np.float64).copy() 
+        self.params = np.asarray(glm_results.params, dtype=np.float64).copy() 
         self.nobs = glm_results.nobs
         self.fitted_probs = np.asarray(glm_results.fittedvalues, dtype = np.float64).copy()
-        self.linear_predictors = np.asarray(model.exog) @ self.coef + (model.offset)
+        self.linear_predictors = cast(FloatArray, model.exog) @ self.params + (model.offset)
+    
 
     def __getattr__(self, name): 
         return getattr(self._results, name)
@@ -41,4 +43,10 @@ class MDYPLResults:
         if self.intercept_idx is None:
             return None 
         return float(self.params[self.intercept_idx]) 
+
+    @cached_property
+    def leverages(self) -> FloatArray:
+        """The diaganal of the hat matrix. 
+        """
+        return np.asarray(self._results.get_hat_matrix_diag(), dtype=np.float64)
 

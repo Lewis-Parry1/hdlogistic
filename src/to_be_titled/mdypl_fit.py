@@ -44,9 +44,12 @@ class MDYPLModel(GLM):
                  family = Binomial(),
                  fit_kwargs: dict | None = None,
                  ):
+        
         # Shape checks for design matrix and response 
         x_val = _ensure_design_matrix(x)
         y_val = _ensure_column_vector(y)
+
+        # TODO: Full rank check? 
 
         n, p = x_val.shape[0], x_val.shape[1]
         has_intercept = _has_constant_col(x_val)
@@ -105,33 +108,3 @@ class MDYPLModel(GLM):
 
         return MDYPLResults(self, glm_results)
         
-
-
-####
-
-
-
-def fit_logistic_regression(
-
-) -> LogisticRegressionResult:
-    """Fit a logistic regression model using the statsmodels GLM framework."""
-
-
-
-    betas = np.asarray(sm_result.params).reshape(-1, 1)
-    mus = np.asarray(sm_result.mu).reshape(-1, 1)
-
-    linear_predictors = (x @ betas) + offset[:, None]
-
-    working_weights = var_weights[:, None] * mus * (1.0 - mus)
-    normalized_cov = np.asarray(sm_result.normalized_cov_params)
-    leverages = working_weights * np.sum(
-        (x @ normalized_cov) * x, axis=1, keepdims=True
-    )
-
-    return LogisticRegressionResult(
-        betas=betas,
-        fitted_probs=mus,
-        linear_predictors=linear_predictors,
-        leverages=leverages,
-    )
