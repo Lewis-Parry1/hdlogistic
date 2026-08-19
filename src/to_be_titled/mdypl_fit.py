@@ -94,14 +94,14 @@ class MDYPLModel(GLM):
         self.y_raw = np.asarray(y_val, dtype=np.float64)
         self.y_adj = np.asarray(y_adj, dtype= np.float64)
         self.alpha = alpha 
-        self.has_intercept = has_intercept
+        self.has_sintercept = has_intercept
         self.intercept_idx = intercept_idx
         self.offset = offset
         self.missing_offset = missing_offset
         self.fit_kwargs = fit_kwargs or {}
-        self.n = n 
+        self.method = self.fit_kwargs.get("method", "IRLS")
+        self.nobs = n
         self.family = family
-        self.model_type = "MPL_DY"
 
     
     def fit(self, **kwargs) -> MDYPLResults:

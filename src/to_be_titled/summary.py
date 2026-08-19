@@ -1,6 +1,7 @@
 import numpy as np  
 
 from scipy.stats import norm
+from statsmodels.iolib.summary import Summary
 from typing import cast
 
 from to_be_titled.inference import compute_sloe, compute_taus, _derive_gamma_from_nu, logist_aic
@@ -9,6 +10,29 @@ from to_be_titled.types import (
     FloatArray, MDYPLResults
 )
 
+class _ParamsView:
+    """
+    """
+    def __init__(
+            self, 
+            params: FloatArray,
+            bse: FloatArray,
+            tvalues: FloatArray,
+            pvalues: FloatArray,
+    ):
+        self.params = np.asarray(params)
+        self.bse = np.asarray(bse)
+        self.tvalues = np.asarray(tvalues)
+        self.pvalues = np.asarray(pvalues)
+
+    def conf_int(self, level: float = 0.95, hd_correction: bool = False):
+        alpha = (1.0 - level)/ 2.0
+        z = norm.ppf(alpha)
+
+        lower = self.params - z * self.bse 
+        upper = self.params + z * self.bse 
+        return np.column_stack([lower, upper])
+        
 
 class MDYPLSummary:
     def __init__(
@@ -39,7 +63,7 @@ class MDYPLSummary:
 
         # Effective sample size; if freq_weights were not defined 
         # then ESS = number of observations 
-        nobs_eff = float(np.sum(res.model.weights)) 
+        self.nobs_eff = float(np.sum(res.model.weights)) 
 
         has_intercept = res.has_intercept
         intercept_idx = res.intercept_idx
@@ -54,7 +78,7 @@ class MDYPLSummary:
         # arguments 
         solve_se_kwargs = dict(solve_se_kwargs) 
         solve_se_kwargs.update(
-            kappa = p / nobs_eff,
+            kappa = p / self.nobs_eff,
             ss = nu_sloe, 
             alpha = res.alpha, 
             intercept = theta_hat, 
@@ -73,7 +97,7 @@ class MDYPLSummary:
         self.params[no_int] = self.params[no_int] / se_params.solution.mu
 
         self.stand_errors[no_int] = (se_params.solution.sigma / 
-                                (np.sqrt(nobs_eff) * taus * se_params.solution.mu))
+                                (np.sqrt(self.nobs_eff) * taus * se_params.solution.mu))
 
         self.tvalues = self.params / self.stand_errors
         self.pvalues = 2 * norm.sf(- np.abs(self.tvalues))
@@ -84,7 +108,7 @@ class MDYPLSummary:
             self.tvalues[intercept_idx] = np.nan
             self.pvalues[intercept_idx] = np.nan
 
-        self.kappa = p / nobs_eff
+        self.kappa = p / self.nobs_eff
         self.signal_strength = (_derive_gamma_from_nu(self.kappa, 
                                                      nu_sloe, 
                                                      se_params.solution.sigma, 
@@ -110,8 +134,47 @@ class MDYPLSummary:
         if not self.hd_correction: 
             print(self.fitted_model.summary())
             return
-        else: 
 
+        res = self.results
+        model = res.model
+        param_names = list(
+            getattr(model,"exog_names", None) or [f"x{i}" for i in range(len(self.params))]
+        )
 
-#TODO: Confidence intervals
+        pview = _ParamsView(self.params, self.stand_errors, self.tvalues, self.pvalues)
+
+        top_left = [
+            ("Dep. Variable:", [getattr(model, "endog_names", "y")]),
+            ("Model:", ["MDYPL-GLM"]),
+            ("Model Family:", [model.family.__class__.__name__]),
+            ("Link Function:", [model.family.link.__class__.__name__]),
+            ("Method:", [model.method]),
+            ("No. Iterations:", [str(res.iterations)]),
+        ]
+
+        top_right = [
+            ("No. Observations:", [str(self.nobs_eff)]),
+            ("Df Residuals:", [str(model.df_resid)]),
+            ("Df Model:", [str(model.df_model)]),
+            ("Deviance:", [f"{self.deviance:.5g}"]),
+            ("AIC:", [f"{self.aic:.5g}"]),
+        ]
+
+        smry = Summary()
+        smry.add_table_2cols(res,
+                             gleft=top_left,
+                             gright=top_right,
+                             yname=getattr(model, "endog_names", "y"),
+                             title="MDYPL Regression Results (HD-corrected)",
+        )
+
+        smry.add_table_params(pview, xname = param_names, alpha=0.05, use_t=False) # TODO: Check use_t 
+        print(smry)
+        print("\nHigh Dimensionality Correction applied")
+        print(f"Dimensionality parameter (kappa)   = {round(float(self.kappa), 3)}")
+        print(f"Estimated signal strength (gamma^2) = {round(float(self.signal_strength), 3)}")
+
+        print("State evolution parameters (mu, b, sigma, (theta/iota)):"
+              f"{self.se_params}")
+    
 

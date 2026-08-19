@@ -187,6 +187,3 @@ def logist_aic(
 
     return float(-2.0 * np.sum(log_likelihood))
 
-
-def confidence_interval(result: MDYPLResults, level: float = 0.95, hd_correction : bool = False) -> None:
-    pass 

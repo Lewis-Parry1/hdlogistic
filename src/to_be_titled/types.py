@@ -23,6 +23,8 @@ class MDYPLResults:
         self.has_intercept = model.has_intercept
         self.intercept_idx = model.intercept_idx
 
+        self.iterations = glm_results.iterations
+
         self.params = np.asarray(glm_results.params, dtype=np.float64)
         self.fitted_probs = np.asarray(self.fittedvalues, dtype=np.float64).copy()
         self.linear_predictors = cast(FloatArray, model.exog) @ self.params + model.offset 
