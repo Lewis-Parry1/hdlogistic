@@ -28,7 +28,7 @@ class MDYPLResults:
         self.linear_predictors = cast(FloatArray, model.exog) @ self.params + model.offset 
 
         self.residuals = (model.y_raw - self.fitted_probs) / (self.fitted_probs * (1.0 - self.fitted_probs))  
-        self.rank = glm_results.df_model + 1.0 # will need to be updated for singular matrices
+        self.rank = glm_results.df_model + 1.0 # TODO: will need to be updated for singular matrices
 
         self.aic = logist_aic(self.y_adj, self.fitted_probs, model.weights) + 2.0 * self.rank
         self.deviance = glm_results.deviance 
