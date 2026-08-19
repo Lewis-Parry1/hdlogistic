@@ -1,10 +1,9 @@
-import numpy as np 
-
 from typing import Literal
+
+import numpy as np
 from scipy.special import expit
 
 from to_be_titled.types import FloatArray
-
 
 
 def predict(

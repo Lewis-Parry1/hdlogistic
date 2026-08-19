@@ -4,9 +4,11 @@ from to_be_titled.solvers.solver_types import SolverResult
 from to_be_titled.types import FloatArray
 
 
-def _is_valid(result: SolverResult, tol = 1e-4) -> bool:
+def _is_valid(result: SolverResult, tol: float = 1e-4) -> bool:
     converged = True if result.func_value < tol else False
-    return (result.success and _is_valid_domain(result.solution.to_array()) and (converged))
+    return (
+        result.success and _is_valid_domain(result.solution.to_array()) and (converged)
+    )
 
 
 def _validate_domain(params: FloatArray) -> None:
@@ -64,6 +66,7 @@ def _validate_state_equation_fixed_params(
             f"strictly positive. Received `gamma` = {gamma}"
         )
 
+
 def _ensure_design_matrix(x: FloatArray) -> FloatArray:
     """Convert input to a 2-D float64 design matrix and validate dimensions.
 
@@ -89,11 +92,12 @@ def _ensure_design_matrix(x: FloatArray) -> FloatArray:
         raise ValueError("x must be a 2-D design matrix")
     return x
 
+
 def _ensure_column_vector(y: FloatArray) -> FloatArray:
     """Convert input to a 1-D float64 column vector and validate dimensions.
 
     Accepts a 1-D array or a 2-D array with a single column, and returns it
-    as 1-D to be passed into `statsmodels.GLM()`. 
+    as 1-D to be passed into `statsmodels.GLM()`.
 
     Parameters
     ----------
@@ -111,8 +115,8 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
         If `y` cannot be represented as a 1-D vector.
     """
     y = np.asarray(y, dtype=np.float64)
-    if y.ndim == 2 and y.shape[1] == 1: 
+    if y.ndim == 2 and y.shape[1] == 1:
         y = y.ravel()
-    if y.ndim != 1: 
+    if y.ndim != 1:
         raise ValueError("y must be a 1-D response vector or a 2-D column vector")
     return y

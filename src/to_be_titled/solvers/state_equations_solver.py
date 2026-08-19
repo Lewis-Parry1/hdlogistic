@@ -1,6 +1,6 @@
+import warnings
 from collections.abc import Callable
 from typing import Any, cast
-import warnings
 
 import numpy as np
 from scipy.optimize import minimize, root
@@ -479,7 +479,7 @@ def solve_state_equation(
     init_method: str = "BFGS",
     main_method: str = "hybr",
     prox_tol: float = 1e-10,
-    convergence_tol: float = 1e-4 
+    convergence_tol: float = 1e-4,
 ) -> tuple[SolverResult, str]:
     r"""
     Solves the MDYPL state equations.
@@ -559,9 +559,9 @@ def solve_state_equation(
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
     convergence_tol: float, optional
-        Convergence tolerance used to assess final solution. Enforces 
-        that func(solution) is less than `convergence_tol`. By default, 
-        1e-4. 
+        Convergence tolerance used to assess final solution. Enforces
+        that func(solution) is less than `convergence_tol`. By default,
+        1e-4.
 
     Returns
     -------
