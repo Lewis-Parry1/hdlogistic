@@ -63,7 +63,10 @@ class MDYPLModel(GLM):
             weights = np.ones(n)
 
         if offset is None: 
+            missing_offset = True 
             offset = np.zeros(n)
+        else: 
+            missing_offset = False
 
         if alpha is None: 
             wsum = float(np.sum(weights))
@@ -91,10 +94,15 @@ class MDYPLModel(GLM):
         self.y_raw = np.asarray(y_val, dtype=np.float64)
         self.y_adj = np.asarray(y_adj, dtype= np.float64)
         self.alpha = alpha 
-        self.offset = offset
         self.has_intercept = has_intercept
         self.intercept_idx = intercept_idx
+        self.offset = offset
+        self.missing_offset = missing_offset
         self.fit_kwargs = fit_kwargs or {}
+        self.n = n 
+        self.family = family
+        self.model_type = "MPL_DY"
+
     
     def fit(self, **kwargs) -> MDYPLResults:
         fit_kwargs = {**self.fit_kwargs, **kwargs}

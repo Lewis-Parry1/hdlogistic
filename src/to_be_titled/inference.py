@@ -17,14 +17,13 @@ def compute_taus(result: MDYPLResults) -> FloatArray:
         logistic regression fit obtained from fit_DY_logistic_regression().
     """
     x = cast(FloatArray, result.model.exog)
-    n = x.shape[0]
     
     mat_X = (
         x if result.intercept_idx 
         is None else np.delete(x, result.intercept_idx, axis = 1)
         ) 
 
-    p = mat_X.shape[1]
+    n,p = mat_X.shape[0], mat_X.shape[1]
 
     _, mat_R = np.linalg.qr(mat_X)
 
@@ -105,44 +104,50 @@ def _derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> f
         return float(np.sqrt(nu**2 - kappa * sigma**2) / mu)
 
 def _dy_binomial_coeffcient(
-        x: FloatArray,
-        size: FloatArray | float,
-        prob: FloatArray,
+        y: FloatArray,
+        fw: FloatArray,
+        mus: FloatArray,
         log: bool = False,
 ) -> FloatArray:
     r"""Generalised binomial probability mass function which allows non-integer x. 
+    This is defiend as, with `s_i` being success rate, `f_i` being failure 
+    rate, and `fw_i` being the corresponding frequency weight component: 
+
+    \mu_i ^ {s_i} * (1 - \mu_i)^{f_i} * 
+    \frac{\Gamma(fw_i + 1.0)}{\Gamma(s_i + 1.0)\Gamma(f_i + 1.0)}
 
     Parameters
     ----------
-    x : FloatArray
-        Success rate. 
-    size : FloatArray | float
-        _description_
-    prob : FloatArray | float
+    y : FloatArray
+        True response vector used to fit model. Adjusted responsed 
+        passed in, y_i^* \in [0,1].
+    fw : FloatArray | float
+        Array of frequency weights used in the fitted model. If vector is not
+        vector of 1s then this indicates that certain rows represent more than one 
+        obersvation. 
+    mus : FloatArray | float
+        Fitted probabilities for each observation. 
     log : bool, optional
-        _description_, by default False
+        If True, the log of the generalised binomial coeffcient is returned
+        else the generalised binomail coeffcient is returned, by default False.
 
     Returns
     -------
     FloatArray
-        _description_
+        Generalised binomial coeffcient corresponding to each row in design matrix.  
     """
-    size = np.asarray(size, dtype=float)
-    prob = np.asarray(prob, dtype=float)
-
-    successes = x
-    failures = size - x 
-
-    # betaln is natual log of absolute value of beta function 
-    # allows us to find log(\frac{m!}{s!(m-s)!}) ie. log of binomial coeffcient
+    size_i = fw 
+    success_i = y * size_i 
+    failure_i = fw - success_i
+    
     log_db = (
-        successes * np.log(prob)
-        + failures * np.log(1 - prob)
-        - betaln(successes + 1.0, failures + 1.0) 
-        - np.log(size + 1.0)
+        success_i * np.log(mus)
+        + failure_i * np.log(1 - mus)
+        - betaln(success_i + 1.0, failure_i + 1.0) 
+        - np.log(size_i + 1.0)
     )
 
-    log_db = np.where(size < successes, -np.inf, log_db)
+    log_db = np.where(size_i < success_i, -np.inf, log_db)
 
     if log: 
         return log_db
@@ -150,7 +155,7 @@ def _dy_binomial_coeffcient(
 
 
 
-def _logist_aic(
+def logist_aic(
         y_adjusted: FloatArray, 
         fitted_probs: FloatArray, 
         freq_weights: FloatArray,
@@ -174,16 +179,14 @@ def _logist_aic(
     Returns
     -------
     float
-        The -2 log likelihood value. 
+        The -2 * log likelihood value. 
     """
-    m = freq_weights
     prob_clipped = np.clip(fitted_probs, 1e-8, 1.0 - 1e-8)
 
-    log_likelihood = _dy_binomial_coeffcient(x = m * y_adjusted,
-                                             size = m,
-                                             prob = prob_clipped,
-                                             log = True)
+    log_likelihood = _dy_binomial_coeffcient(y_adjusted, freq_weights, prob_clipped, log = True)
 
     return float(-2.0 * np.sum(log_likelihood))
 
-   
+
+def confidence_interval(result: MDYPLResults, level: float = 0.95, hd_correction : bool = False) -> None:
+    pass 
