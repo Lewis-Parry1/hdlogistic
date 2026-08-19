@@ -7,7 +7,9 @@ from scipy.special import betaln
 from to_be_titled.types import FloatArray, MDYPLResults
 
 
-def compute_taus(result: MDYPLResults) -> FloatArray:
+def compute_taus(x: FloatArray,
+                 intercept_index: int | None
+) -> FloatArray:
     """
     TODO:
 
@@ -17,12 +19,11 @@ def compute_taus(result: MDYPLResults) -> FloatArray:
         A dataclass which hold the results of the Diaconis-Ylvisaker
         logistic regression fit obtained from fit_DY_logistic_regression().
     """
-    x = cast(FloatArray, result.model.exog)
 
     mat_x = (
         x
-        if result.intercept_idx is None
-        else np.delete(x, result.intercept_idx, axis=1)
+        if intercept_index is None
+        else np.delete(x, intercept_index, axis=1)
     )
 
     n, p = mat_x.shape[0], mat_x.shape[1]

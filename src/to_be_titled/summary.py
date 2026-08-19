@@ -92,7 +92,7 @@ class MDYPLSummary:
         se_params, opt_chain = solve_state_equation(**solve_se_kwargs)
         self.opt_chain = opt_chain
 
-        taus = compute_taus(res)
+        taus = compute_taus(cast(FloatArray, res.model.exog), res.intercept_idx)
 
         no_int = np.ones(len(self.params), dtype=bool)
         if has_intercept:
