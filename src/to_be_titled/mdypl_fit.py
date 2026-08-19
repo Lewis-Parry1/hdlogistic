@@ -69,11 +69,13 @@ class MDYPLModel(GLM):
             missing_offset = False
 
         if alpha is None: 
+            alpha_was_fixed = False
             wsum = float(np.sum(weights))
             alpha = wsum / (wsum + p -  int(has_intercept))
-        elif not (0.0 <= alpha <= 1.0):
-            raise ValueError(f"Shrinkage paramater `alpha` must be in [0,1], got {alpha}")
-
+        else:
+            if not (0.0 <= alpha <= 1.0):
+                raise ValueError(f"Shrinkage paramater `alpha` must be in [0,1], got {alpha}")
+            alpha_was_fixed = True 
         # Transform binary responses to MDYPL pseudo responses 
         # Assumes prior mode is the zero vector 
         y_adj = _adjust_response(y_val, alpha)
@@ -94,10 +96,12 @@ class MDYPLModel(GLM):
         self.y_raw = np.asarray(y_val, dtype=np.float64)
         self.y_adj = np.asarray(y_adj, dtype= np.float64)
         self.alpha = alpha 
-        self.has_sintercept = has_intercept
+        self.has_intercept = has_intercept
         self.intercept_idx = intercept_idx
         self.offset = offset
+        self.prior_weights = np.asarray(weights, dtype=np.float64)
         self.missing_offset = missing_offset
+        self.alpha_was_fixed = alpha_was_fixed
         self.fit_kwargs = fit_kwargs or {}
         self.method = self.fit_kwargs.get("method", "IRLS")
         self.nobs = n

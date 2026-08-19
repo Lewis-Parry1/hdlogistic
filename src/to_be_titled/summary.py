@@ -43,10 +43,10 @@ class MDYPLSummary:
         self.fitted_model = results._results
         self.hd_correction = hd_correction
 
-        self.params = results.params
-        self.stand_errors = results.bse
-        self.tvalues = results.tvalues
-        self.pvalues = results.pvalues 
+        self.params = results.params.copy()
+        self.stand_errors = results.bse.copy()
+        self.tvalues = results.tvalues.copy()
+        self.pvalues = results.pvalues.copy()
 
         if hd_correction: 
             self._apply_hd_correction(solve_se_kwargs or {})
@@ -61,7 +61,7 @@ class MDYPLSummary:
 
         # Effective sample size; if freq_weights were not defined 
         # then ESS = number of observations 
-        self.nobs_eff = float(np.sum(res.model.weights)) 
+        self.nobs_eff = float(np.sum(res.prior_weights)) 
 
         has_intercept = res.has_intercept
         intercept_idx = res.intercept_idx
@@ -121,9 +121,10 @@ class MDYPLSummary:
         # Null deviance does not need to be updated as intercept is not rescaled 
         # Recompute deviance with new coeffcient estimates 
 
-        self.deviance_resid = family.resid_dev(res.y_adj, self.fitted_probs, var_weights=res.weights)
-        self.deviance = family.deviance(res.y_adj, self.fitted_probs, var_weights=res.weights)
-        self.aic = (logist_aic(res.y_adj, self.fitted_probs, res.weights) + 2.0 * res.rank) 
+        self.deviance_resid = family.resid_dev(res.y_adj, self.fitted_probs, var_weights=res.prior_weights) # type: ignore[arg-type]
+        self.deviance = family.deviance(res.y_adj, self.fitted_probs, var_weights=res.prior_weights) # type: ignore[arg-type]
+        
+        self.aic = (logist_aic(res.y_adj, self.fitted_probs, res.prior_weights) + 2.0 * res.rank) 
 
         
     def _summary(self) -> None:

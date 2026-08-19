@@ -22,17 +22,18 @@ class MDYPLResults:
 
         self.has_intercept = model.has_intercept
         self.intercept_idx = model.intercept_idx
+        self.prior_weights = model.prior_weights
 
-        self.iterations = glm_results.iterations
+        self.iterations = glm_results.fit_history.get("iteration")
 
         self.params = np.asarray(glm_results.params, dtype=np.float64)
         self.fitted_probs = np.asarray(self.fittedvalues, dtype=np.float64).copy()
         self.linear_predictors = cast(FloatArray, model.exog) @ self.params + model.offset 
 
         self.residuals = (model.y_raw - self.fitted_probs) / (self.fitted_probs * (1.0 - self.fitted_probs))  
-        self.rank = glm_results.df_model + 1.0 # TODO: will need to be updated for singular matrices
+        self.rank = len(self.params)
 
-        self.aic = logist_aic(self.y_adj, self.fitted_probs, model.weights) + 2.0 * self.rank
+        self.aic = logist_aic(self.y_adj, self.fitted_probs, self.prior_weights) + 2.0 * self.rank
         self.deviance = glm_results.deviance 
         self.null_deviance = self._compute_null_deviance(model)
 
@@ -55,27 +56,34 @@ class MDYPLResults:
         """
         return np.asarray(self._results.get_hat_matrix_diag(), dtype=np.float64)
 
-    def _compute_null_deviance(self, model: MDYPLModel) -> FloatArray: 
-        """Compute deviance of model fitted with only constant feature. If
-        model has no intercept then this is either expit(offset) if 
-        `missing_offset` is False, or set trivially to full model deviance
-        if True. 
+    def _compute_null_deviance(self, model: MDYPLModel) -> float: 
+        """Compute deviance of model fitted with only constant feature. 
         """
         exog = cast(FloatArray, model.exog)
         intercept_idx = model.intercept_idx
 
-        if model.has_intercept and model.missing_offset: 
-            intercept_col = exog[:, intercept_idx]
-            null_model = MDYPLModel(y = model.y_raw,
-                                    x = intercept_col,
-                                    weights = model.weights,
-                                    offset = model.offset,
-                                    family = model.family,
-                                    )
-            null_mu = null_model.fit().fitted_probs
-        elif not model.has_intercept:
-            null_mu = model.family.link.inverse(model.offset)
-        else:
-            null_mu = self.fitted_probs
+        family = model.family
 
-        return np.asarray(null_mu, dtype = np.float64)
+        if model.has_intercept: 
+            intercept_col = exog[:, intercept_idx]
+
+            null_alpha = self.alpha if model.alpha_was_fixed else None
+
+            y_mean = float(np.average(self.y_raw, self.prior_weights))
+            start_val = float(model.family.link(y_mean))
+
+            null_model = MDYPLModel(y = self.y_raw,
+                                    x = intercept_col,
+                                    weights = self.prior_weights,
+                                    offset = model.offset, # offset is zeros if no offset included 
+                                    alpha=null_alpha,
+                                    family = model.family,
+                                    fit_kwargs=model.fit_kwargs
+                                    )
+            null_mus = null_model.fit(start_params=[start_val]).fitted_probs
+            return family.deviance(self.y_adj, null_mus, self.prior_weights) # type: ignore[arg-type]
+
+        else:
+            null_mus = model.family.link.inverse(model.offset)
+            return family.deviance(self.y_adj, null_mus, self.prior_weights) # type: ignore[arg-type]
+
