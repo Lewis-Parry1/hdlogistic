@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from typing import Any, cast
-from warnings import warn
+import warnings
 
 import numpy as np
 from scipy.optimize import minimize, root
@@ -139,7 +139,7 @@ def _se_funcs(
         if corrupted:
             gamma = _derive_gamma_from_nu(kappa, signal_strength, sigma, mu)
             if np.isnan(gamma):
-                warn(
+                warnings.warn(
                     "Estimated gamma evaluated to NaN (likely due to division by "
                     "zero). Returning NaNs for state equation residuals.",
                     RuntimeWarning,
@@ -479,6 +479,7 @@ def solve_state_equation(
     init_method: str = "BFGS",
     main_method: str = "hybr",
     prox_tol: float = 1e-10,
+    convergence_tol: float = 1e-4 
 ) -> tuple[SolverResult, str]:
     r"""
     Solves the MDYPL state equations.
@@ -557,6 +558,10 @@ def solve_state_equation(
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
+    convergence_tol: float, optional
+        Convergence tolerance used to assess final solution. Enforces 
+        that func(solution) is less than `convergence_tol`. By default, 
+        1e-4. 
 
     Returns
     -------
@@ -651,15 +656,23 @@ def solve_state_equation(
     result = try_root(warm_start)
     attempts.append((f"{init_method}_warm_start", result))
 
-    if validation._is_valid(result):
+    if validation._is_valid(result, tol=convergence_tol):
         return (
             result,
             f"minimize method: {init_method} -> root-finding algorithm: {main_method}",
         )
 
-    raise SolverConvergenceError(
+    warnings.warn(
         f"All strategies failed to converge at kappa={kappa}, "
-        f"signal_strength={signal_strength}. "
-        f"Attempts: {[(name, r.success) for name, r in attempts]}"
-        "Try alternative start or allow for interpolation warm start."
+        f"signal_strength={signal_strength}. Returning last (unvalidated) solution. "
+        f"Attempts: {[(name, r.success) for name, r in attempts]}. "
+        "Try alternative start or allow for interpolation warm start.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+
+    return (
+        result,
+        f"minimize method: {init_method} -> root-finding algorithm: {main_method} "
+        "(did not converge to tolerance)",
     )
