@@ -25,10 +25,8 @@ class _ParamsView:
         self.tvalues = np.asarray(tvalues)
         self.pvalues = np.asarray(pvalues)
 
-    def conf_int(self, level: float = 0.95, hd_correction: bool = False):
-        alpha = (1.0 - level)/ 2.0
-        z = norm.ppf(alpha)
-
+    def conf_int(self, alpha: float = 0.05):
+        z = norm.ppf(1.0 - alpha/2.0)
         lower = self.params - z * self.bse 
         upper = self.params + z * self.bse 
         return np.column_stack([lower, upper])
@@ -100,7 +98,7 @@ class MDYPLSummary:
                                 (np.sqrt(self.nobs_eff) * taus * se_params.solution.mu))
 
         self.tvalues = self.params / self.stand_errors
-        self.pvalues = 2 * norm.sf(- np.abs(self.tvalues))
+        self.pvalues = 2 * norm.cdf(- np.abs(self.tvalues))
 
         if res.has_intercept: 
             self.params[intercept_idx] = se_params.solution.intercept_estimate
