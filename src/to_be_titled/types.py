@@ -14,7 +14,7 @@ type FloatArray = NDArray[np.float64]
 
 
 class MDYPLResults:
-    def __init__(self, model: MDYPLModel, glm_results: GLMResultsWrapper | Any):
+    def __init__(self, model: MDYPLModel, glm_results: GLMResultsWrapper | Any, skip_null_deviance: bool = False) -> None:
         self.model = model
         self._results = glm_results
 
@@ -46,7 +46,9 @@ class MDYPLResults:
             + 2.0 * self.rank
         )
         self.deviance = glm_results.deviance
-        self.null_deviance = self._compute_null_deviance(model)
+        self.null_deviance = (
+        float("nan") if skip_null_deviance else self._compute_null_deviance(model)
+        )
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._results, name)
@@ -72,7 +74,9 @@ class MDYPLResults:
 
         family = model.family
 
-        if model.has_intercept:
+        if model.has_intercept and model.missing_offset:
+            from to_be_titled.mdypl_fit import MDYPLModel
+
             intercept_col = exog[:, intercept_idx : intercept_idx + 1]
 
             null_alpha = self.alpha if model.alpha_was_fixed else None
@@ -85,13 +89,15 @@ class MDYPLResults:
                 y=self.y_raw,
                 x=intercept_col,
                 weights=self.prior_weights,
-                offset=model.offset,  # offset is zeros if no offset included
+                offset=model.offset,  
                 alpha=null_alpha,
                 family=model.family,
                 fit_kwargs=model.fit_kwargs,
             )
 
-            null_mus = null_model.fit(start_params=start_params).fitted_probs
+            null_mus = null_model.fit(start_params=start_params,
+                                      skip_null_deviance=True).fitted_probs
+            
             return float(family.deviance(self.y_adj, null_mus, self.prior_weights))
 
         else:

@@ -123,7 +123,7 @@ class MDYPLModel(GLM):  # type: ignore[misc]
         self.nobs = n
         self.family = family
 
-    def fit(self, **kwargs: Any) -> MDYPLResults:
+    def fit(self, *, skip_null_deviance: bool = False, **kwargs: Any) -> MDYPLResults:
         fit_kwargs = {**self.fit_kwargs, **kwargs}
         allowed_args = {"tol", "maxiter", "method", "start_params"}
         unexpected = set(fit_kwargs) - allowed_args
@@ -132,7 +132,6 @@ class MDYPLModel(GLM):  # type: ignore[misc]
 
         glm_results = super().fit(**fit_kwargs)
 
-        # Local import to avoid circular import at module import time
         from to_be_titled.types import MDYPLResults
 
-        return MDYPLResults(self, glm_results)
+        return MDYPLResults(self, glm_results, skip_null_deviance=skip_null_deviance)
