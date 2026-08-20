@@ -1,108 +1,141 @@
 import numpy as np
-import pytest
 
-from to_be_titled import predict
+from scipy.special import expit
 
+from to_be_titled.inference import (compute_sloe,
+                                    compute_taus, 
+                                    _derive_gamma_from_nu, 
+                                    _derive_nu_from_gamma,
+                                    _generalised_binomial_pmf
+)
+# ---- SLOE Tests ----
 
-def test_predict_response_scale_known_values() -> None:
-    # x @ betas yields eta = [[0.0], [1.0]]
-    x = np.array([[1.0, 0.0], [1.0, 2.0]], dtype=np.float64)
-    betas = np.array([[0.0], [0.5]], dtype=np.float64)
+def test_compute_sloe_estimator_no_leverage_adjustment() -> None:
+    """If h_i = 0 for all observations, the sloe scores collapse 
+    to being just the linear_predictors.
+    """
+    linear_predictors = np.array([0.0, 1.0, -1.0], dtype=np.float64)
+    y_adjusted = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+    leverages = np.zeros(3, dtype=np.float64) 
+    fitted_probs = expit(linear_predictors)
 
-    expected_probs = np.array([[0.5], [0.7310585786300049]], dtype=np.float64)
-
-    probs = predict(x, betas, type="response")
-
-    assert probs.shape == (2, 1)
-    assert probs.dtype == np.float64
-    np.testing.assert_allclose(probs, expected_probs, rtol=1e-12)
-
-
-def test_predict_link_scale_linear_predictors() -> None:
-    x = np.array([[1.0, -2.0], [3.0, 4.0]], dtype=np.float64)
-    betas = np.array([[2.0], [0.5]], dtype=np.float64)
-
-    expected_eta = np.array([[1.0], [8.0]], dtype=np.float64)
-
-    eta = predict(x, betas, type="link")
-
-    assert eta.shape == (2, 1)
-    np.testing.assert_allclose(eta, expected_eta, rtol=1e-12)
-
-
-def test_predict_rejects_invalid_type() -> None:
-    x = np.array([[1.0, 0.0]], dtype=np.float64)
-    betas = np.array([[0.5], [0.5]], dtype=np.float64)
-
-    with pytest.raises(
-        ValueError,
-        match=r"Invalid prediction type 'invalid'\. Expected 'response' or 'link'\.",
-    ):
-        predict(x, betas, type="invalid")  # type: ignore[arg-type]
-
-
-def test_predict_rejects_feature_mismatch() -> None:
-    x = np.ones((5, 3), dtype=np.float64)
-    betas = np.ones((2, 1), dtype=np.float64)
-
-    with pytest.raises(
-        ValueError,
-        match=(
-            r"Number of coefficients \(2\) does not match number of "
-            r"features in x \(3\)\."
-        ),
-    ):
-        predict(x, betas)
-
-
-def test_predict_rejects_offset_sample_mismatch() -> None:
-    x = np.ones((5, 2), dtype=np.float64)
-    betas = np.ones((2, 1), dtype=np.float64)
-    offset = np.ones((3, 1), dtype=np.float64)
-
-    with pytest.raises(
-        ValueError,
-        match=r"Offset length \(3\) does not match number of samples in x \(5\)\.",
-    ):
-        predict(x, betas, offset=offset)
-
-
-def test_predict_rejects_invalid_array_dimensions() -> None:
-    # 3-D design matrix
-    with pytest.raises(ValueError, match=r"x must be a 2-D design matrix\."):
-        predict(np.ones((2, 2, 2)), np.ones((2, 1)))
-
-    # Multi-column coefficient matrix
-    with pytest.raises(
-        ValueError, match=r"betas must be a 1-D array or 2-D column vector\."
-    ):
-        predict(np.ones((2, 2)), np.ones((2, 2)))
-
-    # Multi-column offset matrix
-    with pytest.raises(
-        ValueError, match=r"offset must be a 1-D array or 2-D column vector\."
-    ):
-        predict(np.ones((2, 2)), np.ones((2, 1)), offset=np.ones((2, 2)))
-
-
-def test_predict_with_offset_link_and_response_scales() -> None:
-    x = np.array([[1.0, 0.0], [1.0, 2.0]], dtype=np.float64)
-    betas = np.array([[0.0], [0.5]], dtype=np.float64)
-
-    offset = np.array([[1.0], [-0.5]], dtype=np.float64)
-
-    expected_eta = np.array([[1.0], [0.5]], dtype=np.float64)
-    eta = predict(x, betas, offset=offset, type="link")
-
-    assert eta.shape == (2, 1)
-    assert eta.dtype == np.float64
-    np.testing.assert_allclose(eta, expected_eta, rtol=1e-12)
-
-    expected_probs = np.array(
-        [[0.7310585786300049], [0.6224593312018546]], dtype=np.float64
+    expected = float(np.std(linear_predictors, ddof=1))
+    np.testing.assert_allclose(
+        compute_sloe(y_adjusted, linear_predictors, fitted_probs, leverages),
+        expected,
     )
-    probs = predict(x, betas, offset=offset, type="response")
 
-    assert probs.shape == (2, 1)
-    assert probs.dtype == np.float64
-    np.testing.assert_allclose(probs, expected_probs, rtol=1e-12)
+
+def test_compute_sloe_estimator_excludes_infinite_values() -> None:
+    """If h_i = 1.0 then a divide by zero error occurs. These values 
+    are ignored. For the other zero leverage values, the expected value
+    is the std of the linear predictors.
+    """
+    linear_predictors = np.array([0.0, 1.0, -1.0], dtype=np.float64)
+    y_adjusted = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+    leverages = np.array([0.0, 1.0, 0.0], dtype=np.float64)
+    fitted_probs = expit(linear_predictors)
+
+    expected = float(np.std(np.array([0.0, -1.0], dtype=np.float64), ddof=1))
+    np.testing.assert_allclose(
+        compute_sloe(y_adjusted, linear_predictors, fitted_probs, leverages),
+        expected,
+    )
+
+
+def test_compute_sloe_estimator_happy_path() -> None:
+    """Verify SLOE calculation with standard inputs."""
+
+    # Setup inputs where 0 < mus < 1 and 0 < leverages < 1
+    linear_predictors = np.array([0.0, 0.5, -0.5], dtype=np.float64)
+    y_adjusted = np.array([1.0, 0.0, 1.0], dtype=np.float64)
+    leverages = np.array([0.2, 0.3, 0.1], dtype=np.float64)
+    fitted_probs = expit(linear_predictors)
+
+    # Expected sample standard deviation of S with ddof=1
+    expected_signal_strength = 1.3258861214054045
+
+    np.testing.assert_allclose(
+        compute_sloe(y_adjusted, linear_predictors, fitted_probs, leverages),
+        expected_signal_strength, atol=1e-4
+    )
+
+## --- Test gamma to nu functions ---
+def test_derive_nu_from_gamma_expected(): 
+    mu, gamma, kappa, sigma = 0.5, 1, 0.3, 1 
+    expected_nu = float(np.sqrt(55) / 10)
+
+    nu = _derive_nu_from_gamma(kappa, gamma, mu, sigma)
+
+    np.testing.assert_almost_equal(expected_nu, nu)
+
+def test_derive_gamma_from_nu_expected(): 
+    kappa, nu, sigma, mu = 0.3, 1, 1, 0.5
+    expected_gamma = float(np.sqrt(70) / 5)
+
+    gamma = _derive_gamma_from_nu(kappa, nu, sigma, mu)
+    np.testing.assert_almost_equal(expected_gamma, gamma)
+
+# --- Test _dy_binomial_coeffcient ---
+
+def test_generalised_binomial_pmf_expected():
+    y_adj = np.asarray([0.5, 0.5, 0.2])
+    freq_weights = np.asarray([1.0, 1.0, 2.0])
+    fitted_probs = np.asarray([0.8, 0.8, 0.5])
+
+    pmf = _generalised_binomial_pmf(y_adj, 
+                                    freq_weights, 
+                                    fitted_probs, 
+                                    log = False)
+
+    expected = np.asarray([0.5092958179, 0.5092958179, 0.3941805878])
+    np.testing.assert_allclose(expected, pmf)
+
+    
+def test_generalised_binomial_pmf_log_expected():
+    y_adj = np.asarray([0.5, 0.5, 0.2])
+    freq_weights = np.asarray([1.0, 1.0, 2.0])
+    fitted_probs = np.asarray([0.8, 0.8, 0.5])
+
+    pmf = _generalised_binomial_pmf(y_adj, 
+                                    freq_weights, 
+                                    fitted_probs, 
+                                    log = True)
+
+    expected = np.asarray(np.log([0.5092958179, 0.5092958179, 0.3941805878]))
+    np.testing.assert_allclose(expected, pmf)
+
+## --- Test compute taus ----
+
+def test_compute_taus_with_intercept(): 
+    x = np.array(
+        [
+            [1.0, 1.0, 1.0],
+            [1.0, 1.0, -1.0],
+            [1.0, -1.0, 1.0],
+            [1.0, -1.0, -1.0],
+        ],
+        dtype=np.float64,
+    )
+    intercept_index = 0
+
+    expected = np.asarray([1.154701, 1.154701])
+
+    np.testing.assert_allclose(compute_taus(x, intercept_index), expected, rtol=1e-6)
+
+def test_compute_taus_with_no_intercept(): 
+    x = np.array(
+        [
+            [1.0, 1.0],
+            [1.0, -1.0],
+            [-1.0, 1.0],
+            [-1.0, -1.0],
+        ],
+        dtype=np.float64,
+    )
+    intercept_index = None
+
+    expected = np.asarray([1.154701, 1.154701])
+
+    np.testing.assert_allclose(compute_taus(x, intercept_index), expected, rtol=1e-6)
+

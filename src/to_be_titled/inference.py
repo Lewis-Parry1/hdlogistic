@@ -1,10 +1,18 @@
-from typing import cast
+from __future__ import annotations
+
+from typing import cast, TYPE_CHECKING
 
 import numpy as np
+import warnings 
 from scipy.linalg import solve_triangular
 from scipy.special import betaln
 
-from to_be_titled.types import FloatArray, MDYPLResults
+from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from to_be_titled.types import MDYPLResults
+
+FloatArray = NDArray[np.float64]
 
 
 def compute_taus(x: FloatArray,
@@ -95,15 +103,35 @@ def compute_sloe(
 
 
 def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
-    return float(np.sqrt(mu**2 * gamma**2 + kappa * sigma**2))
+    input = mu**2 * gamma**2 + kappa * sigma**2
+    if input < 0: 
+        warnings.warn("Unexpected negative output; nu^2 cannot be negative.",
+                      RuntimeWarning)
+        return float('nan')
+    return float(np.sqrt(input))
 
 
 def _derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
-    with np.errstate(invalid="ignore"):
-        return float(np.sqrt(nu**2 - kappa * sigma**2) / mu)
+    if abs(mu) < 1e-12:
+        warnings.warn(
+            "State evolution parameter `mu` is at, near or below zero; "
+            "derived signal strength is unreliable.",
+            RuntimeWarning,
+        )
+        return float("nan")
 
+    numerator = nu**2 - kappa * sigma**2
+    if numerator < 0.0:
+        warnings.warn(
+            f"Negative value for nu^2 - kappa * sigma ^2, this value"
+            "cannot be negative",
+            RuntimeWarning,
+        )
+        return float("nan")
 
-def _dy_binomial_coeffcient(
+    return float(np.sqrt(numerator) / mu)
+
+def _generalised_binomial_pmf(
     y: FloatArray,
     fw: FloatArray,
     mus: FloatArray,
@@ -137,8 +165,9 @@ def _dy_binomial_coeffcient(
         Generalised binomial coeffcient corresponding to each row in design matrix.
     """
     size_i = fw
+
     success_i = y * size_i
-    failure_i = fw - success_i
+    failure_i = size_i - success_i
 
     log_db = (
         success_i * np.log(mus)
@@ -180,10 +209,11 @@ def logist_aic(
     float
         The -2 * log likelihood value.
     """
-    prob_clipped = np.clip(fitted_probs, 1e-8, 1.0 - 1e-8)
+    prob_clipped = np.clip(fitted_probs, 1e-8, (1.0 - 1e-8))
 
-    log_likelihood = _dy_binomial_coeffcient(
+    log_likelihood = _generalised_binomial_pmf(
         y_adjusted, freq_weights, prob_clipped, log=True
     )
 
     return float(-2.0 * np.sum(log_likelihood))
+
