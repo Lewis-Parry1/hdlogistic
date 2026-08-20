@@ -36,7 +36,7 @@ def _get_intercept_idx(x: FloatArray) -> int | None:
         Integer index of constant/intercept column, if no constant column is detected
         returns None.
     """
-    is_const = np.all(x == x[0, :])
+    is_const = np.all(x == x[0, :], axis = 0)
     idx = np.flatnonzero(is_const)
     return int(idx[0]) if idx.size else None
 
