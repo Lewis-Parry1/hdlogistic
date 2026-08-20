@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 from functools import cached_property
-from typing import Any, cast
+from typing import Any, cast, TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
 from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 
-from to_be_titled.inference import logist_aic
-from to_be_titled.mdypl_fit import MDYPLModel
+if TYPE_CHECKING:
+    from to_be_titled.mdypl_fit import MDYPLModel
 
 type FloatArray = NDArray[np.float64]
 
@@ -36,6 +38,8 @@ class MDYPLResults:
             self.fitted_probs * (1.0 - self.fitted_probs)
         )
         self.rank = len(self.params)
+
+        from to_be_titled.inference import logist_aic
 
         self.aic = (
             logist_aic(self.y_adj, self.fitted_probs, self.prior_weights)

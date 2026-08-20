@@ -1,13 +1,21 @@
-from typing import Any
+from __future__ import annotations
+
+from typing import Any, TYPE_CHECKING
 
 import numpy as np
 from statsmodels.genmod.families import Binomial, Family
 from statsmodels.genmod.families.links import Logit
 from statsmodels.genmod.generalized_linear_model import GLM
 
-from to_be_titled.types import FloatArray, MDYPLResults
+from numpy.typing import NDArray
+
 from to_be_titled.utils import _adjust_response, _get_intercept_idx, _has_constant_col
 from to_be_titled.validation import _ensure_column_vector, _ensure_design_matrix
+
+if TYPE_CHECKING:
+    from to_be_titled.types import MDYPLResults
+
+FloatArray = NDArray[np.float64]
 
 
 class MDYPLModel(GLM):  # type: ignore[misc]
@@ -123,5 +131,8 @@ class MDYPLModel(GLM):  # type: ignore[misc]
             raise ValueError(f"Unexpected fit arguement(s): {sorted(unexpected)}")
 
         glm_results = super().fit(**fit_kwargs)
+
+        # Local import to avoid circular import at module import time
+        from to_be_titled.types import MDYPLResults
 
         return MDYPLResults(self, glm_results)
