@@ -1,23 +1,20 @@
 from __future__ import annotations
 
-from typing import cast, TYPE_CHECKING
+import warnings
+from typing import TYPE_CHECKING
 
 import numpy as np
-import warnings 
+from numpy.typing import NDArray
 from scipy.linalg import solve_triangular
 from scipy.special import betaln
 
-from numpy.typing import NDArray
-
 if TYPE_CHECKING:
-    from to_be_titled.types import MDYPLResults
+    pass
 
 FloatArray = NDArray[np.float64]
 
 
-def compute_taus(x: FloatArray,
-                 intercept_index: int | None
-) -> FloatArray:
+def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
     """
     TODO:
 
@@ -28,11 +25,7 @@ def compute_taus(x: FloatArray,
         logistic regression fit obtained from fit_DY_logistic_regression().
     """
 
-    mat_x = (
-        x
-        if intercept_index is None
-        else np.delete(x, intercept_index, axis=1)
-    )
+    mat_x = x if intercept_index is None else np.delete(x, intercept_index, axis=1)
 
     n, p = mat_x.shape[0], mat_x.shape[1]
 
@@ -104,10 +97,11 @@ def compute_sloe(
 
 def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
     input = mu**2 * gamma**2 + kappa * sigma**2
-    if input < 0: 
-        warnings.warn("Unexpected negative output; nu^2 cannot be negative.",
-                      RuntimeWarning)
-        return float('nan')
+    if input < 0:
+        warnings.warn(
+            "Unexpected negative output; nu^2 cannot be negative.", RuntimeWarning
+        )
+        return float("nan")
     return float(np.sqrt(input))
 
 
@@ -123,13 +117,13 @@ def _derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> f
     numerator = nu**2 - kappa * sigma**2
     if numerator < 0.0:
         warnings.warn(
-            f"Negative value for nu^2 - kappa * sigma ^2, this value"
-            "cannot be negative",
+            "Negative value for nu^2 - kappa * sigma ^2, this valuecannot be negative",
             RuntimeWarning,
         )
         return float("nan")
 
     return float(np.sqrt(numerator) / mu)
+
 
 def _generalised_binomial_pmf(
     y: FloatArray,
@@ -216,4 +210,3 @@ def logist_aic(
     )
 
     return float(-2.0 * np.sum(log_likelihood))
-

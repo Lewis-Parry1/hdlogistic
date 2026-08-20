@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from numpy.typing import NDArray
 from statsmodels.genmod.families import Binomial, Family
 from statsmodels.genmod.families.links import Logit
 from statsmodels.genmod.generalized_linear_model import GLM
-
-from numpy.typing import NDArray
 
 from to_be_titled.utils import _adjust_response, _get_intercept_idx, _has_constant_col
 from to_be_titled.validation import _ensure_column_vector, _ensure_design_matrix

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import Any, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -14,7 +14,12 @@ type FloatArray = NDArray[np.float64]
 
 
 class MDYPLResults:
-    def __init__(self, model: MDYPLModel, glm_results: GLMResultsWrapper | Any, skip_null_deviance: bool = False) -> None:
+    def __init__(
+        self,
+        model: MDYPLModel,
+        glm_results: GLMResultsWrapper | Any,
+        skip_null_deviance: bool = False,
+    ) -> None:
         self.model = model
         self._results = glm_results
 
@@ -47,7 +52,7 @@ class MDYPLResults:
         )
         self.deviance = glm_results.deviance
         self.null_deviance = (
-        float("nan") if skip_null_deviance else self._compute_null_deviance(model)
+            float("nan") if skip_null_deviance else self._compute_null_deviance(model)
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -89,15 +94,16 @@ class MDYPLResults:
                 y=self.y_raw,
                 x=intercept_col,
                 weights=self.prior_weights,
-                offset=model.offset,  
+                offset=model.offset,
                 alpha=null_alpha,
                 family=model.family,
                 fit_kwargs=model.fit_kwargs,
             )
 
-            null_mus = null_model.fit(start_params=start_params,
-                                      skip_null_deviance=True).fitted_probs
-            
+            null_mus = null_model.fit(
+                start_params=start_params, skip_null_deviance=True
+            ).fitted_probs
+
             return float(family.deviance(self.y_adj, null_mus, self.prior_weights))
 
         else:

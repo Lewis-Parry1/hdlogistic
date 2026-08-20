@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose, assert_array_almost_equal
 import statsmodels.api as sm
+from numpy.testing import assert_allclose
 from scipy.special import expit
 
 from to_be_titled.mdypl_fit import MDYPLModel
@@ -25,7 +25,7 @@ def test_default_alpha_formula(simple_data):
     y, x = simple_data
     n, p = x.shape
     model = MDYPLModel(y=y, x=x)
-    expected_alpha = n / (n + p - 1)  
+    expected_alpha = n / (n + p - 1)
     assert_allclose(model.alpha, expected_alpha)
     assert model.alpha_was_fixed is False
 
@@ -72,20 +72,24 @@ def test_alpha_equals_one_matches_standard_logistic_regression(simple_data):
         err_msg="MDYPL with alpha=1 should exactly match standard logistic regression",
     )
 
+
 ## --- Result cross check with brglm2 ---
-X_DATA = np.array([
-    [1.0,  0.5, -1.2],
-    [1.0, -0.3,  0.8],
-    [1.0,  1.1,  0.2],
-    [1.0, -0.7, -0.5],
-    [1.0,  0.2,  1.4],
-    [1.0,  1.5, -0.9],
-    [1.0, -1.1,  0.3],
-    [1.0,  0.8,  0.6],
-    [1.0, -0.4, -1.3],
-    [1.0,  0.6,  0.1],
-])
+X_DATA = np.array(
+    [
+        [1.0, 0.5, -1.2],
+        [1.0, -0.3, 0.8],
+        [1.0, 1.1, 0.2],
+        [1.0, -0.7, -0.5],
+        [1.0, 0.2, 1.4],
+        [1.0, 1.5, -0.9],
+        [1.0, -1.1, 0.3],
+        [1.0, 0.8, 0.6],
+        [1.0, -0.4, -1.3],
+        [1.0, 0.6, 0.1],
+    ]
+)
 Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
+
 
 def test_fitted_params_match_r_reference():
     """Cross-check against R's mdyplFit() on a fixed, hand-written dataset.
@@ -95,25 +99,47 @@ def test_fitted_params_match_r_reference():
     x = X_DATA
     y = Y_DATA
 
-    model = MDYPLModel(y=y, x=x)  
+    model = MDYPLModel(y=y, x=x)
     result = model.fit()
 
     expected_alpha = 0.8333333
-    expected_params = np.asarray([-0.5691641, 2.3274548, 0.2974664])   
+    expected_params = np.asarray([-0.5691641, 2.3274548, 0.2974664])
     expected_deviance = 3.268387
     expected_null_deviance = 8.126224
-    expected_residuals = np.asarray([1.788515,-1.357211, 1.128667, -1.095645,
-                                     1.731411, 1.070348, -1.047829, 1.229631, -1.151548,
-                                     -3.356212])
+    expected_residuals = np.asarray(
+        [
+            1.788515,
+            -1.357211,
+            1.128667,
+            -1.095645,
+            1.731411,
+            1.070348,
+            -1.047829,
+            1.229631,
+            -1.151548,
+            -3.356212,
+        ]
+    )
     expected_aic = 13.49387
-    expected_leverages = np.asarray([0.4939179, 0.3314687, 0.2039765, 0.2356371, 
-                                     0.5064856, 0.2523204, 0.1937260, 0.2242109,
-                                     0.3728649, 0.1853921])
+    expected_leverages = np.asarray(
+        [
+            0.4939179,
+            0.3314687,
+            0.2039765,
+            0.2356371,
+            0.5064856,
+            0.2523204,
+            0.1937260,
+            0.2242109,
+            0.3728649,
+            0.1853921,
+        ]
+    )
 
     assert_allclose(model.alpha, expected_alpha, rtol=1e-6)
     assert_allclose(result.params, expected_params, rtol=1e-6)
     assert_allclose(result.deviance, expected_deviance, rtol=1e-6)
-    assert_allclose(result.residuals, expected_residuals, rtol = 1e-6)
-    assert_allclose(result.aic, expected_aic, rtol = 1e-6)
+    assert_allclose(result.residuals, expected_residuals, rtol=1e-6)
+    assert_allclose(result.aic, expected_aic, rtol=1e-6)
     assert_allclose(result.null_deviance, expected_null_deviance, rtol=1e-6)
-    assert_allclose(result.leverages, expected_leverages, rtol = 1e-6)
+    assert_allclose(result.leverages, expected_leverages, rtol=1e-6)

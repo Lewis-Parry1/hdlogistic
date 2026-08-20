@@ -55,10 +55,14 @@ class MDYPLSummary:
         if hd_correction:
             self._apply_hd_correction(solve_se_kwargs or {})
 
-        self._summary()
-
     def __getattr__(self, name: str) -> Any:
         return getattr(self.results, name)
+
+    def __str__(self) -> str:
+        return self._build_summary_str()
+
+    def __repr__(self) -> str:
+        return self._build_summary_str()
 
     def _apply_hd_correction(self, solve_se_kwargs: dict[str, Any]) -> None:
         res = self.results
@@ -104,8 +108,8 @@ class MDYPLSummary:
             np.sqrt(self.nobs_eff) * taus * se_params.solution.mu
         )
 
-        self.tvalues[no_int] = self.params / self.stand_errors
-        self.pvalues[no_int] = 2 * norm.cdf(-np.abs(self.tvalues))
+        self.tvalues[no_int] = self.params[no_int] / self.stand_errors[no_int]
+        self.pvalues[no_int] = 2 * norm.cdf(-np.abs(self.tvalues[no_int]))
 
         if res.has_intercept:
             self.params[intercept_idx] = se_params.solution.intercept_estimate
@@ -138,11 +142,10 @@ class MDYPLSummary:
             logist_aic(res.y_adj, self.fitted_probs, res.prior_weights) + 2.0 * res.rank
         )
 
-    def _summary(self) -> None:
-        """Prints statsmodels style summary."""
+    def _build_summary_str(self) -> str:
+        """Builds the statsmodels-style summary as a string."""
         if not self.hd_correction:
-            print(self.fitted_model.summary())
-            return
+            return str(self.fitted_model.summary())
 
         res = self.results
         model = res.model
@@ -178,18 +181,15 @@ class MDYPLSummary:
             yname=getattr(model, "endog_names", "y"),
             title="MDYPL Regression Results (HD-corrected)",
         )
+        smry.add_table_params(pview, xname=param_names, alpha=0.05, use_t=False)
 
-        smry.add_table_params(
-            pview, xname=param_names, alpha=0.05, use_t=False
-        )  # TODO: Check use_t
-        print(smry)
-        print("\nHigh Dimensionality Correction applied")
-        print(f"Dimensionality parameter (kappa)   = {round(float(self.kappa), 3)}")
-        print(
-            "Estimated signal strength (gamma^2) ="
+        footer = (
+            "\nHigh Dimensionality Correction applied"
+            f"\nDimensionality parameter (kappa)   = {round(float(self.kappa), 3)}"
+            "\nEstimated signal strength (gamma^2) ="
             f"{round(float(self.signal_strength), 3)}"
+            f"\nState evolution parameters (mu, b, sigma,"
+            "(theta/iota)):{self.se_params}"
         )
 
-        print(
-            f"State evolution parameters (mu, b, sigma, (theta/iota)):{self.se_params}"
-        )
+        return str(smry) + footer

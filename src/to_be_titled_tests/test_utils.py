@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
-from to_be_titled.utils import _has_constant_col, _get_intercept_idx
+
+from to_be_titled.utils import _get_intercept_idx, _has_constant_col
 
 
 class TestHasConstantCol:
