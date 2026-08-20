@@ -87,7 +87,7 @@ class MDYPLSummary:
         solve_se_kwargs = dict(solve_se_kwargs)
         solve_se_kwargs.update(
             kappa=p / self.nobs_eff,
-            ss=nu_sloe,
+            signal_strength=nu_sloe,
             alpha=res.alpha,
             intercept=theta_hat,
             corrupted=True,
