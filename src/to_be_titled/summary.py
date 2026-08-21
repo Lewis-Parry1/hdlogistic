@@ -3,6 +3,7 @@ from typing import Any, cast
 import numpy as np
 from scipy.stats import norm
 from statsmodels.iolib.summary import Summary
+from statsmodels.iolib.table import SimpleTable
 
 from to_be_titled.inference import (
     _derive_gamma_from_nu,
@@ -12,35 +13,6 @@ from to_be_titled.inference import (
 )
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import FloatArray, MDYPLResults
-
-class _FakeModel:
-    """Minimal stand-in exposing just what statsmodels' summary_params()
-    introspects off `results.model` during add_table_params()."""
-    def __init__(self, endog_names: str) -> None:
-        self.endog_names = endog_names
-
-class _ParamsView:
-    """ """
-
-    def __init__(
-        self,
-        params: FloatArray,
-        bse: FloatArray,
-        tvalues: FloatArray,
-        pvalues: FloatArray,
-        endog_names: str = "y",
-    ):
-        self.params = np.asarray(params)
-        self.bse = np.asarray(bse)
-        self.tvalues = np.asarray(tvalues)
-        self.pvalues = np.asarray(pvalues)
-        self.model = _FakeModel(endog_names)
-
-    def conf_int(self, alpha: float = 0.05) -> FloatArray:
-        z = norm.ppf(1.0 - alpha / 2.0)
-        lower = self.params - z * self.bse
-        upper = self.params + z * self.bse
-        return np.column_stack([lower, upper])
 
 
 class MDYPLSummary:
@@ -89,8 +61,6 @@ class MDYPLSummary:
             res.y_adj, res.linear_predictors, res.fitted_probs, res.leverages
         )
 
-        # Update user's supplied state equation solver
-        # arguments
         solve_se_kwargs = dict(solve_se_kwargs)
         solve_se_kwargs.update(
             kappa=p / self.nobs_eff,
@@ -138,8 +108,6 @@ class MDYPLSummary:
         self.linear_predictors = cast(FloatArray, res.model.exog) @ self.params
         self.fitted_probs = family.link.inverse(self.linear_predictors)
 
-        # Null deviance does not need to be updated as intercept is not rescaled
-        # Recompute deviance with new coeffcient estimates on raw y
         self.deviance_resid = family.resid_dev(
             res.y_raw, self.fitted_probs, res.prior_weights
         )
@@ -148,6 +116,27 @@ class MDYPLSummary:
         self.aic = (
             logist_aic(res.y_adj, self.fitted_probs, res.prior_weights) + 2.0 * res.rank
         )
+
+    def _build_coef_table(self, param_names: list[str]) -> SimpleTable:
+        z = norm.ppf(0.975)
+        lower = self.params - z * self.stand_errors
+        upper = self.params + z * self.stand_errors
+
+        headers = ["", "coef", "std err", "z", "P>|z|", "[0.025", "0.975]"]
+        rows = []
+        for name, p, se, t, pv, lo, hi in zip(
+            param_names, self.params, self.stand_errors, self.tvalues,
+            self.pvalues, lower, upper,
+        ):
+            if np.isnan(se):
+                rows.append([name, f"{p:.4f}", "nan", "nan", "nan", "nan", "nan"])
+            else:
+                rows.append(
+                    [name, f"{p:.4f}", f"{se:.3f}", f"{t:.3f}",
+                     f"{pv:.3f}", f"{lo:.3f}", f"{hi:.3f}"]
+                )
+
+        return SimpleTable(rows, headers=headers, title=None)
 
     def _build_summary_str(self) -> str:
         """Builds the statsmodels-style summary as a string."""
@@ -161,13 +150,6 @@ class MDYPLSummary:
             or [f"x{i}" for i in range(len(self.params))]
         )
 
-        pview = _ParamsView(
-            self.params,
-            self.stand_errors,
-            self.tvalues,
-            self.pvalues,
-            endog_names=getattr(model, "endog_names", "y"),
-        )
         top_left = [
             ("Dep. Variable:", [getattr(model, "endog_names", "y")]),
             ("Model:", ["MDYPL-GLM"]),
@@ -193,7 +175,7 @@ class MDYPLSummary:
             yname=getattr(model, "endog_names", "y"),
             title="MDYPL Regression Results (HD-corrected)",
         )
-        smry.add_table_params(pview, xname=param_names, alpha=0.05, use_t=False)
+        smry.tables.append(self._build_coef_table(param_names))
 
         footer = (
             "\nHigh Dimensionality Correction applied"
