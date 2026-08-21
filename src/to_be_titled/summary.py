@@ -13,6 +13,11 @@ from to_be_titled.inference import (
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import FloatArray, MDYPLResults
 
+class _FakeModel:
+    """Minimal stand-in exposing just what statsmodels' summary_params()
+    introspects off `results.model` during add_table_params()."""
+    def __init__(self, endog_names: str) -> None:
+        self.endog_names = endog_names
 
 class _ParamsView:
     """ """
@@ -23,11 +28,13 @@ class _ParamsView:
         bse: FloatArray,
         tvalues: FloatArray,
         pvalues: FloatArray,
+        endog_names: str = "y",
     ):
         self.params = np.asarray(params)
         self.bse = np.asarray(bse)
         self.tvalues = np.asarray(tvalues)
         self.pvalues = np.asarray(pvalues)
+        self.model = _FakeModel(endog_names)
 
     def conf_int(self, alpha: float = 0.05) -> FloatArray:
         z = norm.ppf(1.0 - alpha / 2.0)
@@ -154,8 +161,13 @@ class MDYPLSummary:
             or [f"x{i}" for i in range(len(self.params))]
         )
 
-        pview = _ParamsView(self.params, self.stand_errors, self.tvalues, self.pvalues)
-
+        pview = _ParamsView(
+            self.params,
+            self.stand_errors,
+            self.tvalues,
+            self.pvalues,
+            endog_names=getattr(model, "endog_names", "y"),
+        )
         top_left = [
             ("Dep. Variable:", [getattr(model, "endog_names", "y")]),
             ("Model:", ["MDYPL-GLM"]),
@@ -189,7 +201,7 @@ class MDYPLSummary:
             "\nEstimated signal strength (gamma^2) ="
             f"{round(float(self.signal_strength), 3)}"
             f"\nState evolution parameters (mu, b, sigma,"
-            "(theta/iota)):{self.se_params}"
+            f"(theta/iota)):{self.se_params}"
         )
 
         return str(smry) + footer
