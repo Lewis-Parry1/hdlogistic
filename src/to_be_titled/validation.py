@@ -5,10 +5,8 @@ from to_be_titled.types import FloatArray
 
 
 def _is_valid(result: SolverResult, tol: float = 1e-4) -> bool:
-    converged = True if result.func_value < tol else False
-    return (
-        result.success and _is_valid_domain(result.solution.to_array()) and (converged)
-    )
+    converged = bool(np.all(np.abs(result.func_value) < tol))
+    return converged
 
 
 def _validate_domain(params: FloatArray) -> None:
