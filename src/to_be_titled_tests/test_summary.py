@@ -7,7 +7,6 @@ from numpy.testing import assert_allclose
 from to_be_titled.mdypl_fit import MDYPLModel
 from to_be_titled.summary import MDYPLSummary
 
-
 X_DATA = np.array(
     [
         [1.0, 0.5, -1.2],
@@ -227,9 +226,7 @@ def test_hd_correction_matches_r_reference(fitted_result):
 
     # --- standard errors (intercept row is NaN on both sides) ---
     assert np.isnan(summ.stand_errors[intercept_idx])
-    assert_allclose(
-        summ.stand_errors[no_int], expected_stand_errors[no_int], rtol=1e-4
-    )
+    assert_allclose(summ.stand_errors[no_int], expected_stand_errors[no_int], rtol=1e-4)
 
     # --- t values (intercept row is NaN on both sides) ---
     assert np.isnan(summ.tvalues[intercept_idx])
@@ -244,8 +241,12 @@ def test_hd_correction_matches_r_reference(fitted_result):
         f"Expected 4 state evolution parameters (mu, b, sigma, intercept_estimate), "
         f"got {len(summ.se_params)}: {summ.se_params}"
     )
-    assert_allclose(summ.se_params[0], expected_se_params[0], rtol=1e-4, err_msg="mu mismatch")
-    assert_allclose(summ.se_params[1], expected_se_params[1], rtol=1e-4, err_msg="b mismatch")
+    assert_allclose(
+        summ.se_params[0], expected_se_params[0], rtol=1e-4, err_msg="mu mismatch"
+    )
+    assert_allclose(
+        summ.se_params[1], expected_se_params[1], rtol=1e-4, err_msg="b mismatch"
+    )
     assert_allclose(
         summ.se_params[2], expected_se_params[2], rtol=1e-4, err_msg="sigma mismatch"
     )

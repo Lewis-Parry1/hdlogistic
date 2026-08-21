@@ -125,15 +125,27 @@ class MDYPLSummary:
         headers = ["", "coef", "std err", "z", "P>|z|", "[0.025", "0.975]"]
         rows = []
         for name, p, se, t, pv, lo, hi in zip(
-            param_names, self.params, self.stand_errors, self.tvalues,
-            self.pvalues, lower, upper,
+            param_names,
+            self.params,
+            self.stand_errors,
+            self.tvalues,
+            self.pvalues,
+            lower,
+            upper,
         ):
             if np.isnan(se):
                 rows.append([name, f"{p:.4f}", "nan", "nan", "nan", "nan", "nan"])
             else:
                 rows.append(
-                    [name, f"{p:.4f}", f"{se:.3f}", f"{t:.3f}",
-                     f"{pv:.3f}", f"{lo:.3f}", f"{hi:.3f}"]
+                    [
+                        name,
+                        f"{p:.4f}",
+                        f"{se:.3f}",
+                        f"{t:.3f}",
+                        f"{pv:.3f}",
+                        f"{lo:.3f}",
+                        f"{hi:.3f}",
+                    ]
                 )
 
         return SimpleTable(rows, headers=headers, title=None)
