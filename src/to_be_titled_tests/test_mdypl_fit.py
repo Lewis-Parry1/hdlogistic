@@ -27,14 +27,12 @@ def test_default_alpha_formula(simple_data):
     model = MDYPLModel(y=y, x=x)
     expected_alpha = n / (n + p - 1)
     assert_allclose(model.alpha, expected_alpha)
-    assert model.alpha_was_fixed is False
 
 
 def test_fixed_alpha_is_respected(simple_data):
     y, x = simple_data
     model = MDYPLModel(y=y, x=x, alpha=0.7)
     assert model.alpha == 0.7
-    assert model.alpha_was_fixed is True
 
 
 def test_alpha_out_of_range_raises(simple_data):

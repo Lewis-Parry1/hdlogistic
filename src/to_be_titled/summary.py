@@ -47,7 +47,7 @@ class MDYPLSummary:
         res = self.results
 
         # Effective sample size; if freq_weights were not defined
-        # then ESS = number of observations
+        # then ESS = number of observations (as usual)
         self.nobs_eff = float(np.sum(res.prior_weights))
 
         has_intercept = res.has_intercept
@@ -63,7 +63,7 @@ class MDYPLSummary:
 
         solve_se_kwargs = dict(solve_se_kwargs)
         solve_se_kwargs.update(
-            kappa=p / self.nobs_eff,
+            kappa= p / self.nobs_eff,
             signal_strength=nu_sloe,
             alpha=res.alpha,
             intercept=theta_hat,
@@ -71,30 +71,39 @@ class MDYPLSummary:
         )
 
         se_params, opt_chain = solve_state_equation(**solve_se_kwargs)
-        self.opt_chain = opt_chain
+        self.opt_chain = opt_chain # chain of optimisation strategies needed to solve
 
-        taus = compute_taus(cast(FloatArray, res.model.exog), res.intercept_idx)
+        x = cast(FloatArray, res.model.exog)
+        taus = compute_taus(x, res.intercept_idx)
 
         no_int = np.ones(len(self.params), dtype=bool)
         if has_intercept:
-            no_int[intercept_idx] = False
+            no_int[intercept_idx] = False 
 
+        # do not update intercept (yet)
         self.params[no_int] = self.params[no_int] / se_params.solution.mu
 
+        # rescale standard errors
         self.stand_errors[no_int] = se_params.solution.sigma / (
             np.sqrt(self.nobs_eff) * taus * se_params.solution.mu
         )
 
+        # recompute t-stat and corresponding pvalue 
         self.tvalues[no_int] = self.params[no_int] / self.stand_errors[no_int]
         self.pvalues[no_int] = 2 * norm.cdf(-np.abs(self.tvalues[no_int]))
 
         if res.has_intercept:
+            # intercept updated to iota/theta
             self.params[intercept_idx] = se_params.solution.intercept_estimate
+            # no current literature telling us how to update these
             self.stand_errors[intercept_idx] = np.nan
             self.tvalues[intercept_idx] = np.nan
             self.pvalues[intercept_idx] = np.nan
 
+        # Save updated attributes 
         self.kappa = p / self.nobs_eff
+
+        # Retrive gamma^2 from nu
         self.signal_strength = (
             _derive_gamma_from_nu(
                 self.kappa, nu_sloe, se_params.solution.sigma, se_params.solution.mu
@@ -105,16 +114,23 @@ class MDYPLSummary:
         self.se_params = se_params.solution.to_array()
 
         family = res.model.family
-        self.linear_predictors = cast(FloatArray, res.model.exog) @ self.params
-        self.fitted_probs = family.link.inverse(self.linear_predictors)
 
+        self.linear_predictors = x @ self.params
+        # essentially just applying sigmoid function, but keeping 
+        # us using family properties in statsmodels 
+        self.fitted_probs = family.link.inverse(self.linear_predictors) 
+
+        # Use the resid deviance and deviance formula for Binimial family
         self.deviance_resid = family.resid_dev(
             res.y_raw, self.fitted_probs, res.prior_weights
         )
-        self.deviance = family.deviance(res.y_raw, self.fitted_probs, res.prior_weights)
+        self.deviance = family.deviance(res.y_raw, self.fitted_probs, 
+                                        res.prior_weights)
 
+        # Compute AIC with pseudo-responses, usual AIC wont work as y_i in (0,1) 
         self.aic = (
-            logist_aic(res.y_adj, self.fitted_probs, res.prior_weights) + 2.0 * res.rank
+            logist_aic(res.y_adj, self.fitted_probs, res.prior_weights) 
+            + 2.0 * res.rank
         )
 
     def _build_coef_table(self, param_names: list[str]) -> SimpleTable:

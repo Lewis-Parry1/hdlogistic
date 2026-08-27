@@ -80,15 +80,13 @@ class MDYPLModel(GLM):  # type: ignore[misc]
             missing_offset = False
 
         if alpha is None:
-            alpha_was_fixed = False
-            wsum = float(np.sum(weights))
+            wsum = float(np.sum(weights)) # effective sample size
             alpha = wsum / (wsum + p - int(has_intercept))
         else:
             if not (0.0 <= alpha <= 1.0):
                 raise ValueError(
                     f"Shrinkage paramater `alpha` must be in [0,1], got {alpha}"
                 )
-            alpha_was_fixed = True
         # Transform binary responses to MDYPL pseudo responses
         # Assumes prior mode is the zero vector
         y_adj = _adjust_response(y_val, alpha)
@@ -116,7 +114,6 @@ class MDYPLModel(GLM):  # type: ignore[misc]
         self.offset = offset
         self.prior_weights = np.asarray(weights, dtype=np.float64)
         self.missing_offset = missing_offset
-        self.alpha_was_fixed = alpha_was_fixed
         self.fit_kwargs = fit_kwargs or {}
         self.method = self.fit_kwargs.get("method", "IRLS")
         self.nobs = n
@@ -124,6 +121,7 @@ class MDYPLModel(GLM):  # type: ignore[misc]
 
     def fit(self, *, skip_null_deviance: bool = False, **kwargs: Any) -> MDYPLResults:
         fit_kwargs = {**self.fit_kwargs, **kwargs}
+        # restrict (for now) optional arguments allowed for user to pass in 
         allowed_args = {"tol", "maxiter", "method", "start_params"}
         unexpected = set(fit_kwargs) - allowed_args
         if unexpected:
@@ -131,6 +129,6 @@ class MDYPLModel(GLM):  # type: ignore[misc]
 
         glm_results = super().fit(**fit_kwargs)
 
-        from to_be_titled.types import MDYPLResults
+        from to_be_titled.types import MDYPLResults # TODO: How can we avoid  this
 
         return MDYPLResults(self, glm_results, skip_null_deviance=skip_null_deviance)

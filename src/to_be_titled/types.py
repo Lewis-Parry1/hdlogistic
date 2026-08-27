@@ -44,18 +44,23 @@ class MDYPLResults:
         )
         self.rank = len(self.params)
 
-        from to_be_titled.inference import logist_aic
+        from to_be_titled.inference import logist_aic # TODO: Get rid of crap like this
 
         self.aic = (
             logist_aic(self.y_adj, self.fitted_probs, self.prior_weights)
             + 2.0 * self.rank
         )
         self.deviance = glm_results.deviance
+        # TODO: skip_null_deviance stops us from getting stuck in loop
+        # if we didnt have it we would fit full model -> fit null model
+        # fit null model again and again...
+        # I think we could fix this by seperating _compute_null_deviance 
         self.null_deviance = (
             float("nan") if skip_null_deviance else self._compute_null_deviance(model)
         )
 
     def __getattr__(self, name: str) -> Any:
+        # Handy lookup
         return getattr(self._results, name)
 
     @property
@@ -74,38 +79,48 @@ class MDYPLResults:
 
     def _compute_null_deviance(self, model: MDYPLModel) -> float:
         """Compute deviance of model fitted with only constant feature."""
-        exog = cast(FloatArray, model.exog)
+        x = cast(FloatArray, model.exog)
         intercept_idx = cast(int, model.intercept_idx)
 
         family = model.family
 
-        if model.has_intercept and model.missing_offset:
-            from to_be_titled.mdypl_fit import MDYPLModel
+        if model.has_intercept:
+            from to_be_titled.mdypl_fit import MDYPLModel # TODO: Get rid of this
 
-            intercept_col = exog[:, intercept_idx : intercept_idx + 1]
+            intercept_col = x[:, intercept_idx : intercept_idx + 1]
 
-            null_alpha = self.alpha if model.alpha_was_fixed else None
-
+            # This just gets an initial starting estimate
+            # for intercept (average of y) and applied 
             y_mean = float(np.mean(self.y_raw))
-            start_val = model.family.link(y_mean)
+            start_val = model.family.link(y_mean) # logit(y_bar)
             start_params = np.asarray([start_val])
 
+            # Recursive -> call MDYPL fit full model
+            # Create MDYPLResults to save full model results
+            # MDYPLResults built also calls MDYPL fit in order
+            # To fit intercept only model
             null_model = MDYPLModel(
                 y=self.y_raw,
                 x=intercept_col,
                 weights=self.prior_weights,
-                offset=model.offset,
-                alpha=null_alpha,
+                offset=model.offset, # these will just be zeroes
+                alpha=self.alpha,
                 family=model.family,
                 fit_kwargs=model.fit_kwargs,
             )
-
+            # Fit null model with smart start.
+            # get fitted probs
             null_mus = null_model.fit(
                 start_params=start_params, skip_null_deviance=True
             ).fitted_probs
 
+            # Compute deviance using usual deviance formula 
+            # Given y_adj, null_mus and weights
             return float(family.deviance(self.y_adj, null_mus, self.prior_weights))
 
-        else:
+        else: 
+            # Null model now has no intercept, now either 
+            # 1. If has offset -> its the sigmoid(offset)
+            # 2. If no offset then its sigmoid(0) = 1/2 for all
             null_mus = model.family.link.inverse(model.offset)
             return float(family.deviance(self.y_adj, null_mus, self.prior_weights))
