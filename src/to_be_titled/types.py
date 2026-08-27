@@ -44,7 +44,7 @@ class MDYPLResults:
         )
         self.rank = len(self.params)
 
-        from to_be_titled.inference import logist_aic # TODO: Get rid of crap like this
+        from to_be_titled.inference import logist_aic  # TODO: Get rid of crap like this
 
         self.aic = (
             logist_aic(self.y_adj, self.fitted_probs, self.prior_weights)
@@ -54,7 +54,7 @@ class MDYPLResults:
         # TODO: skip_null_deviance stops us from getting stuck in loop
         # if we didnt have it we would fit full model -> fit null model
         # fit null model again and again...
-        # I think we could fix this by seperating _compute_null_deviance 
+        # I think we could fix this by seperating _compute_null_deviance
         self.null_deviance = (
             float("nan") if skip_null_deviance else self._compute_null_deviance(model)
         )
@@ -85,14 +85,14 @@ class MDYPLResults:
         family = model.family
 
         if model.has_intercept:
-            from to_be_titled.mdypl_fit import MDYPLModel # TODO: Get rid of this
+            from to_be_titled.mdypl_fit import MDYPLModel  # TODO: Get rid of this
 
             intercept_col = x[:, intercept_idx : intercept_idx + 1]
 
             # This just gets an initial starting estimate
-            # for intercept (average of y) and applied 
+            # for intercept (average of y) and applied
             y_mean = float(np.mean(self.y_raw))
-            start_val = model.family.link(y_mean) # logit(y_bar)
+            start_val = model.family.link(y_mean)  # logit(y_bar)
             start_params = np.asarray([start_val])
 
             # Recursive -> call MDYPL fit full model
@@ -103,7 +103,7 @@ class MDYPLResults:
                 y=self.y_raw,
                 x=intercept_col,
                 weights=self.prior_weights,
-                offset=model.offset, # these will just be zeroes
+                offset=model.offset,  # these will just be zeroes
                 alpha=self.alpha,
                 family=model.family,
                 fit_kwargs=model.fit_kwargs,
@@ -114,12 +114,12 @@ class MDYPLResults:
                 start_params=start_params, skip_null_deviance=True
             ).fitted_probs
 
-            # Compute deviance using usual deviance formula 
+            # Compute deviance using usual deviance formula
             # Given y_adj, null_mus and weights
             return float(family.deviance(self.y_adj, null_mus, self.prior_weights))
 
-        else: 
-            # Null model now has no intercept, now either 
+        else:
+            # Null model now has no intercept, now either
             # 1. If has offset -> its the sigmoid(offset)
             # 2. If no offset then its sigmoid(0) = 1/2 for all
             null_mus = model.family.link.inverse(model.offset)

@@ -80,7 +80,7 @@ class MDYPLModel(GLM):  # type: ignore[misc]
             missing_offset = False
 
         if alpha is None:
-            wsum = float(np.sum(weights)) # effective sample size
+            wsum = float(np.sum(weights))  # effective sample size
             alpha = wsum / (wsum + p - int(has_intercept))
         else:
             if not (0.0 <= alpha <= 1.0):
@@ -121,7 +121,7 @@ class MDYPLModel(GLM):  # type: ignore[misc]
 
     def fit(self, *, skip_null_deviance: bool = False, **kwargs: Any) -> MDYPLResults:
         fit_kwargs = {**self.fit_kwargs, **kwargs}
-        # restrict (for now) optional arguments allowed for user to pass in 
+        # restrict (for now) optional arguments allowed for user to pass in
         allowed_args = {"tol", "maxiter", "method", "start_params"}
         unexpected = set(fit_kwargs) - allowed_args
         if unexpected:
@@ -129,6 +129,6 @@ class MDYPLModel(GLM):  # type: ignore[misc]
 
         glm_results = super().fit(**fit_kwargs)
 
-        from to_be_titled.types import MDYPLResults # TODO: How can we avoid  this
+        from to_be_titled.types import MDYPLResults  # TODO: How can we avoid  this
 
         return MDYPLResults(self, glm_results, skip_null_deviance=skip_null_deviance)
