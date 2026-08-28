@@ -9,6 +9,7 @@ from statsmodels.genmod.generalized_linear_model import GLMResultsWrapper
 
 if TYPE_CHECKING:
     from to_be_titled.mdypl_fit import MDYPLModel
+    from to_be_titled.penalised_likelihood_ratio_test import PenalisedLRTResults
 
 type FloatArray = NDArray[np.float64]
 
@@ -124,3 +125,20 @@ class MDYPLResults:
             # 2. If no offset then its sigmoid(0) = 1/2 for all
             null_mus = model.family.link.inverse(model.offset)
             return float(family.deviance(self.y_adj, null_mus, self.prior_weights))
+
+    def penalised_lrt(
+        self,
+        other: MDYPLResults,
+        hd_correction: bool = False,
+        solve_se_kwargs: dict[str, Any] | None = None,
+    ) -> "PenalisedLRTResults":
+        """Penalized likelihood ratio test against a nested MDYPL fit.
+
+        `self` and `other` may be either the full or restricted model —
+        order does not matter.
+        """
+        from to_be_titled.penalised_likelihood_ratio_test import penalised_lrt
+
+        return penalised_lrt(
+            self, other, hd_correction=hd_correction, solve_se_kwargs=solve_se_kwargs
+        )
