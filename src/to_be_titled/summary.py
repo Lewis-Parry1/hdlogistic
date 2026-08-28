@@ -73,6 +73,8 @@ class MDYPLSummary:
         se_params, opt_chain = solve_state_equation(**solve_se_kwargs)
         self.opt_chain = opt_chain  # chain of optimisation strategies needed to solve
 
+        # TODO: this matrix needs to be replaced with 
+        # design matrix with dependent columns dropped
         x = cast(FloatArray, res.model.exog)
         taus = compute_taus(x, res.intercept_idx)
 

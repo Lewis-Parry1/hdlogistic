@@ -43,6 +43,8 @@ class MDYPLResults:
         self.residuals = (model.y_raw - self.fitted_probs) / (
             self.fitted_probs * (1.0 - self.fitted_probs)
         )
+        # TODO: This needs to be change to determiend matrix rank
+        # If matrix is not full rank then this is incorrect
         self.rank = len(self.params)
 
         from to_be_titled.inference import logist_aic  # TODO: Get rid of crap like this
