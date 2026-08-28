@@ -156,7 +156,7 @@ def _generalised_binomial_pmf(
     Returns
     -------
     FloatArray
-        Generalised binomial coeffcient corresponding to each row in design matrix.
+        Generalised binomial PMF corresponding to each row in design matrix.
     """
     size_i = fw
 
