@@ -122,6 +122,10 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
 
 
 def _is_full_rank(x: FloatArray, qr_tol: float = 1e-11) -> bool:
+    n, p = x.shape
+    if p > n:
+        return False
+
     _, R, _ = qr(x, mode="economic", pivoting=True)
     diag = np.abs(np.diag(R))
 
