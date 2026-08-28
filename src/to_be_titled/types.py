@@ -131,7 +131,7 @@ class MDYPLResults:
         other: MDYPLResults,
         hd_correction: bool = False,
         solve_se_kwargs: dict[str, Any] | None = None,
-    ) -> "PenalisedLRTResults":
+    ) -> PenalisedLRTResults:
         """Penalized likelihood ratio test against a nested MDYPL fit.
 
         `self` and `other` may be either the full or restricted model —
