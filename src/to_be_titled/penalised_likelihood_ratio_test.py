@@ -22,7 +22,7 @@ class PenalisedLRTResults:
         p_value: float,
         hd_correction: bool,
         kappa: float | None = None,
-        se_params: NDArray | None = None,
+        se_params: NDArray[np.float64] | None = None,
         signal_strength: float | None = None,
     ) -> None:
 
