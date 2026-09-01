@@ -5,7 +5,7 @@ from itertools import product
 import numpy as np
 import pytest
 
-from to_be_titled.inference import _derive_nu_from_gamma
+from to_be_titled.inference import derive_nu_from_gamma
 from to_be_titled.solvers.state_equations_solver import (
     SolverConvergenceError,
     solve_state_equation,
@@ -132,7 +132,7 @@ def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
     brglm2_res = np.array([0.5565527, 2.6079197, 2.5297002, 0.5585552])
     mu, b, sigma, iota = brglm2_res  # approximate roots
 
-    nu = _derive_nu_from_gamma(kappa, gamma, mu, sigma)
+    nu = derive_nu_from_gamma(kappa, gamma, mu, sigma)
 
     # pass in corrupted signal strength and estimtaed intercept (iota)
     soln_corrupt, chain = solve_state_equation(
@@ -167,7 +167,7 @@ def test_solve_se0_with_nu() -> None:
 
     print(chain)
 
-    nu = _derive_nu_from_gamma(kappa, gamma, res0.solution.mu, res0.solution.sigma)
+    nu = derive_nu_from_gamma(kappa, gamma, res0.solution.mu, res0.solution.sigma)
 
     res0_c, chain_c = solve_state_equation(kappa, nu, alpha, corrupted=True)
 
@@ -191,7 +191,7 @@ def test_solve_se1_retrieve_nu() -> None:
     print(chain)
 
     # Compute the corrupted signal strength
-    nu = _derive_nu_from_gamma(kappa, gamma, res1.solution.mu, res1.solution.sigma)
+    nu = derive_nu_from_gamma(kappa, gamma, res1.solution.mu, res1.solution.sigma)
 
     # Use the corrupted signal strength as gamma and iota as intercept
     # in solver with corrupted = True

@@ -2,11 +2,11 @@ import numpy as np
 from scipy.special import expit
 
 from to_be_titled.inference import (
-    _derive_gamma_from_nu,
-    _derive_nu_from_gamma,
     _generalised_binomial_pmf,
     compute_sloe,
     compute_taus,
+    derive_gamma_from_nu,
+    derive_nu_from_gamma,
 )
 
 # ---- SLOE Tests ----
@@ -69,7 +69,7 @@ def test_derive_nu_from_gamma_expected():
     mu, gamma, kappa, sigma = 0.5, 1, 0.3, 1
     expected_nu = float(np.sqrt(55) / 10)
 
-    nu = _derive_nu_from_gamma(kappa, gamma, mu, sigma)
+    nu = derive_nu_from_gamma(kappa, gamma, mu, sigma)
 
     np.testing.assert_almost_equal(expected_nu, nu)
 
@@ -78,7 +78,7 @@ def test_derive_gamma_from_nu_expected():
     kappa, nu, sigma, mu = 0.3, 1, 1, 0.5
     expected_gamma = float(np.sqrt(70) / 5)
 
-    gamma = _derive_gamma_from_nu(kappa, nu, sigma, mu)
+    gamma = derive_gamma_from_nu(kappa, nu, sigma, mu)
     np.testing.assert_almost_equal(expected_gamma, gamma)
 
 
