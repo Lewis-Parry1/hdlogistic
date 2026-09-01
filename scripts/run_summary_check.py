@@ -11,8 +11,7 @@ Run with:
 
 import numpy as np
 
-from to_be_titled.mdypl_fit import MDYPLModel
-from to_be_titled.summary import MDYPLSummary
+from to_be_titled.adapters.statsmodels import MDYPLLogistic
 
 
 def main() -> None:
@@ -33,24 +32,13 @@ def main() -> None:
     y = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
 
     # Full model: intercept + both covariates
-    full_model = MDYPLModel(y=y, x=x)
+    full_model = MDYPLLogistic(endog=y, exog=x)
     full_result = full_model.fit()
-
-    summ_no_hd = MDYPLSummary(full_result, hd_correction=False)
-    print(summ_no_hd)
-
-    print()
-
-    summ_hd = MDYPLSummary(full_result, hd_correction=True)
-    print(summ_hd)
-
-    print()
 
     # Reduced model: intercept + first covariate only, same alpha so the
     # comparison is valid — nested inside the full model above.
-    reduced_model = MDYPLModel(y=y, x=x[:, :2], alpha=full_result.alpha)
+    reduced_model = MDYPLLogistic(endog=y, exog=x[:, :2], alpha=full_result.alpha)
     reduced_result = reduced_model.fit()
-
     lrt_no_hd = full_result.penalised_lrt(reduced_result, hd_correction=False)
     print(lrt_no_hd)
 

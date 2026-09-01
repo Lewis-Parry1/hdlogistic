@@ -32,14 +32,13 @@ class HDDiagnostics:
 
 @dataclass(frozen=True)
 class MDYPLSummary:
-
     params: FloatArray
     bse: FloatArray
     zvalues: FloatArray
     pvalues: FloatArray
 
-    linear_predictors: FloatArray 
-    fitted_probs: FloatArray 
+    linear_predictors: FloatArray
+    fitted_probs: FloatArray
 
     nobs_eff: float
     deviance: float
@@ -71,7 +70,6 @@ def summary(
     nobs_eff = result.nobs_eff
     eps = 1e-15
     params = result.params.copy()
-
 
     if not high_dimensional_correction:
         cov = np.asarray(result.cov_params, dtype=np.float64)

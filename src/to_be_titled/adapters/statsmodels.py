@@ -14,7 +14,10 @@ from to_be_titled.estimation import (
     fit_mdypl,
     prepare_mdypl_data,
 )
-from to_be_titled.inference import PenalisedLRTResults, penalised_lrt
+from to_be_titled.penalised_likelihood_ratio_test import (
+    PenalisedLRTResults,
+    penalised_lrt,
+)
 from to_be_titled.summary import HDDiagnostics, MDYPLSummary, summary
 from to_be_titled.types import (
     FloatArray,
@@ -22,8 +25,6 @@ from to_be_titled.types import (
 
 
 class MDYPLLogisticResult(Results):  # type: ignore[misc]
-    """Statsmodels adapter wrapping MDYPLResults with lazy inferential evaluation."""
-
     def __init__(
         self,
         model: Any,
@@ -38,7 +39,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         self._start: FloatArray | None = start
         self._solve_se_kwargs: dict[str, Any] | None = solve_se_kwargs
 
-        super().__init__(model=model, params=raw_results.params, **kwargs) # pyright: ignore[reportUnknownMemberType]
+        super().__init__(model=model, params=raw_results.params, **kwargs)  # pyright: ignore[reportUnknownMemberType]
 
         self.converged: bool = raw_results.converged
         self.iterations: int = raw_results.iterations
@@ -56,7 +57,12 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
     @property
     def params(self) -> FloatArray:
+
         return self._summary_data.params
+
+    @params.setter
+    def params(self, value: FloatArray) -> None:
+        pass
 
     @property
     def bse(self) -> FloatArray:
@@ -75,15 +81,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         return self._summary_data.linear_predictors
 
     @property
-    def fittedvalues(self) -> FloatArray:
-        return self._summary_data.linear_predictors
-
-    @property
     def fitted_probs(self) -> FloatArray:
-        return self._summary_data.fitted_probs
-
-    @property
-    def mu(self) -> FloatArray:
         return self._summary_data.fitted_probs
 
     @property
@@ -127,7 +125,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
             return self
 
         return MDYPLLogisticResult(
-            model=self.model, # pyright: ignore[reportUnknownMemberType]
+            model=self.model,  # pyright: ignore[reportUnknownMemberType]
             raw_results=self._raw_results,
             use_hd_correction=True,
             start=start,
@@ -140,20 +138,15 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         hd_correction: bool | None = None,
         solve_se_kwargs: dict[str, Any] | None = None,
     ) -> PenalisedLRTResults | None:
-       if not isinstance(other, MDYPLLogisticResult):  # pyright: ignore[reportUnnecessaryIsInstance]
-        raise TypeError(
-        "`other` must be an instance of MDYPLLogisticResult,"
-        f"got {type(other).__name__}"
-        )
 
-        use_hd = self.use_hd_correction if hd_correction is None else hd_correction
+            use_hd = self.use_hd_correction if hd_correction is None else hd_correction
 
-        return penalised_lrt(
-            self._raw_results,
-            other._raw_results,
-            hd_correction=use_hd,
-            solve_se_kwargs=solve_se_kwargs,
-        )
+            return penalised_lrt(
+                self._raw_results,
+                other._raw_results,
+                hd_correction=use_hd,
+                solve_se_kwargs=solve_se_kwargs,
+            )
 
 
 class MDYPLLogistic(Model):  # type: ignore[misc]
@@ -167,7 +160,7 @@ class MDYPLLogistic(Model):  # type: ignore[misc]
         missing: str = "none",
         **kwargs: Any,
     ) -> None:
-        super().__init__(endog=endog, exog=exog, missing=missing, **kwargs) # pyright: ignore[reportUnknownMemberType]
+        super().__init__(endog=endog, exog=exog, missing=missing, **kwargs)  # pyright: ignore[reportUnknownMemberType]
 
         self._data: MDYPLData = prepare_mdypl_data(
             x=self.exog,  # pyright: ignore[reportArgumentType, reportUnknownArgumentType, reportUnknownMemberType]

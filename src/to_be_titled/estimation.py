@@ -26,7 +26,6 @@ from to_be_titled.validation import (
 
 @dataclass(frozen=True)
 class MDYPLData:
-
     x: FloatArray
     y_raw: FloatArray
     weights: FloatArray
@@ -50,7 +49,6 @@ class MDYPLResults:
     alpha: float
     y_adj: FloatArray
     _glm_results: Any = field(default=None, repr=False, compare=False)
-
 
     @property
     def x(self) -> FloatArray:
@@ -201,10 +199,13 @@ def fit_mdypl(
     if start_params is not None:
         fit_kwargs["start_params"] = start_params
 
-    glm_results = glm_model.fit(**fit_kwargs) # pyright: ignore[reportUnknownMemberType]
+    glm_results = glm_model.fit(**fit_kwargs)  # pyright: ignore[reportUnknownMemberType]
 
     params = np.asarray(glm_results.params, dtype=np.float64)
-    linear_predictors = np.asarray(glm_results.fittedvalues, dtype=np.float64)
+    linear_predictors = np.asarray(data.x @ params, dtype=np.float64)
+    if data.offset is not None:
+        linear_predictors = linear_predictors + data.offset
+        
     fitted_probs = np.asarray(glm_results.mu, dtype=np.float64)
 
     aic = float(logist_aic(y_adj, fitted_probs, data.weights) + 2.0 * data.rank)
@@ -215,9 +216,10 @@ def fit_mdypl(
         linear_predictors=linear_predictors,
         fitted_probs=fitted_probs,
         deviance=float(glm_results.deviance),
+
         aic=aic,
         converged=bool(glm_results.converged),
-        iterations=int(glm_results.iterations),
+        iterations=int(glm_results.fit_history.get("iteration", 0)),
         alpha=alpha_val,
         y_adj=y_adj,
         _glm_results=glm_results,
