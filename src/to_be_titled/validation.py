@@ -130,7 +130,7 @@ def _is_full_rank(x: FloatArray, qr_tol: float = 1e-11) -> bool:
     diag = np.abs(np.diag(R))
 
     if diag.size == 0 or diag[0] == 0:
-        return diag.size == 0 
+        return diag.size == 0
 
     threshold = qr_tol * diag[0]
     return bool(np.all(diag > threshold))
