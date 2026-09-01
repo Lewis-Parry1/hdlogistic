@@ -1,7 +1,7 @@
-import pytest 
 import numpy as np
 
 from to_be_titled.validation import _is_full_rank
+
 
 class TestObviousCases:
     def test_identity_matrix_is_full_rank(self):
@@ -56,10 +56,10 @@ class TestHardCases:
         assert _is_full_rank(X) is False
 
     def test_wide_scale_range_stays_full_rank(self):
-        # columns spanning many orders of magnitude 
+        # columns spanning many orders of magnitude
         rng = np.random.default_rng(11)
         n, p = 200, 8
-        scales = 10.0 ** np.arange(-4, 4)  
+        scales = 10.0 ** np.arange(-4, 4)
         X = rng.standard_normal((n, p)) * scales
         assert _is_full_rank(X) is True
 
@@ -70,7 +70,7 @@ class TestHardCases:
         assert _is_full_rank(X) is False
 
     def test_tiny_machine_precision_perturbation_stays_full_rank(self):
-        # perturbation larger than qr_tol 
+        # perturbation larger than qr_tol
         # -- should not be flagged as deficient
         rng = np.random.default_rng(3)
         col0 = rng.standard_normal(20)
@@ -129,6 +129,3 @@ class TestReturnType:
     def test_returns_python_bool(self):
         result = _is_full_rank(np.eye(3))
         assert isinstance(result, bool)
-
-
-

@@ -9,7 +9,11 @@ from statsmodels.genmod.families.links import Logit
 from statsmodels.genmod.generalized_linear_model import GLM
 
 from to_be_titled.utils import _adjust_response, _get_intercept_idx, _has_constant_col
-from to_be_titled.validation import _ensure_column_vector, _ensure_design_matrix, _is_full_rank
+from to_be_titled.validation import (
+    _ensure_column_vector,
+    _ensure_design_matrix,
+    _is_full_rank,
+)
 
 if TYPE_CHECKING:
     from to_be_titled.types import MDYPLResults
@@ -60,11 +64,11 @@ class MDYPLModel(GLM):  # type: ignore[misc]
         y_val = _ensure_column_vector(y)
 
         # Check matrix is full rank
-        if not _is_full_rank(x_val): 
+        if not _is_full_rank(x_val):
             raise ValueError(
-            "Design matrix `x` is rank-deficient. Check for duplicate, "
-            "redundant, or perfectly correlated columns,"
-            "and remove them before fitting."
+                "Design matrix `x` is rank-deficient. Check for duplicate, "
+                "redundant, or perfectly correlated columns,"
+                "and remove them before fitting."
             )
 
         n, p = x_val.shape[0], x_val.shape[1]
