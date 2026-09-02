@@ -287,6 +287,20 @@ def test_fitted_params_match_r_reference():
             0.1853921,
         ]
     )
+    expected_residual_deviances = np.asarray(
+    [
+        0.79290616,
+        -0.45690657,
+        0.10078244,
+        -0.01413417,
+        0.75916487,
+        -0.06840387,
+        0.16265343,
+        0.29149666,
+        -0.15171620,
+        -1.30579923,
+    ]
+    )
 
     assert_allclose(result.alpha, expected_alpha, rtol=1e-6)
     assert_allclose(result.params, expected_params, rtol=1e-6)
@@ -294,3 +308,4 @@ def test_fitted_params_match_r_reference():
     assert_allclose(result.aic, expected_aic, rtol=1e-6)
     # assert_allclose(result.null_deviance, expected_null_deviance, rtol=1e-6)
     assert_allclose(result.leverages, expected_leverages, rtol=1e-6)
+    assert_allclose(result.resid_deviance, expected_residual_deviances, rtol= 1e-6)
