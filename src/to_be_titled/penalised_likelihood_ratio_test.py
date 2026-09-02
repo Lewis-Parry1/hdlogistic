@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+import warnings
 
 import numpy as np
 from scipy.stats import chi2
@@ -79,7 +80,14 @@ def penalised_lrt(
 
     df_difference = full.rank - reduced.rank
 
-    lrt_stat = max(0.0, float(reduced.deviance - full.deviance))
+    deviance_difference = float(reduced.deviance - full.deviance)
+    if deviance_difference < -1e-8:  # allow for floating-point noise, not real negativity
+        warnings.warn(
+            f"Deviance difference is negative ({deviance_difference:.3e}); this may indicate "
+            "non-convergence in one of the fitted models. Clipping to 0.",
+            RuntimeWarning,
+        )
+    lrt_stat = max(0.0, deviance_difference)
 
     kappa: float | None = None
     se_params: FloatArray | None = None
@@ -102,10 +110,10 @@ def penalised_lrt(
         se_params = hd.se_params
         signal_strength = hd.signal_strength
 
-        b_hat = float(se_params[1])
-        sigma_hat = float(se_params[2])
+        b_star = float(se_params[1])
+        sigma_star = float(se_params[2])
 
-        lrt_stat = (lrt_stat * b_hat) / (kappa * (sigma_hat**2))
+        lrt_stat = (lrt_stat * b_star) / (kappa * (sigma_star**2))
         lrt_stat = max(0.0, float(lrt_stat))
 
     p_value = float(chi2.sf(lrt_stat, df_difference))
