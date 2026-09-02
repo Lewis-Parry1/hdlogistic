@@ -118,19 +118,23 @@ def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> fl
     return float(np.sqrt(numerator) / mu)
 
 
-def _generalised_binomial_pmf(
+def compute_likelihood(
     y: FloatArray,
     fw: FloatArray,
     mus: FloatArray,
     log: bool = False,
     eps: float = 1e-15,
-) -> FloatArray:
-    r"""Generalised binomial probability mass function which allows non-integer x.
-    This is defined as, with `s_i` being success rate, `f_i` being failure
-    rate, and `fw_i` being the corresponding frequency weight component:
+) -> float:
+    r"""Compute the total log likelihood using the generalised
+    binomial probability mass function which allows non-integer x. 
+    This is defined as, with `s_i` being success rate, 
+    `f_i` being failure rate, and `fw_i` being the corresponding frequency 
+    weight component:
 
-    \mu_i ^ {s_i} * (1 - \mu_i)^{f_i} *
+    Binomial PMF for i = \mu_i ^ {s_i} * (1 - \mu_i)^{f_i} *
     \frac{\Gamma(fw_i + 1.0)}{\Gamma(s_i + 1.0)\Gamma(f_i + 1.0)}
+
+    Returns the sum over all n * fw observations, which is the log-likelihood.
 
     Parameters
     ----------
@@ -150,8 +154,8 @@ def _generalised_binomial_pmf(
         Small value to avoid log(0) issues, by default 1e-15.
     Returns
     -------
-    FloatArray
-        Generalised binomial PMF corresponding to each row in design matrix.
+    float
+        Total log-likelihood.
     """
     size_i = fw
 
@@ -160,6 +164,7 @@ def _generalised_binomial_pmf(
 
     mus_clipped = np.clip(mus, eps, 1.0 - eps)
 
+    # Array of individual log-likelihoods
     log_db = (
         success_i * np.log(mus_clipped)
         + failure_i * np.log(1 - mus_clipped)
@@ -168,10 +173,12 @@ def _generalised_binomial_pmf(
     )
 
     log_db = np.where(size_i < success_i, -np.inf, log_db)
+    log_likelihood = np.sum(log_db)
 
     if log:
-        return log_db
-    return np.asarray(np.exp(log_db), dtype=np.float64)
+        return float(log_likelihood)
+    
+    return np.sum(np.exp(log_likelihood))
 
 
 def logistic_aic(
@@ -211,11 +218,11 @@ def logistic_aic(
         The -2 * log likelihood value + 2 * rank, 
         which is the AIC for the fitted model.
     """
-    log_likelihood = _generalised_binomial_pmf(
+    log_likelihood = compute_likelihood(
         y, freq_weights, fitted_probs, log=True, eps= eps
     )
 
-    aic = -2.0 * np.sum(log_likelihood) + 2.0 * rank
+    aic = -2.0 * log_likelihood + 2.0 * rank
 
     return float(aic)
 
@@ -369,10 +376,13 @@ def logistic_bic(
     eps : float, optional   
         Small value to avoid log(0) issues, by default 1e-15.
     '''
-    log_likelihood = _generalised_binomial_pmf(
+    log_likelihood = compute_likelihood(
         y, freq_weights, fitted_probs, log=True, eps=eps
     )
     # N is usually the sum of frequency weights (total trials)
     nobs = np.sum(freq_weights) 
+
+    bic = -2.0 * log_likelihood + rank * np.log(nobs)
     
-    return float(-2.0 * np.sum(log_likelihood) + rank * np.log(nobs))
+    return float(bic)
+
