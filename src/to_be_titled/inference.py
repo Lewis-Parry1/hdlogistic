@@ -179,12 +179,12 @@ def compute_likelihood(
     )
 
     log_db = np.where(size_i < success_i, -np.inf, log_db)
-    log_likelihood = np.sum(log_db)
+    total_log_like = np.sum(log_db) # Get sum of log - likelihood
 
-    if log:
-        return float(log_likelihood)
-    
-    return np.exp(log_likelihood)
+    if log: 
+        return total_log_like
+
+    return np.exp(total_log_like)
 
 
 def logistic_aic(
@@ -231,6 +231,51 @@ def logistic_aic(
     aic = -2.0 * log_likelihood + 2.0 * rank
 
     return float(aic)
+
+def logistic_bic(
+    y: np.ndarray,
+    fitted_probs: np.ndarray,
+    freq_weights: np.ndarray,
+    rank: int,
+    eps: float = 1e-15,
+) -> float:
+    r'''
+    Computes the Bayesian Information Criterion (BIC) 
+    for a logistic regression model.
+
+    The BIC is defined as:
+        BIC = -2 * log likelihood + log(n) * rank, 
+    where the log likelihood is the sum of the log of 
+    the generalised binomial PMF for each observation.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        True response vector used to fit model. Adjusted responsed
+        passed in, are in [0,1]. Binary responses also supported.
+    fitted_probs : np.ndarray
+        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
+        using rescaled coefficients if `hd_correction` was True.
+    freq_weights : np.ndarray
+        Frequency weights used to fit model, which are the per observation trial 
+        counts. If no frequency weights were supplied this is simply a vector of 
+        1s of shape (n,).
+    rank : int
+        The rank of the design matrix used to fit the model. This is used to
+        compute the BIC penalty term.
+    eps : float, optional   
+        Small value to avoid log(0) issues, by default 1e-15.
+    '''
+    log_likelihood = compute_likelihood(
+        y, freq_weights, fitted_probs, log=True, eps=eps
+    )
+    # N is usually the sum of frequency weights (total trials)
+    nobs = np.sum(freq_weights) 
+
+    bic = -2.0 * log_likelihood + rank * np.log(nobs)
+    
+    return float(bic)
+
 
 def compute_deviance(
         y: FloatArray,
@@ -348,48 +393,5 @@ def compute_pearson_residuals(
     
     return (residuals_raw) / np.sqrt(np.maximum(v_i, eps))
 
-def logistic_bic(
-    y: np.ndarray,
-    fitted_probs: np.ndarray,
-    freq_weights: np.ndarray,
-    rank: int,
-    eps: float = 1e-15,
-) -> float:
-    r'''
-    Computes the Bayesian Information Criterion (BIC) 
-    for a logistic regression model.
-
-    The BIC is defined as:
-        BIC = -2 * log likelihood + log(n) * rank, 
-    where the log likelihood is the sum of the log of 
-    the generalised binomial PMF for each observation.
-
-    Parameters
-    ----------
-    y : np.ndarray
-        True response vector used to fit model. Adjusted responsed
-        passed in, are in [0,1]. Binary responses also supported.
-    fitted_probs : np.ndarray
-        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
-        using rescaled coefficients if `hd_correction` was True.
-    freq_weights : np.ndarray
-        Frequency weights used to fit model, which are the per observation trial 
-        counts. If no frequency weights were supplied this is simply a vector of 
-        1s of shape (n,).
-    rank : int
-        The rank of the design matrix used to fit the model. This is used to
-        compute the BIC penalty term.
-    eps : float, optional   
-        Small value to avoid log(0) issues, by default 1e-15.
-    '''
-    log_likelihood = compute_likelihood(
-        y, freq_weights, fitted_probs, log=True, eps=eps
-    )
-    # N is usually the sum of frequency weights (total trials)
-    nobs = np.sum(freq_weights) 
-
-    bic = -2.0 * log_likelihood + rank * np.log(nobs)
-    
-    return float(bic)
-
-def get_confidence_interval()
+def get_confidence_interval(): 
+    pass
