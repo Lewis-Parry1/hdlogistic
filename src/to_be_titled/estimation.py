@@ -31,6 +31,9 @@ from to_be_titled.validation import (
 
 @dataclass(frozen=True)
 class MDYPLData:
+    '''
+    Struct to hold the data and metadata for fitting a logistic regression model using the MDYPL.
+    '''
     x: FloatArray
     y_raw: FloatArray
     weights: FloatArray
@@ -43,6 +46,9 @@ class MDYPLData:
 
 @dataclass(frozen=True)
 class MDYPLResults:
+    '''
+    Results of fitting a logistic regression model using the MDYPL. 
+    '''
     data: MDYPLData
     params: FloatArray
     
@@ -53,8 +59,8 @@ class MDYPLResults:
     bic: float
     deviance: float
     null_deviance: float 
-    deviance_residuals: FloatArray
-    deviance_pearsons: FloatArray
+    resid_deviance: FloatArray
+    resid_pearson: FloatArray
 
     converged: bool
     iterations: int
@@ -227,9 +233,9 @@ def fit_mdypl(
     bic = logistic_bic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
 
     # Recomputed later as well if hd_correction is true.
-    deviance_total = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
-    deviance_residuals = compute_deviance_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
-    deviance_pearsons = compute_pearson_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
+    deviance = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
+    resid_deviance = compute_deviance_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
+    resid_pearson = compute_pearson_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
 
     # Build null model and get fitted probabilities.
     if data.has_intercept:
@@ -254,6 +260,7 @@ def fit_mdypl(
         # If offset is defined then null_mus are sigmoid(offset) otherwise they are 0.5
         null_fitted_probs = expit(offset_arr)
 
+    # Not recomputed, as null model is fit on y_raw, and one predictor so no hd_correction needed.
     null_deviance = compute_deviance(data.y_raw, null_fitted_probs, data.weights, eps=1e-15)
 
     return MDYPLResults(
@@ -264,9 +271,9 @@ def fit_mdypl(
 
         aic=aic,
         bic = bic,
-        deviance = deviance_total,
-        deviance_residuals = deviance_residuals,
-        deviance_pearsons = deviance_pearsons,
+        deviance = deviance,
+        resid_deviance = resid_deviance,
+        resid_pearson = resid_pearson,
         null_deviance = null_deviance,
 
         converged=bool(glm_results.converged),
