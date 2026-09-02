@@ -21,6 +21,7 @@ from to_be_titled.inference import (
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import FloatArray
 
+# TODO: Ensure AIC, Deviance, etc. all computed on correct response
 
 @dataclass(frozen=True)
 class HDDiagnostics:
@@ -50,7 +51,7 @@ class MDYPLSummary:
     null_deviance: float
     aic: float
     bic: float
-    # TODO: Can we make these arrays a cached_property
+    # TODO: Lewis, Can/Should we make these arrays a cached_property
     resid_deviance: FloatArray
     resid_pearson: FloatArray
 

@@ -30,6 +30,8 @@ from to_be_titled.validation import (
     is_full_rank,
 )
 
+# TODO: Confirm that deviance/null_deviance/aic all correctly computed on correct response
+
 
 @dataclass(frozen=True)
 class MDYPLData:

@@ -46,8 +46,12 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         self.alpha: float = raw_results.alpha
         self.nobs: float = raw_results.nobs_eff
 
-    # TODO: Print functionality goes here so we can have print(result) for hd_corrected
-    # or not corrected result.
+    # TODO: Lewis,
+    # Set up basic print functionality 
+    # goes here so we can have print(result)
+    # Doesnt need to be pretty for now, just ensure usual 
+    # Statsmodels attibutes printed, we can add the odd extra attr
+    # Here and there
 
     @cached_property
     def _summary_data(self) -> MDYPLSummary:
