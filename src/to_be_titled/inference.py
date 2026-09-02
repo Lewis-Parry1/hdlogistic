@@ -178,7 +178,7 @@ def compute_likelihood(
     if log:
         return float(log_likelihood)
     
-    return np.sum(np.exp(log_likelihood))
+    return np.exp(log_likelihood)
 
 
 def logistic_aic(

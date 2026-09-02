@@ -30,6 +30,7 @@ class HDDiagnostics:
     signal_strength: float
     nu_sloe: float
     se_params: FloatArray
+    func_value: FloatArray
     opt_chain: str
 
 
@@ -124,6 +125,8 @@ def summary(
         )
 
         se_params, opt_chain = solve_state_equation(**solver_kwargs)
+
+        func_value = se_params.func_value
         mu_star = se_params.solution.mu
         sigma_star = se_params.solution.sigma
 
@@ -173,6 +176,7 @@ def summary(
             nu_sloe=nu_sloe,
             se_params=se_params.solution.to_array(),
             opt_chain=opt_chain,
+            func_value = func_value,
         )
 
     return MDYPLSummary(
