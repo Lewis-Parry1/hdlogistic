@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import numpy as np
+
 from functools import cached_property
 from typing import Any, NoReturn
 
@@ -46,6 +48,10 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         self.alpha: float = raw_results.alpha
         self.nobs: float = raw_results.nobs_eff
 
+    #TODO: Print functionality goes here so we can have print(result) for hd_corrected
+    # or not corrected result. 
+
+   
     @cached_property
     def _summary_data(self) -> MDYPLSummary:
         return summary(
