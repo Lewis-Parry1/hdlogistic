@@ -5,6 +5,7 @@ from functools import cached_property
 from typing import Any
 
 import numpy as np
+from scipy.special import expit, logit
 from statsmodels.genmod.families import (  # pyright: ignore[reportMissingTypeStubs]
     Binomial,
 )
@@ -13,7 +14,7 @@ from statsmodels.genmod.generalized_linear_model import (  # pyright: ignore[rep
 )
 
 from to_be_titled.inference import (
-    compute_deviance, compute_deviance_residuals, compute_deviance_pearsons, 
+    compute_deviance, compute_deviance_residuals, compute_pearson_residuals, 
     logistic_aic, logistic_bic
 
 )
@@ -44,13 +45,17 @@ class MDYPLData:
 class MDYPLResults:
     data: MDYPLData
     params: FloatArray
+    
     linear_predictors: FloatArray
     fitted_probs: FloatArray
+
     aic: float
     bic: float
     deviance: float
+    null_deviance: float 
     deviance_residuals: FloatArray
     deviance_pearsons: FloatArray
+
     converged: bool
     iterations: int
     alpha: float
@@ -224,9 +229,32 @@ def fit_mdypl(
     # Recomputed later as well if hd_correction is true.
     deviance_total = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
     deviance_residuals = compute_deviance_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
-    deviance_pearsons = compute_deviance_pearsons(y_adj, fitted_probs, data.weights, eps=1e-15)
+    deviance_pearsons = compute_pearson_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
 
-    # Null Deviance; not recomputed later.
+    # Build null model and get fitted probabilities.
+    if data.has_intercept:
+        y_mean = float(np.average(data.y_raw, weights=data.weights))
+        logit_y_mean = logit(np.clip(y_mean, 1e-12, 1 - 1e-12))
+        null_start_params = np.asarray([logit_y_mean], dtype=np.float64)
+
+        intercept_col = data.x[:, data.intercept_idx].reshape(-1, 1)
+        null_model = GLM(
+            endog = data.y_raw,
+            exog = intercept_col,
+            family = Binomial(),
+            freq_weights = data.weights,
+            offset = offset_arr,
+        )
+        # drop the start params from the fit_kwargs to avoid passing it to the null model fit
+        null_kwargs = fit_kwargs.copy()
+        null_kwargs.pop("start_params", None)
+        null_results = null_model.fit(start_params = null_start_params, **null_kwargs)
+        null_fitted_probs = np.asarray(null_results.mu, dtype=np.float64)
+    else:
+        # If offset is defined then null_mus are sigmoid(offset) otherwise they are 0.5
+        null_fitted_probs = expit(offset_arr)
+
+    null_deviance = compute_deviance(data.y_raw, null_fitted_probs, data.weights, eps=1e-15)
 
     return MDYPLResults(
         data=data,
@@ -239,7 +267,8 @@ def fit_mdypl(
         deviance = deviance_total,
         deviance_residuals = deviance_residuals,
         deviance_pearsons = deviance_pearsons,
-        
+        null_deviance = null_deviance,
+
         converged=bool(glm_results.converged),
         iterations=int(glm_results.fit_history.get("iteration", 0)),
         alpha=alpha_val,
