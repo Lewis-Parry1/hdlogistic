@@ -4,7 +4,7 @@ import warnings
 
 import numpy as np
 from scipy.linalg import solve_triangular
-from scipy.special import betaln
+from scipy.special import betaln, xlogy
 
 from to_be_titled.types import FloatArray
 
@@ -25,8 +25,6 @@ def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
     n, p = mat_x.shape[0], mat_x.shape[1]
 
     _, mat_r = np.linalg.qr(mat_x)
-
-    # TODO: Rank defciency check needed
 
     mat_r_inv_t = solve_triangular(mat_r, np.eye(p), trans="T", lower=False)
 
@@ -112,7 +110,7 @@ def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> fl
     numerator = nu**2 - kappa * sigma**2
     if numerator < 0.0:
         warnings.warn(
-            "Negative value for nu^2 - kappa * sigma ^2, this valuecannot be negative",
+            "Negative value for nu^2 - kappa * sigma ^2, this value cannot be negative",
             RuntimeWarning,
         )
         return float("nan")
@@ -125,9 +123,10 @@ def _generalised_binomial_pmf(
     fw: FloatArray,
     mus: FloatArray,
     log: bool = False,
+    eps: float = 1e-15,
 ) -> FloatArray:
     r"""Generalised binomial probability mass function which allows non-integer x.
-    This is defiend as, with `s_i` being success rate, `f_i` being failure
+    This is defined as, with `s_i` being success rate, `f_i` being failure
     rate, and `fw_i` being the corresponding frequency weight component:
 
     \mu_i ^ {s_i} * (1 - \mu_i)^{f_i} *
@@ -136,18 +135,19 @@ def _generalised_binomial_pmf(
     Parameters
     ----------
     y : FloatArray
-        True response vector used to fit model. Adjusted responsed
-        passed in, y_i^* \in [0,1].
+        True response vector used to fit model. Adjusted responses
+        passed in, y_i \in [0,1]. Binary responses also supported.
     fw : FloatArray | float
         Array of frequency weights used in the fitted model. If vector is not
         vector of 1s then this indicates that certain rows represent more than one
-        obersvation.
+        observation. 
     mus : FloatArray | float
-        Fitted probabilities for each observation.
+        Fitted probabilities for each observation. 
     log : bool, optional
-        If True, the log of the generalised binomial coeffcient is returned
-        else the generalised binomail coeffcient is returned, by default False.
-
+        If True, the log of the generalised binomial coefficient is returned
+        else the generalised binomial coefficient is returned, by default False.
+    eps: float, optional
+        Small value to avoid log(0) issues, by default 1e-15.
     Returns
     -------
     FloatArray
@@ -158,9 +158,11 @@ def _generalised_binomial_pmf(
     success_i = y * size_i
     failure_i = size_i - success_i
 
+    mus_clipped = np.clip(mus, eps, 1.0 - eps)
+
     log_db = (
-        success_i * np.log(mus)
-        + failure_i * np.log(1 - mus)
+        success_i * np.log(mus_clipped)
+        + failure_i * np.log(1 - mus_clipped)
         - betaln(success_i + 1.0, failure_i + 1.0)
         - np.log(size_i + 1.0)
     )
@@ -172,38 +174,147 @@ def _generalised_binomial_pmf(
     return np.asarray(np.exp(log_db), dtype=np.float64)
 
 
-def logist_aic(
-    y_adjusted: FloatArray,
+def logistic_aic(
+    y: FloatArray,
     fitted_probs: FloatArray,
     freq_weights: FloatArray,
+    rank: int,
+    eps: float = 1e-15,
 ) -> float:
-    """Calculates the -2 log likelihood component of the logistic AIC used
-    by MYDPL.
+    """Calculates the AIC correctly for a logistic regression model, even when 
+    the responses are [0,1] and not just binary. The AIC is defined as
+    -2 * log likelihood + 2 * rank, where the log likelihood is the sum of 
+    the log of the generalised binomial PMF for each observation.
 
     Parameters
     ----------
-    y_adjusted : FloatArray
+    y : FloatArray
         True (pseudo-)responses used to fit the model. If the responses are not
         adjusted, this is simply the usual log likelihood for standard logistic
         regression model.
     fitted_probs : FloatArray
         Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
-        using rescaled coeffcients if `hd_correction` was True.
+        using rescaled coefficients if `hd_correction` was True.
     freq_weights : FloatArray
-        Frequency weights used to fit model. If no frequency weights were supplied
-        this is simply a vector of 1s of shape (n,).
+        Frequency weights used to fit model, which are the per observation trial 
+        counts. If no frequency weights were supplied this is simply a vector of 
+        1s of shape (n,).
+    rank : int
+        The rank of the design matrix used to fit the model. This is used to
+        compute the AIC penalty term. 
+    eps : float, optional
+        Small value to avoid log(0) issues, by default 1e-15.
 
     Returns
     -------
     float
-        The -2 * log likelihood value.
+        The -2 * log likelihood value + 2 * rank, 
+        which is the AIC for the fitted model.
     """
-    prob_clipped = np.clip(fitted_probs, 1e-8, (1.0 - 1e-8))
-
     log_likelihood = _generalised_binomial_pmf(
-        y_adjusted, freq_weights, prob_clipped, log=True
+        y, freq_weights, fitted_probs, log=True, eps= eps
     )
 
-    return float(-2.0 * np.sum(log_likelihood))
+    aic = -2.0 * np.sum(log_likelihood) + 2.0 * rank
 
+    return float(aic)
+
+def compute_deviance(
+        y: FloatArray,
+        fitted_probs: FloatArray,
+        freq_weights: FloatArray,
+        eps: float = 1e-15,
+) -> float:
+    r'''
+    Computes the deviance for a logistic regression model. 
+    y can be either the raw responses or the adjusted responses. 
+    The general Binomial deviance formula is,
+
+    D = 2 * \sum w_i *[y_i * \ln (y_i/mu_i) + (1 - y_i) * 
+    \ln ((1 - y_i)/(1 - mu_i))]
+    = 2 * \sum w_i * (LogLik_sat - LogLik_fit)
+
+    where y_i is the observed response, mu_i is the fitted probability, and
+    w_i are the frequency weights for each observation. If y is binary
+    then this is the usual deviance for a logistic regression model. 
+
+    Adds a small epsilon to fitted probabilities to avoid log(0) issues.
+
+    Parameters
+    ----------
+    y : FloatArray
+        True response vector used to fit model. Adjusted responsed
+        passed in, y_i \in [0,1]. Binary responses also supported.
+    fitted_probs : FloatArray
+        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
+        using rescaled coefficient if `hd_correction` was True.
+    freq_weights : FloatArray
+        Frequency weights used to fit model, which are the per observation trial 
+        counts. If no frequency weights were supplied this is simply a vector of 
+        1s of shape (n,).
+    eps : float, optional
+        Small value to avoid log(0) issues, by default 1e-15.
+
+    Returns
+    -------
+    float
+        The deviance for the fitted model.
+    '''
+    mu_clipped = np.clip(fitted_probs, eps, 1.0 - eps)
+
+    # Use xlogy to compute xlog(y) as it handles log(0)
+    saturated_loglike = xlogy(y, y) + xlogy(1 - y, 1 - y)
+    fit_loglike = xlogy(y, mu_clipped) + xlogy(1 - y, 1 - mu_clipped)
+
+    deviance = 2.0 * np.sum(freq_weights * (saturated_loglike - fit_loglike))
+
+    return float(deviance)
+
+def compute_deviance_residuals(y : FloatArray, 
+                              fitted_probs : FloatArray, 
+                              freq_weights : FloatArray, 
+                              eps: float = 1e-15,
+) -> FloatArray:
+    r'''
+    Computes the deviance residuals for a logistic regression model.
+    The deviance residual is defined as the contribution of each 
+    observation to the total deviance. It is calculated as
+
+    d_i = sign(y_i - mu_i) * sqrt(2 * w_i * [y_i 
+    * log(y_i/mu_i) + (1 - y_i) * log((1 - y_i)/(1 - mu_i))])
+    = sign(y_i - mu_i) * sqrt(2 * w_i * (LogLik_sat_i - LogLik_fit_i))
+
+    Parameters
+    ----------
+    y : FloatArray
+        True response vector used to fit model. Adjusted responsed
+        passed in, are in [0,1]. Binary responses also supported.
+    fitted_probs : FloatArray
+        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
+        using rescaled coefficients if `hd_correction` was True.
+    freq_weights : FloatArray           
+        Frequency weights used to fit model, which are the per observation trial 
+        counts. If no frequency weights were supplied this is simply a vector of 
+        1s of shape (n,).
+    eps : float, optional
+        Small value to avoid log(0) issues, by default 1e-15.
+
+    Returns
+    -------
+    FloatArray
+        Deviance residuals for each observation in the fitted model.
+    
+    '''
+    mu_clipped = np.clip(fitted_probs, eps, 1.0 - eps)
+
+    sat_loglike_i = xlogy(y, y) + xlogy(1 - y, 1 - y)
+    fit_loglike_i = xlogy(y, mu_clipped) + xlogy(1 - y, 1 - mu_clipped)
+
+    squared_deviance_residual = 2.0 * freq_weights * (sat_loglike_i - fit_loglike_i)
+
+    abs_deviance_residual = np.sqrt(np.maximum(squared_deviance_residual, 0.0))
+
+    sign_i = np.sign(y - mu_clipped)
+
+    return sign_i * abs_deviance_residual
 

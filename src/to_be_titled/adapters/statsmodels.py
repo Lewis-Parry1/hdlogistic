@@ -57,7 +57,6 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
     @property
     def params(self) -> FloatArray:
-
         return self._summary_data.params
 
     @params.setter
