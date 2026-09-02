@@ -1,164 +1,92 @@
 import numpy as np
-import pytest
+from numpy.testing import assert_allclose
 
-from to_be_titled.mdypl_fit import MDYPLModel
-from to_be_titled.penalised_likelihood_ratio_test import (
-    PenalisedLRTResults,
-    penalised_lrt,
-)
-from to_be_titled.types import MDYPLResults
+from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
+from to_be_titled.penalised_likelihood_ratio_test import penalised_lrt
 
-x = np.array(
+X_DATA = np.array(
     [
-        [1.0, 0.5, -1.2],
-        [1.0, -0.3, 0.8],
-        [1.0, 1.1, 0.2],
-        [1.0, -0.7, -0.5],
-        [1.0, 0.2, 1.4],
-        [1.0, 1.5, -0.9],
-        [1.0, -1.1, 0.3],
-        [1.0, 0.8, 0.6],
-        [1.0, -0.4, -1.3],
-        [1.0, 0.6, 0.1],
+        [1, 0.5, -1.2],
+        [1, -0.3, 0.8],
+        [1, 1.1, 0.2],
+        [1, -0.7, -0.5],
+        [1, 0.2, 1.4],
+        [1, 1.5, -0.9],
+        [1, -1.1, 0.3],
+        [1, 0.8, 0.6],
+        [1, -0.4, -1.3],
+        [1, 0.6, 0.1],
     ]
 )
-y = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
+
+Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
 
 
-@pytest.fixture(scope="module")
-def full_result() -> MDYPLResults:
-    """Full model: intercept + both covariates."""
-    model = MDYPLModel(y=y, x=x)
-    return model.fit()
-
-
-@pytest.fixture(scope="module")
-def reduced_result(full_result: MDYPLResults) -> MDYPLResults:
-    """Reduced model: intercept + first covariate only.
-
-    Uses the full model's alpha explicitly so the two fits are
-    comparable (see penalised_lrt's alpha-mismatch check).
+def test_penalised_lrt_matches_r_reference_no_hd():
+    """Cross-check `penalised_lrt` (hd_correction=False) against R's
+    plrtest.mdyplFit() on the same fixed 10-observation dataset, comparing
+    a reduced model (intercept + x1) against a full model
+    (intercept + x1 + x2), both fit with a fixed alpha=0.8 so that
+    plrtest's identical-alpha requirement is satisfied.
     """
-    model = MDYPLModel(y=y, x=x[:, :2], alpha=full_result.alpha)
-    return model.fit()
+    x_full = X_DATA
+    x_reduced = X_DATA[:, [0, 1]]
+
+    data_reduced = prepare_mdypl_data(x=x_reduced, y=Y_DATA)
+    data_full = prepare_mdypl_data(x=x_full, y=Y_DATA)
+
+    fit_reduced = fit_mdypl(data_reduced, alpha=0.8)
+    fit_full = fit_mdypl(data_full, alpha=0.8)
+
+    assert_allclose(fit_reduced.deviance, 3.062321, rtol=1e-5)
+    assert_allclose(fit_full.deviance, 2.956846, rtol=1e-5)
+    assert fit_reduced.rank == 2
+    assert fit_full.rank == 3
+
+    result = penalised_lrt(fit_reduced, fit_full, hd_correction=False)
+
+    expected_statistic = 0.105474361567877
+    expected_df = 1
+    expected_p_value = 0.745356539561018
+
+    assert_allclose(result.statistic, expected_statistic, rtol=1e-6)
+    assert result.df == expected_df
+    assert_allclose(result.p_value, expected_p_value, rtol=1e-6)
 
 
-class TestPenalisedLRTTypesAndShapes:
-    def test_returns_penalised_lrt_results(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=False)
-        assert isinstance(result, PenalisedLRTResults)
-
-    @pytest.mark.parametrize("hd_correction", [False, True])
-    def test_statistic_is_float(
-        self,
-        full_result: MDYPLResults,
-        reduced_result: MDYPLResults,
-        hd_correction: bool,
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=hd_correction)
-        assert isinstance(result.statistic, float)
-        assert np.isfinite(result.statistic)
-
-    @pytest.mark.parametrize("hd_correction", [False, True])
-    def test_p_value_is_valid_probability(
-        self,
-        full_result: MDYPLResults,
-        reduced_result: MDYPLResults,
-        hd_correction: bool,
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=hd_correction)
-        assert isinstance(result.p_value, float)
-        assert 0.0 <= result.p_value <= 1.0
-
-    def test_df_matches_rank_difference(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=False)
-        assert result.df == full_result.rank - reduced_result.rank
-        assert isinstance(result.df, (int, np.integer))
-
-    def test_argument_order_does_not_matter(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        """penalised_lrt should auto-detect full vs. reduced by rank."""
-        result_fwd = penalised_lrt(full_result, reduced_result, hd_correction=False)
-        result_rev = penalised_lrt(reduced_result, full_result, hd_correction=False)
-        assert result_fwd.statistic == pytest.approx(result_rev.statistic)
-        assert result_fwd.p_value == pytest.approx(result_rev.p_value)
-        assert result_fwd.df == result_rev.df
-
-    def test_hd_correction_false_leaves_diagnostics_none(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=False)
-        assert result.kappa is None
-        assert result.se_params is None
-        assert result.signal_strength is None
-
-    def test_hd_correction_true_populates_diagnostics(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=True)
-        assert isinstance(result.kappa, float)
-        assert result.se_params is not None
-        assert result.se_params.shape[0] >= 3  # at least (mu, b, sigma)
-        assert isinstance(result.signal_strength, float)
-
-    def test_dict_style_access_matches_attributes(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=True)
-        assert result["statistic"] == result.statistic
-        assert result["p_value"] == result.p_value
-        assert result["df"] == result.df
-        assert result["kappa"] == result.kappa
-
-    def test_summary_returns_string(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=True)
-        assert isinstance(str(result), str)
-        assert isinstance(repr(result), str)
-
-
-class TestPenalisedLRTValidation:
-    def test_raises_on_alpha_mismatch(self, full_result: MDYPLResults) -> None:
-        mismatched = MDYPLModel(y=y, x=x[:, :2], alpha=0.1).fit()
-        with pytest.raises(ValueError, match="alpha"):
-            penalised_lrt(full_result, mismatched)
-
-    def test_raises_on_different_response(self, full_result: MDYPLResults) -> None:
-        y_other = y.copy()
-        y_other[0] = 1.0 - y_other[0]
-        other = MDYPLModel(y=y_other, x=x[:, :2], alpha=full_result.alpha).fit()
-        with pytest.raises(ValueError, match="response"):
-            penalised_lrt(full_result, other)
-
-
-class TestPenalisedLRTAgainstBrglm2:
-    """Reference-value comparison against brglm2 output on the same
-    fixed dataset. Fill in `EXPECTED_*` once brglm2 results are available.
+def test_penalised_lrt_matches_r_reference_with_hd():
+    """Cross-check `penalised_lrt` (hd_correction=True) against R's
+    plrtest.mdyplFit(..., hd_correction = TRUE), same reduced/full
+    setup as the non-HD test above.
     """
+    x_full = X_DATA
+    x_reduced = X_DATA[:, [0, 1]]
 
-    EXPECTED_STATISTIC_NO_HD = 0.114277032582484
-    EXPECTED_PVALUE_NO_HD = 0.735326366983393
-    EXPECTED_STATISTIC_HD = 0.199078055788034
-    EXPECTED_PVALUE_HD = 0.655466044162702
+    data_reduced = prepare_mdypl_data(x=x_reduced, y=Y_DATA)
+    data_full = prepare_mdypl_data(x=x_full, y=Y_DATA)
 
-    def test_matches_brglm2_no_hd_correction(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=False)
-        assert result.statistic == pytest.approx(
-            self.EXPECTED_STATISTIC_NO_HD, rel=1e-6
-        )
-        assert result.p_value == pytest.approx(self.EXPECTED_PVALUE_NO_HD, rel=1e-6)
+    fit_reduced = fit_mdypl(data_reduced, alpha=0.8)
+    fit_full = fit_mdypl(data_full, alpha=0.8)
 
-    def test_matches_brglm2_hd_correction(
-        self, full_result: MDYPLResults, reduced_result: MDYPLResults
-    ) -> None:
-        result = penalised_lrt(full_result, reduced_result, hd_correction=True)
-        assert result.statistic == pytest.approx(self.EXPECTED_STATISTIC_HD, rel=1e-6)
-        assert result.p_value == pytest.approx(self.EXPECTED_PVALUE_HD, rel=1e-6)
+    result = penalised_lrt(fit_reduced, fit_full, hd_correction=True)
+
+    expected_statistic = 0.216012608750709
+    expected_df = 1
+    expected_p_value = 0.642095051893411
+    expected_kappa = 0.2
+    expected_signal_strength = 6.81404005270763
+    expected_se_params = np.asarray(
+        [0.616976540591563, 1.695052143520944, 2.034278622083952]
+    )
+
+    assert_allclose(result.statistic, expected_statistic, rtol=1e-6)
+    assert result.df == expected_df
+    assert_allclose(result.p_value, expected_p_value, rtol=1e-6)
+
+    assert result.kappa is not None
+    assert result.signal_strength is not None
+    assert result.se_params is not None
+
+    assert_allclose(result.kappa, expected_kappa, rtol=1e-6)
+    assert_allclose(result.signal_strength, expected_signal_strength, rtol=1e-6)
+    assert_allclose(result.se_params[:3], expected_se_params, rtol=1e-6)

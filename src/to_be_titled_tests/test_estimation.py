@@ -8,7 +8,7 @@ from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 
 
 class TestMDYPLEstimation:
-    """Tests for `prepare_mdypl_data` and `fit_mdypl` in 
+    """Tests for `prepare_mdypl_data` and `fit_mdypl` in
     `to_be_titled.estimation` with simple dataset."""
 
     @pytest.fixture
@@ -31,7 +31,9 @@ class TestMDYPLEstimation:
 
         result = fit_mdypl(data, alpha=None)
 
-        expected_alpha = data.nobs_eff / (data.nobs_eff + data.rank - int(data.has_intercept))
+        expected_alpha = data.nobs_eff / (
+            data.nobs_eff + data.rank - int(data.has_intercept)
+        )
         assert_allclose(result.alpha, expected_alpha)
 
     def test_fixed_alpha_is_respected(self, simple_data):
@@ -50,7 +52,9 @@ class TestMDYPLEstimation:
 
     def test_rank_deficient_design_raises(self, simple_data):
         y, x = simple_data
-        x_deficient = np.column_stack([x, x[:, 1]])  # duplicate column -> rank-deficient
+        x_deficient = np.column_stack(
+            [x, x[:, 1]]
+        )  # duplicate column -> rank-deficient
 
         with pytest.raises(ValueError, match="rank-deficient"):
             prepare_mdypl_data(x=x_deficient, y=y)
@@ -170,13 +174,16 @@ class TestMDYPLEstimation:
         assert data.has_intercept is False
         assert data.intercept_idx is None
 
-    def test_no_intercept_null_fitted_probs_is_half_without_offset(self, no_intercept_data):
+    def test_no_intercept_null_fitted_probs_is_half_without_offset(
+        self, no_intercept_data
+    ):
         y, x = no_intercept_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=1.0)
         assert_allclose(result.null_deviance, result.null_deviance)  # sanity: no crash
         # Recompute expected null deviance directly, since null_fitted_probs should be 0.5 everywhere
         from to_be_titled.inference import compute_deviance
+
         expected_null_deviance = compute_deviance(
             data.y_raw, np.full(len(y), 0.5), data.weights, eps=1e-15
         )
@@ -199,43 +206,60 @@ class TestMDYPLEstimation:
         standard_result = sm.GLM(y, x, family=sm.families.Binomial()).fit()
 
         assert_allclose(
-            result.params, standard_result.params, rtol=1e-6,
+            result.params,
+            standard_result.params,
+            rtol=1e-6,
             err_msg="params mismatch at alpha=1",
         )
         assert_allclose(
-            result.fitted_probs, standard_result.fittedvalues, rtol=1e-6,
+            result.fitted_probs,
+            standard_result.fittedvalues,
+            rtol=1e-6,
             err_msg="fitted_probs mismatch at alpha=1",
         )
         assert_allclose(
-            result.linear_predictors, standard_result.predict(which="linear"), rtol=1e-6,
+            result.linear_predictors,
+            standard_result.predict(which="linear"),
+            rtol=1e-6,
             err_msg="linear_predictors mismatch at alpha=1",
         )
         assert_allclose(
-            result.deviance, standard_result.deviance, rtol=1e-5,
+            result.deviance,
+            standard_result.deviance,
+            rtol=1e-5,
             err_msg="deviance mismatch at alpha=1",
         )
         assert_allclose(
-            result.null_deviance, standard_result.null_deviance, rtol=1e-5,
+            result.null_deviance,
+            standard_result.null_deviance,
+            rtol=1e-5,
             err_msg="null_deviance mismatch at alpha=1",
         )
         assert_allclose(
-            result.aic, standard_result.aic, rtol=1e-5,
+            result.aic,
+            standard_result.aic,
+            rtol=1e-5,
             err_msg="aic mismatch at alpha=1",
         )
         assert_allclose(
-            result.bic, standard_result.bic_llf, rtol=1e-5,
+            result.bic,
+            standard_result.bic_llf,
+            rtol=1e-5,
             err_msg="bic mismatch at alpha=1",
         )
         assert_allclose(
-            result.resid_deviance, standard_result.resid_deviance, rtol=1e-5,
+            result.resid_deviance,
+            standard_result.resid_deviance,
+            rtol=1e-5,
             err_msg="resid_deviance mismatch at alpha=1",
         )
         assert_allclose(
-            result.resid_pearson, standard_result.resid_pearson, rtol=1e-5,
+            result.resid_pearson,
+            standard_result.resid_pearson,
+            rtol=1e-5,
             err_msg="resid_pearson mismatch at alpha=1",
         )
         assert result.converged == standard_result.converged
-
 
 
 ## --- Result cross check with brglm2 ---
@@ -288,18 +312,18 @@ def test_fitted_params_match_r_reference():
         ]
     )
     expected_residual_deviances = np.asarray(
-    [
-        0.79290616,
-        -0.45690657,
-        0.10078244,
-        -0.01413417,
-        0.75916487,
-        -0.06840387,
-        0.16265343,
-        0.29149666,
-        -0.15171620,
-        -1.30579923,
-    ]
+        [
+            0.79290616,
+            -0.45690657,
+            0.10078244,
+            -0.01413417,
+            0.75916487,
+            -0.06840387,
+            0.16265343,
+            0.29149666,
+            -0.15171620,
+            -1.30579923,
+        ]
     )
 
     assert_allclose(result.alpha, expected_alpha, rtol=1e-6)
@@ -308,7 +332,7 @@ def test_fitted_params_match_r_reference():
     assert_allclose(result.aic, expected_aic, rtol=1e-6)
     # assert_allclose(result.null_deviance, expected_null_deviance, rtol=1e-6)
     assert_allclose(result.leverages, expected_leverages, rtol=1e-6)
-    assert_allclose(result.resid_deviance, expected_residual_deviances, rtol= 1e-6)
+    assert_allclose(result.resid_deviance, expected_residual_deviances, rtol=1e-6)
 
 
 def test_fitted_params_match_r_reference_with_weights_and_offset():
@@ -328,7 +352,7 @@ def test_fitted_params_match_r_reference_with_weights_and_offset():
     expected_alpha = 0.84
     expected_params = np.asarray([-0.5855203, 2.1187811, 0.2748631])
     expected_deviance = 4.152915
-    #expected_null_deviance = 13.9104 TODO: Fix discrepency 
+    # expected_null_deviance = 13.9104 TODO: Fix discrepency
     expected_aic = 14.38138
     expected_leverages = np.asarray(
         [
@@ -362,7 +386,7 @@ def test_fitted_params_match_r_reference_with_weights_and_offset():
     assert_allclose(result.alpha, expected_alpha, rtol=1e-6)
     assert_allclose(result.params, expected_params, rtol=1e-6)
     assert_allclose(result.deviance, expected_deviance, rtol=1e-6)
-    #assert_allclose(result.null_deviance, expected_null_deviance, rtol=1e-6)
+    # assert_allclose(result.null_deviance, expected_null_deviance, rtol=1e-6)
     assert_allclose(result.aic, expected_aic, rtol=1e-6)
     assert_allclose(result.leverages, expected_leverages, rtol=1e-6)
     assert_allclose(result.resid_deviance, expected_residual_deviances, rtol=1e-6)

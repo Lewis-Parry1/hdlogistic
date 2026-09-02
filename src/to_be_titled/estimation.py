@@ -14,9 +14,11 @@ from statsmodels.genmod.generalized_linear_model import (  # pyright: ignore[rep
 )
 
 from to_be_titled.inference import (
-    compute_deviance, compute_deviance_residuals, compute_pearson_residuals, 
-    logistic_aic, logistic_bic
-
+    compute_deviance,
+    compute_deviance_residuals,
+    compute_pearson_residuals,
+    logistic_aic,
+    logistic_bic,
 )
 from to_be_titled.types import (
     FloatArray,
@@ -31,9 +33,10 @@ from to_be_titled.validation import (
 
 @dataclass(frozen=True)
 class MDYPLData:
-    '''
+    """
     Struct to hold the data and metadata for fitting a logistic regression model using the MDYPL.
-    '''
+    """
+
     x: FloatArray
     y_raw: FloatArray
     weights: FloatArray
@@ -46,19 +49,20 @@ class MDYPLData:
 
 @dataclass(frozen=True)
 class MDYPLResults:
-    '''
-    Results of fitting a logistic regression model using the MDYPL. 
-    '''
+    """
+    Results of fitting a logistic regression model using the MDYPL.
+    """
+
     data: MDYPLData
     params: FloatArray
-    
+
     linear_predictors: FloatArray
     fitted_probs: FloatArray
 
     aic: float
     bic: float
     deviance: float
-    null_deviance: float 
+    null_deviance: float
 
     converged: bool
     iterations: int
@@ -120,12 +124,15 @@ class MDYPLResults:
 
     @cached_property
     def resid_deviance(self) -> FloatArray:
-        return compute_deviance_residuals(self.y_adj, self.fitted_probs, 
-                                          self.data.weights, eps=1e-15)
+        return compute_deviance_residuals(
+            self.y_adj, self.fitted_probs, self.data.weights, eps=1e-15
+        )
+
     @cached_property
     def resid_pearson(self) -> FloatArray:
-        return compute_pearson_residuals(self.y_adj, self.fitted_probs,
-                                         self.data.weights, eps=1e-15)
+        return compute_pearson_residuals(
+            self.y_adj, self.fitted_probs, self.data.weights, eps=1e-15
+        )
 
 
 def prepare_mdypl_data(
@@ -192,7 +199,7 @@ def fit_mdypl(
     method: str = "IRLS",
     start_params: FloatArray | None = None,
 ) -> MDYPLResults:
-    
+
     if alpha is None:
         alpha_val = data.nobs_eff / (
             data.nobs_eff + data.rank - int(data.has_intercept)
@@ -231,11 +238,11 @@ def fit_mdypl(
     linear_predictors = np.asarray(data.x @ params, dtype=np.float64)
     if data.offset is not None:
         linear_predictors = linear_predictors + data.offset
-        
+
     fitted_probs = np.asarray(glm_results.mu, dtype=np.float64)
 
-    # Recomputed later if hd_correction is true. 
-    # This is because fitted_probs is recomputed using rescaled coefficients 
+    # Recomputed later if hd_correction is true.
+    # This is because fitted_probs is recomputed using rescaled coefficients
     aic = logistic_aic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
     bic = logistic_bic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
 
@@ -251,16 +258,16 @@ def fit_mdypl(
 
         intercept_col = data.x[:, data.intercept_idx].reshape(-1, 1)
         null_model = GLM(
-            endog = y_adj,
-            exog = intercept_col,
-            family = Binomial(),
-            freq_weights = data.weights,
-            offset = offset_arr,
+            endog=y_adj,
+            exog=intercept_col,
+            family=Binomial(),
+            freq_weights=data.weights,
+            offset=offset_arr,
         )
         # drop the start params from the fit_kwargs to avoid passing it to the null model fit
         null_kwargs = fit_kwargs.copy()
         null_kwargs.pop("start_params", None)
-        null_results = null_model.fit(start_params = null_start_params, **null_kwargs)
+        null_results = null_model.fit(start_params=null_start_params, **null_kwargs)
         null_fitted_probs = np.asarray(null_results.mu, dtype=np.float64)
     else:
         # If offset is defined then null_mus are sigmoid(offset) otherwise offset = 0
@@ -274,12 +281,10 @@ def fit_mdypl(
         params=params,
         linear_predictors=linear_predictors,
         fitted_probs=fitted_probs,
-
         aic=aic,
-        bic = bic,
-        deviance = deviance,
-        null_deviance = null_deviance,
-
+        bic=bic,
+        deviance=deviance,
+        null_deviance=null_deviance,
         converged=bool(glm_results.converged),
         iterations=int(glm_results.fit_history.get("iteration", 0)),
         alpha=alpha_val,

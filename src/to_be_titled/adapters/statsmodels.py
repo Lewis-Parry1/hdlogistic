@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import numpy as np
-
 from functools import cached_property
 from typing import Any, NoReturn
 
@@ -48,10 +46,9 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         self.alpha: float = raw_results.alpha
         self.nobs: float = raw_results.nobs_eff
 
-    #TODO: Print functionality goes here so we can have print(result) for hd_corrected
-    # or not corrected result. 
+    # TODO: Print functionality goes here so we can have print(result) for hd_corrected
+    # or not corrected result.
 
-   
     @cached_property
     def _summary_data(self) -> MDYPLSummary:
         return summary(
@@ -101,7 +98,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
     def resid_deviance(self) -> FloatArray:
         return self._summary_data.resid_deviance
 
-    @property 
+    @property
     def resid_pearson(self) -> FloatArray:
         return self._summary_data.resid_pearson
 
@@ -160,14 +157,14 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         solve_se_kwargs: dict[str, Any] | None = None,
     ) -> PenalisedLRTResults | None:
 
-            use_hd = self.use_hd_correction if hd_correction is None else hd_correction
+        use_hd = self.use_hd_correction if hd_correction is None else hd_correction
 
-            return penalised_lrt(
-                self._raw_results,
-                other._raw_results,
-                hd_correction=use_hd,
-                solve_se_kwargs=solve_se_kwargs,
-            )
+        return penalised_lrt(
+            self._raw_results,
+            other._raw_results,
+            hd_correction=use_hd,
+            solve_se_kwargs=solve_se_kwargs,
+        )
 
 
 class MDYPLLogistic(Model):  # type: ignore[misc]
@@ -179,7 +176,7 @@ class MDYPLLogistic(Model):  # type: ignore[misc]
         weights: FloatArray | None = None,
         offset: float | FloatArray | None = None,
         missing: str = "none",
-        **kwargs: Any, 
+        **kwargs: Any,
     ) -> None:
         super().__init__(endog=endog, exog=exog, missing=missing, **kwargs)  # pyright: ignore[reportUnknownMemberType]
 
@@ -198,7 +195,7 @@ class MDYPLLogistic(Model):  # type: ignore[misc]
         maxiter: int = 100,
         method: str = "IRLS",
         start_params: FloatArray | None = None,
-        **kwargs: Any, 
+        **kwargs: Any,
     ) -> MDYPLLogisticResult:
         raw_results = fit_mdypl(
             data=self._data,

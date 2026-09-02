@@ -9,14 +9,14 @@ from scipy.stats import norm
 
 from to_be_titled.estimation import MDYPLResults
 from to_be_titled.inference import (
+    compute_deviance,
+    compute_deviance_residuals,
+    compute_pearson_residuals,
     compute_sloe,
     compute_taus,
     derive_gamma_from_nu,
     logistic_aic,
-    logistic_bic, 
-    compute_deviance, 
-    compute_deviance_residuals, 
-    compute_pearson_residuals
+    logistic_bic,
 )
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import FloatArray
@@ -47,13 +47,12 @@ class MDYPLSummary:
     nobs_eff: float
 
     deviance: float
-    null_deviance: float 
+    null_deviance: float
     aic: float
     bic: float
     # TODO: Can we make these arrays a cached_property
     resid_deviance: FloatArray
     resid_pearson: FloatArray
-    
 
     hd_diagnostics: HDDiagnostics | None = None
 
@@ -77,7 +76,7 @@ def summary(
     solve_se_kwargs: dict[str, Any] | None = None,
     high_dimensional_correction: bool = True,
 ) -> MDYPLSummary:
-    
+
     x = result.x
     nobs_eff = result.nobs_eff
     eps = 1e-15
@@ -89,7 +88,7 @@ def summary(
         zvalues = params / bse
         pvalues = 2.0 * norm.cdf(-np.abs(zvalues))
 
-        # No need to recompute 
+        # No need to recompute
         linear_predictors = result.linear_predictors
         fitted_probs = result.fitted_probs
         deviance = result.deviance
@@ -166,21 +165,25 @@ def summary(
         # Deviance, residual deviance and pearson residuals built on y_raw
         deviance = compute_deviance(result.y_raw, fitted_probs, result.weights, eps)
 
-        # TODO: Lewis, 
+        # TODO: Lewis,
         # Can these two arrays be cached properties instead? Only computed when needed
-        resid_deviance = compute_deviance_residuals(result.y_raw, fitted_probs, result.weights, eps)
-        resid_pearson = compute_pearson_residuals(result.y_raw, fitted_probs, result.weights, eps)
+        resid_deviance = compute_deviance_residuals(
+            result.y_raw, fitted_probs, result.weights, eps
+        )
+        resid_pearson = compute_pearson_residuals(
+            result.y_raw, fitted_probs, result.weights, eps
+        )
 
         aic = logistic_aic(result.y_adj, fitted_probs, result.weights, result.rank, eps)
         bic = logistic_bic(result.y_adj, fitted_probs, result.weights, result.rank, eps)
 
         hd_diagnostics = HDDiagnostics(
             kappa=kappa,
-            signal_strength=signal_strength, # Note: This is gamma^2 not gamma
+            signal_strength=signal_strength,  # Note: This is gamma^2 not gamma
             nu_sloe=nu_sloe,
             se_params=se_params.solution.to_array(),
             opt_chain=opt_chain,
-            func_value = func_value,
+            func_value=func_value,
         )
 
     return MDYPLSummary(

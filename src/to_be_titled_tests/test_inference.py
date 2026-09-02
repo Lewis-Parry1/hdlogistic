@@ -2,12 +2,13 @@ import numpy as np
 from scipy.special import expit
 
 from to_be_titled.inference import (
+    compute_likelihood,
     compute_sloe,
     compute_taus,
     derive_gamma_from_nu,
     derive_nu_from_gamma,
-    compute_likelihood
 )
+
 
 # ---- SLOE Tests ----
 def test_compute_sloe_estimator_no_leverage_adjustment() -> None:
@@ -93,7 +94,7 @@ def test_likelihood_expected():
     actual_log_lik = compute_likelihood(y_adj, freq_weights, fitted_probs, log=True)
     actual_raw_lik = compute_likelihood(y_adj, freq_weights, fitted_probs, log=False)
 
-    np.testing.assert_almost_equal(expected_log_lik, actual_log_lik, decimal = 7)
+    np.testing.assert_almost_equal(expected_log_lik, actual_log_lik, decimal=7)
     np.testing.assert_almost_equal(actual_raw_lik, expected_raw_lik, decimal=7)
 
 
@@ -130,5 +131,3 @@ def test_compute_taus_with_no_intercept():
     expected = np.asarray([1.154701, 1.154701])
 
     np.testing.assert_allclose(compute_taus(x, intercept_index), expected, rtol=1e-6)
-
-# TODO: Unit tests for deviance, residual deviance and pearson deviance
