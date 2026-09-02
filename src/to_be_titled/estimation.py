@@ -272,9 +272,9 @@ def fit_mdypl(
         aic=aic,
         bic = bic,
         deviance = deviance,
+        null_deviance = null_deviance,
         resid_deviance = resid_deviance,
         resid_pearson = resid_pearson,
-        null_deviance = null_deviance,
 
         converged=bool(glm_results.converged),
         iterations=int(glm_results.fit_history.get("iteration", 0)),

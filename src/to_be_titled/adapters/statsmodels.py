@@ -88,8 +88,24 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         return self._summary_data.deviance
 
     @property
+    def null_deviance(self) -> float:
+        return self._summary_data.null_deviance
+
+    @property
+    def resid_deviance(self) -> FloatArray:
+        return self._summary_data.resid_deviance
+
+    @property 
+    def resid_pearson(self) -> FloatArray:
+        return self._summary_data.resid_pearson
+
+    @property
     def aic(self) -> float:
         return self._summary_data.aic
+
+    @property
+    def bic(self) -> float:
+        return self._summary_data.bic
 
     @property
     def hd_diagnostics(self) -> HDDiagnostics | None:
@@ -157,7 +173,7 @@ class MDYPLLogistic(Model):  # type: ignore[misc]
         weights: FloatArray | None = None,
         offset: float | FloatArray | None = None,
         missing: str = "none",
-        **kwargs: Any,
+        **kwargs: Any, 
     ) -> None:
         super().__init__(endog=endog, exog=exog, missing=missing, **kwargs)  # pyright: ignore[reportUnknownMemberType]
 
@@ -176,7 +192,7 @@ class MDYPLLogistic(Model):  # type: ignore[misc]
         maxiter: int = 100,
         method: str = "IRLS",
         start_params: FloatArray | None = None,
-        **kwargs: Any,
+        **kwargs: Any, 
     ) -> MDYPLLogisticResult:
         raw_results = fit_mdypl(
             data=self._data,
