@@ -48,10 +48,12 @@ class MDYPLSummary:
 
     deviance: float
     null_deviance: float 
-    resid_deviance: FloatArray
-    resid_pearson: FloatArray
     aic: float
     bic: float
+    # TODO: Can we make these arrays a cached_property
+    resid_deviance: FloatArray
+    resid_pearson: FloatArray
+    
 
     hd_diagnostics: HDDiagnostics | None = None
 
@@ -91,7 +93,6 @@ def summary(
         linear_predictors = result.linear_predictors
         fitted_probs = result.fitted_probs
         deviance = result.deviance
-        null_deviance = result.null_deviance
         resid_deviance = result.resid_deviance
         resid_pearson = result.resid_pearson
         aic = result.aic
@@ -164,6 +165,9 @@ def summary(
         # Null deviance does not need to be recomputed as null model fit on y_raw
         # Deviance, residual deviance and pearson residuals built on y_raw
         deviance = compute_deviance(result.y_raw, fitted_probs, result.weights, eps)
+
+        # TODO: Lewis, 
+        # Can these two arrays be cached properties instead? Only computed when needed
         resid_deviance = compute_deviance_residuals(result.y_raw, fitted_probs, result.weights, eps)
         resid_pearson = compute_pearson_residuals(result.y_raw, fitted_probs, result.weights, eps)
 

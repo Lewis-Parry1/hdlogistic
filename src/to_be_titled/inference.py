@@ -227,7 +227,6 @@ def logistic_aic(
     log_likelihood = compute_likelihood(
         y, freq_weights, fitted_probs, log=True, eps= eps
     )
-
     aic = -2.0 * log_likelihood + 2.0 * rank
 
     return float(aic)
