@@ -318,3 +318,61 @@ def compute_deviance_residuals(y : FloatArray,
 
     return sign_i * abs_deviance_residual
 
+def compute_pearson_residuals(
+    y: np.ndarray,
+    fitted_probs: np.ndarray,
+    freq_weights: np.ndarray,
+    eps: float = 1e-15,
+) -> np.ndarray:
+    """
+    Computes Pearson residuals: 
+    r_i = (y - mu) / sqrt(mu * (1 - mu) / w)
+    """
+    mu_clipped = np.clip(fitted_probs, eps, 1.0 - eps)
+    
+    v_i = (mu_clipped * (1.0 - mu_clipped)) / freq_weights
+    residuals_raw = y - mu_clipped
+    
+    return (residuals_raw) / np.sqrt(np.maximum(v_i, eps))
+
+def logistic_bic(
+    y: np.ndarray,
+    fitted_probs: np.ndarray,
+    freq_weights: np.ndarray,
+    rank: int,
+    eps: float = 1e-15,
+) -> float:
+    r'''
+    Computes the Bayesian Information Criterion (BIC) 
+    for a logistic regression model.
+
+    The BIC is defined as:
+        BIC = -2 * log likelihood + log(n) * rank, 
+    where the log likelihood is the sum of the log of 
+    the generalised binomial PMF for each observation.
+
+    Parameters
+    ----------
+    y : np.ndarray
+        True response vector used to fit model. Adjusted responsed
+        passed in, are in [0,1]. Binary responses also supported.
+    fitted_probs : np.ndarray
+        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
+        using rescaled coefficients if `hd_correction` was True.
+    freq_weights : np.ndarray
+        Frequency weights used to fit model, which are the per observation trial 
+        counts. If no frequency weights were supplied this is simply a vector of 
+        1s of shape (n,).
+    rank : int
+        The rank of the design matrix used to fit the model. This is used to
+        compute the BIC penalty term.
+    eps : float, optional   
+        Small value to avoid log(0) issues, by default 1e-15.
+    '''
+    log_likelihood = _generalised_binomial_pmf(
+        y, freq_weights, fitted_probs, log=True, eps=eps
+    )
+    # N is usually the sum of frequency weights (total trials)
+    nobs = np.sum(freq_weights) 
+    
+    return float(-2.0 * np.sum(log_likelihood) + rank * np.log(nobs))

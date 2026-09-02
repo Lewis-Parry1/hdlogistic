@@ -12,7 +12,11 @@ from statsmodels.genmod.generalized_linear_model import (  # pyright: ignore[rep
     GLM,
 )
 
-from to_be_titled.inference import logist_aic
+from to_be_titled.inference import (
+    compute_deviance, compute_deviance_residuals, compute_deviance_pearsons, 
+    logistic_aic, logistic_bic
+
+)
 from to_be_titled.types import (
     FloatArray,
 )
@@ -42,8 +46,11 @@ class MDYPLResults:
     params: FloatArray
     linear_predictors: FloatArray
     fitted_probs: FloatArray
-    deviance: float
     aic: float
+    bic: float
+    deviance: float
+    deviance_residuals: FloatArray
+    deviance_pearsons: FloatArray
     converged: bool
     iterations: int
     alpha: float
@@ -167,6 +174,7 @@ def fit_mdypl(
     method: str = "IRLS",
     start_params: FloatArray | None = None,
 ) -> MDYPLResults:
+    
     if alpha is None:
         alpha_val = data.nobs_eff / (
             data.nobs_eff + data.rank - int(data.has_intercept)
@@ -208,16 +216,30 @@ def fit_mdypl(
         
     fitted_probs = np.asarray(glm_results.mu, dtype=np.float64)
 
-    aic = float(logist_aic(y_adj, fitted_probs, data.weights) + 2.0 * data.rank)
+    # Recomputed later if hd_correction is true. 
+    # This is because fitted_probs is recomputed using rescaled coefficients 
+    aic = logistic_aic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
+    bic = logistic_bic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
+
+    # Recomputed later as well if hd_correction is true.
+    deviance_total = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
+    deviance_residuals = compute_deviance_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
+    deviance_pearsons = compute_deviance_pearsons(y_adj, fitted_probs, data.weights, eps=1e-15)
+
+    # Null Deviance; not recomputed later.
 
     return MDYPLResults(
         data=data,
         params=params,
         linear_predictors=linear_predictors,
         fitted_probs=fitted_probs,
-        deviance=float(glm_results.deviance),
 
         aic=aic,
+        bic = bic,
+        deviance = deviance_total,
+        deviance_residuals = deviance_residuals,
+        deviance_pearsons = deviance_pearsons,
+        
         converged=bool(glm_results.converged),
         iterations=int(glm_results.fit_history.get("iteration", 0)),
         alpha=alpha_val,
