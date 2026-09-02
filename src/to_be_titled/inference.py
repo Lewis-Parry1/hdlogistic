@@ -10,14 +10,20 @@ from to_be_titled.types import FloatArray
 
 
 def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
-    """
-    TODO:
+    r"""
+    Computes \tau_j which is \text{var}(x_{,j}|\textbf x_{,-j}). In other 
+    words this function returns an array of \tau_j for each covariate j, where
+    \tau_j is the conditional variance of covariate j conditioned on all remianing
+    covariates. 
 
-    Parameters
+    Parameters 
     ----------
-    result : DYLogisticRegressionResult
-        A dataclass which hold the results of the Diaconis-Ylvisaker
-        logistic regression fit obtained from fit_DY_logistic_regression().
+    x: FloatArray
+        Full rank design matrix used to fit MDYPL model
+        (with intercept if included). 
+    intercept_index: int | None,
+        Index of intercept column of design matrix, if an intercept is included.
+        By default, None.
     """
 
     mat_x = x if intercept_index is None else np.delete(x, intercept_index, axis=1)
@@ -386,3 +392,4 @@ def logistic_bic(
     
     return float(bic)
 
+def get_confidence_interval()
