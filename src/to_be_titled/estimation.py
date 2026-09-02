@@ -59,8 +59,6 @@ class MDYPLResults:
     bic: float
     deviance: float
     null_deviance: float 
-    resid_deviance: FloatArray
-    resid_pearson: FloatArray
 
     converged: bool
     iterations: int
@@ -119,6 +117,15 @@ class MDYPLResults:
         if self._glm_results is None:
             raise ValueError("Covariance matrix requires underlying GLM results.")
         return np.asarray(self._glm_results.cov_params(), dtype=np.float64)
+
+    @cached_property
+    def resid_deviance(self) -> FloatArray:
+        return compute_deviance_residuals(self.y_adj, self.fitted_probs, 
+                                          self.data.weights, eps=1e-15)
+    @cached_property
+    def resid_pearson(self) -> FloatArray:
+        return compute_pearson_residuals(self.y_adj, self.fitted_probs,
+                                         self.data.weights, eps=1e-15)
 
 
 def prepare_mdypl_data(
@@ -234,8 +241,6 @@ def fit_mdypl(
 
     # Recomputed later as well if hd_correction is true.
     deviance = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
-    resid_deviance = compute_deviance_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
-    resid_pearson = compute_pearson_residuals(y_adj, fitted_probs, data.weights, eps=1e-15)
 
     # Build null model and get fitted probabilities.
     # Null model fit on same adjusted responses used by original fitted model.
@@ -274,8 +279,6 @@ def fit_mdypl(
         bic = bic,
         deviance = deviance,
         null_deviance = null_deviance,
-        resid_deviance = resid_deviance,
-        resid_pearson = resid_pearson,
 
         converged=bool(glm_results.converged),
         iterations=int(glm_results.fit_history.get("iteration", 0)),
