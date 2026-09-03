@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-
 from to_be_titled.mdypl_fit import MDYPLModel
+
 from to_be_titled.penalised_likelihood_ratio_test import (
     PenalisedLRTResults,
     penalised_lrt,
