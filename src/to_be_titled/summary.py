@@ -95,14 +95,6 @@ class MDYPLSummary:
         """Check whether high-dimensional asymptotic corrections were applied."""
         return self.hd_diagnostics is not None
 
-    @property
-    def fittedvalues(self) -> FloatArray:
-        return self.linear_predictors
-
-    @property
-    def mu(self) -> FloatArray:
-        return self.fitted_probs
-
 
 def summary(
     result: MDYPLResults,
