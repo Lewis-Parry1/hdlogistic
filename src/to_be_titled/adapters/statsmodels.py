@@ -25,7 +25,7 @@ from to_be_titled.types import (
 
 
 class MDYPLLogisticResult(Results):  # type: ignore[misc]
-    """Results container for modified Diaconis–Ylvisaker penalized logistic regression.
+    """Results container for modified Diaconis-Ylvisaker penalized logistic regression.
 
     Encapsulates parameter estimates, standard errors, test statistics, and
     fitted values from an :class:`MDYPLLogistic` model fit. Supports standard GLM
@@ -136,7 +136,8 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
     @property
     def fitted_probs(self) -> FloatArray:
-        """Fitted response probabilities $\\mu = \\text{expit}(\\eta)$ of shape `(n,)`."""
+        """Fitted response probabilities $\\mu = \\text{expit}(\\eta)$ of shape
+        `(n,)`."""
         return self._summary_data.fitted_probs
 
     @property
@@ -279,10 +280,10 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
 
 class MDYPLLogistic(Model):  # type: ignore[misc]
-    """Modified Diaconis–Ylvisaker Penalized Logistic Regression (MDYPL).
+    """Modified Diaconis-Ylvisaker Penalized Logistic Regression (MDYPL).
 
     Fits a logistic regression model with response shrinkage derived from a modified
-    Diaconis–Ylvisaker conjugate prior. Binary responses $y \\in \\{0, 1\\}$ are shrunk
+    Diaconis-Ylvisaker conjugate prior. Binary responses $y \\in \\{0, 1\\}$ are shrunk
     toward 0.5 via shrinkage parameter $\\alpha \\in [0, 1]$:
     $\\tilde{y} = \\alpha y + (1 - \\alpha) / 2$, guaranteeing the existence of finite
     maximum penalized likelihood estimates even under complete data separation.
@@ -349,9 +350,11 @@ class MDYPLLogistic(Model):  # type: ignore[misc]
         maxiter : int, default 100
             Maximum number of iterations allowed for the solver.
         method : str, default "IRLS"
-            Optimization method passed to `statsmodels.genmod.generalized_linear_model.GLM.fit`.
+            Optimization method passed to
+            `statsmodels.genmod.generalized_linear_model.GLM.fit`.
         start_params : FloatArray | None, optional
-            Initial coefficient values of shape `(p,)` for optimization, by default None.
+            Initial coefficient values of shape `(p,)` for optimization, by default
+            None.
         **kwargs : Any
             Additional keyword arguments passed to `MDYPLLogisticResult`.
 

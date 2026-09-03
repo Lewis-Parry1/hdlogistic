@@ -52,7 +52,8 @@ class MDYPLSummary:
     Parameters
     ----------
     params : FloatArray
-        Parameter estimates of shape `(p,)` (rescaled/debiased if HD correction is enabled).
+        Parameter estimates of shape `(p,)` (rescaled/debiased if HD correction is
+        enabled).
     bse : FloatArray
         Standard errors of shape `(p,)` (adjusted via state evolution parameters
         under HD correction; NaN for intercept).
