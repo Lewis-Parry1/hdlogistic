@@ -247,12 +247,13 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         """
         if self.use_hd_correction:
             raise NotImplementedError(
-                "Covariance matrix is undefined for high-dimensional corrected result. "
-                "Use `self.bse` for rescaled standard errors."
+                "Covariance matrix is no longer valid for high-dimensional corrected"
+                " result. Use self.bse to obtain the high-dimensional rescaled "
+                "standard errors."
             )
         return self._raw_results.cov_params
 
-    def get_high_dimensional(
+    def get_high_dimensional_result(
         self,
         start: FloatArray | None = None,
         solve_se_kwargs: dict[str, Any] | None = None,
