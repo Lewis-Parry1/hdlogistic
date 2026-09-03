@@ -210,7 +210,6 @@ def se_with_intercept(
         - kappa
         - np.sum(w_pi * ((expit_q1_pos / denom_pos) + (expit_q1_neg / denom_neg)))
     )
-    # TODO : check if inside should be p/m
     res3 = (kappa**2 * sigma**2) - b**2 * np.sum(
         w_pi * ((expit_q1_pos * q_pos**2) + (expit_q1_neg * q_neg**2))
     )
