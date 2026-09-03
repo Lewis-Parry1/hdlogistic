@@ -6,7 +6,10 @@ import numpy as np
 from scipy.linalg import solve_triangular
 from scipy.special import betaln
 
-from to_be_titled.types import FloatArray
+if TYPE_CHECKING:
+    pass
+
+FloatArray = NDArray[np.float64]
 
 
 def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
