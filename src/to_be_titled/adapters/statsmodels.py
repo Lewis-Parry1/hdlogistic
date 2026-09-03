@@ -327,9 +327,6 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
             solve_se_kwargs=solve_se_kwargs,
         )
 
-    # ------------------------------------------------------------------
-    # Summary & string representation
-    # ------------------------------------------------------------------
     def summary(
         self,
         yname: str | None = None,
