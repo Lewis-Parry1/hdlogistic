@@ -4,7 +4,7 @@ This script generates a 100x100 grid of "true" values for the parameters
 length 100. A continuation strategy is used, wherein the closest previous
 solution is fed in to _root_solver() directly using 'hybr' method. This
 is sufficient to quickly recover the approximate true roots of the
-MDYPL state equation. We use kappa = (0.01, 0.975) and gamma = (0.5,25)
+MDYPL state equation. We use kappa = (0.01, 0.975) and gamma = (0.025,30)
 """
 
 from __future__ import annotations
@@ -92,7 +92,7 @@ def evaluate_grid(
 
 if __name__ == "__main__":
     grid = evaluate_grid(
-        n_points_axis=100, kappa_range=(0.01, 0.975), gamma_range=(0.025, 25)
+        n_points_axis=100, kappa_range=(0.01, 0.975), gamma_range=(0.025, 30)
     )
     np.savez_compressed(
         OUTPUT_PATH,
