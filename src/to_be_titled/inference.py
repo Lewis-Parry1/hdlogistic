@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
 from scipy.linalg import solve_triangular
 from scipy.special import betaln
 
@@ -95,7 +93,7 @@ def compute_sloe(
     return float(np.std(finite_scores, ddof=1))
 
 
-def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
+def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
     input = mu**2 * gamma**2 + kappa * sigma**2
     if input < 0:
         warnings.warn(
@@ -105,7 +103,7 @@ def _derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -
     return float(np.sqrt(input))
 
 
-def _derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
+def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
     if abs(mu) < 1e-12:
         warnings.warn(
             "State evolution parameter `mu` is at, near or below zero; "

@@ -3,7 +3,6 @@ import pytest
 import statsmodels.api as sm
 from numpy.testing import assert_allclose
 from scipy.special import expit
-
 from to_be_titled.mdypl_fit import MDYPLModel
 
 

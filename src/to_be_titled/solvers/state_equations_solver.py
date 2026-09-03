@@ -6,7 +6,7 @@ import numpy as np
 from scipy.optimize import minimize, root
 
 from to_be_titled import state_equations, validation
-from to_be_titled.inference import _derive_gamma_from_nu
+from to_be_titled.inference import derive_gamma_from_nu
 from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_interpolator
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
@@ -137,7 +137,7 @@ def _se_funcs(
         mu, b, sigma = pars_t[:3]
 
         if corrupted:
-            gamma = _derive_gamma_from_nu(kappa, signal_strength, sigma, mu)
+            gamma = derive_gamma_from_nu(kappa, signal_strength, sigma, mu)
             if np.isnan(gamma):
                 warnings.warn(
                     "Estimated gamma evaluated to NaN (likely due to division by "
@@ -582,9 +582,9 @@ def solve_state_equation(
 
     has_intercept = intercept is not None
 
-    validation._validate_state_equation_fixed_params(alpha, kappa, signal_strength)
+    validation.validate_state_equation_fixed_params(alpha, kappa, signal_strength)
     if start is not None:
-        validation._validate_start_dims(start, has_intercept)
+        validation.validate_start_dims(start, has_intercept)
         validation._validate_domain(start)
 
     root_kwargs = root_kwargs or {}
@@ -604,7 +604,7 @@ def solve_state_equation(
 
             # get estimate for gamma, given kappa, corrupted ss
             # and interpolated values for `mu` and `sigma`
-            gamma_est = _derive_gamma_from_nu(
+            gamma_est = derive_gamma_from_nu(
                 kappa, signal_strength, start_temp[2], start_temp[0]
             )
             stage1_start = interp.evaluate(kappa, gamma_est)
@@ -635,7 +635,7 @@ def solve_state_equation(
     result = try_root(stage1_start)
     attempts.append((stage1_name, result))
 
-    if validation._is_valid(result):
+    if validation.is_valid(result):
         return result, f"{stage1_name} -> root-finding algorithm: {main_method}"
 
     ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
@@ -656,7 +656,7 @@ def solve_state_equation(
     result = try_root(warm_start)
     attempts.append((f"{init_method}_warm_start", result))
 
-    if validation._is_valid(result, tol=convergence_tol):
+    if validation.is_valid(result, tol=convergence_tol):
         return (
             result,
             f"minimize method: {init_method} -> root-finding algorithm: {main_method}",

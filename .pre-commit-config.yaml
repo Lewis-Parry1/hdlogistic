@@ -21,12 +21,13 @@ repos:
         types: [python]
 
       - id: mypy
-        name: mypy
-        entry: mypy
-        language: system
-        types: [python]
-        require_serial: true
-        files: ^src/
+          name: mypy
+          entry: mypy
+          language: system
+          types: [python]
+          require_serial: true
+          pass_filenames: false
+          files: ^src/to_be_titled/
 
       - id: pytest
         name: pytest

@@ -3,7 +3,7 @@ import numpy as np
 from to_be_titled.types import FloatArray
 
 
-def _has_constant_col(x: FloatArray) -> bool:
+def has_constant_col(x: FloatArray) -> bool:
     """Returns True if a constant column is detected.
 
     Parameters
@@ -20,7 +20,7 @@ def _has_constant_col(x: FloatArray) -> bool:
     return bool(np.any(np.all(x == x[0, :], axis=0)))
 
 
-def _get_intercept_idx(x: FloatArray) -> int | None:
+def get_intercept_idx(x: FloatArray) -> int | None:
     """Returns integer representing index of intercept in design matrix
     using (zero-indexing).
 
@@ -41,7 +41,7 @@ def _get_intercept_idx(x: FloatArray) -> int | None:
     return int(idx[0]) if idx.size else None
 
 
-def _adjust_response(y: FloatArray, alpha: float) -> FloatArray:
+def adjust_response(y: FloatArray, alpha: float) -> FloatArray:
     """Compute the adjusted response vector under a Diaconis-Ylvisaker prior.
 
     Transforms the empirical binary responses into pseudo-probabilities shifted

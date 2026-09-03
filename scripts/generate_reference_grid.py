@@ -20,7 +20,7 @@ from to_be_titled.solvers.state_equations_solver import (
     _root_solver,
 )
 from to_be_titled.types import FloatArray
-from to_be_titled.validation import _is_valid_domain
+from to_be_titled.validation import is_valid_domain
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "data" / "true_reference_param_grid.npz"
 
@@ -30,18 +30,18 @@ def _solver_strategy(
 ) -> SolverResult | None:
 
     solver_result = _root_solver(kappa, gamma, alpha, start)
-    if solver_result.success and _is_valid_domain(solver_result.solution.to_array()):
+    if solver_result.success and is_valid_domain(solver_result.solution.to_array()):
         return solver_result
 
     default_guess = _default_start(False)
     solver_result = _root_solver(kappa, gamma, alpha, default_guess)
-    if solver_result.success and _is_valid_domain(solver_result.solution.to_array()):
+    if solver_result.success and is_valid_domain(solver_result.solution.to_array()):
         return solver_result
 
     init_result = _init_solver(kappa, gamma, alpha, default_guess, "BFGS")
     warm_start = init_result.solution.to_array()
     solver_result = _root_solver(kappa, gamma, alpha, warm_start)
-    if solver_result.success and _is_valid_domain(solver_result.solution.to_array()):
+    if solver_result.success and is_valid_domain(solver_result.solution.to_array()):
         return solver_result
     else:
         print(f"Failed at kappa = {kappa} and gamma = {gamma}\n")

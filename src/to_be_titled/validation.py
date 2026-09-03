@@ -5,7 +5,7 @@ from to_be_titled.solvers.solver_types import SolverResult
 from to_be_titled.types import FloatArray
 
 
-def _is_valid(result: SolverResult, tol: float = 1e-4) -> bool:
+def is_valid(result: SolverResult, tol: float = 1e-4) -> bool:
     converged = bool(np.all(np.abs(result.func_value) < tol))
     return converged
 
@@ -28,7 +28,7 @@ def _validate_domain(params: FloatArray) -> None:
         raise ValueError(f"`sigma` must be strictly positive. Received {sigma}.")
 
 
-def _is_valid_domain(params: FloatArray) -> bool:
+def is_valid_domain(params: FloatArray) -> bool:
     """
     Returns True if `mu`, `b`, `sigma` and optional intercept, are in
     valid domain. Returns False otherwise.
@@ -40,7 +40,7 @@ def _is_valid_domain(params: FloatArray) -> bool:
     return True
 
 
-def _validate_start_dims(params: FloatArray, has_intercept: bool) -> None:
+def validate_start_dims(params: FloatArray, has_intercept: bool) -> None:
     """
     Validates that number of variable parameters for the system of state equations
     is 3 if `has_intercept = False` and 4 otherwise.
@@ -52,7 +52,7 @@ def _validate_start_dims(params: FloatArray, has_intercept: bool) -> None:
         )
 
 
-def _validate_state_equation_fixed_params(
+def validate_state_equation_fixed_params(
     alpha: float, kappa: float, gamma: float
 ) -> None:
     if not (0 < alpha <= 1):
@@ -66,7 +66,7 @@ def _validate_state_equation_fixed_params(
         )
 
 
-def _ensure_design_matrix(x: FloatArray) -> FloatArray:
+def ensure_design_matrix(x: FloatArray) -> FloatArray:
     """Convert input to a 2-D float64 design matrix and validate dimensions.
 
     Parameters
@@ -92,7 +92,7 @@ def _ensure_design_matrix(x: FloatArray) -> FloatArray:
     return x
 
 
-def _ensure_column_vector(y: FloatArray) -> FloatArray:
+def ensure_column_vector(y: FloatArray) -> FloatArray:
     """Convert input to a 1-D float64 column vector and validate dimensions.
 
     Accepts a 1-D array or a 2-D array with a single column, and returns it
@@ -121,13 +121,13 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
     return y
 
 
-def _is_full_rank(x: FloatArray, qr_tol: float = 1e-11) -> bool:
+def is_full_rank(x: FloatArray, qr_tol: float = 1e-11) -> bool:
     n, p = x.shape
     if p > n:
         return False
 
-    _, R, _ = qr(x, mode="economic", pivoting=True)
-    diag = np.abs(np.diag(R))
+    _, r, _ = qr(x, mode="economic", pivoting=True)
+    diag = np.abs(np.diag(r))
 
     if diag.size == 0 or diag[0] == 0:
         return diag.size == 0

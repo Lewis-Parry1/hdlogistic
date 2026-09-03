@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
 from to_be_titled.mdypl_fit import MDYPLModel
+
 from to_be_titled.summary import MDYPLSummary
 
 X_DATA = np.array(
