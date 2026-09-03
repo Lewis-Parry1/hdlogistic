@@ -42,6 +42,7 @@ indent-style = "space"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+files = ["src/to_be_titled"]
 
 [[tool.mypy.overrides]]
 module = ["*.plugins.*", "statsmodels.*"]

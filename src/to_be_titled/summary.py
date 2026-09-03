@@ -25,7 +25,22 @@ from to_be_titled.types import FloatArray
 
 @dataclass(frozen=True)
 class HDDiagnostics:
-    """Parameters for high-dimensional asymptotic corrections"""
+    """Inference diagnostics and parameter solutions from high-dimensional asymptotics.
+
+    Parameters
+    ----------
+    kappa : float
+        Aspect ratio `p / nobs_eff` (ratio of predictors to effective sample size).
+    signal_strength : float
+        Estimated squared signal strength parameter `gamma**2`.
+    nu_sloe : float
+        Surrogate leave-one-out estimate of the linear predictor variance (SLOE).
+    se_params : FloatArray
+        Array containing the converged state evolution parameters `(alpha, mu, sigma)`.
+    opt_chain : str
+        Description or identifier of the optimization solver chain used to solve
+        the state evolution equations.
+    """
 
     kappa: float
     signal_strength: float
@@ -37,6 +52,35 @@ class HDDiagnostics:
 
 @dataclass(frozen=True)
 class MDYPLSummary:
+    """Summary container for MDYPL model inference and diagnostics.
+
+    Parameters
+    ----------
+    params : FloatArray
+        Parameter estimates of shape `(p,)` (rescaled/debiased if HD correction is
+        enabled).
+    bse : FloatArray
+        Standard errors of shape `(p,)` (adjusted via state evolution parameters
+        under HD correction; NaN for intercept).
+    zvalues : FloatArray
+        Wald $z$-statistics of shape `(p,)`.
+    pvalues : FloatArray
+        Two-sided asymptotic p-values of shape `(p,)`.
+    linear_predictors : FloatArray
+        Linear predictors `X @ params + offset` of shape `(n,)`.
+    fitted_probs : FloatArray
+        Fitted probabilities of shape `(n,)`.
+    nobs_eff : float
+        Effective sample size (sum of weights).
+    deviance : float
+        Model deviance evaluated at the final parameter estimates.
+    aic : float
+        Akaike Information Criterion evaluated on the adjusted response.
+    hd_diagnostics : HDDiagnostics | None, optional
+        Diagnostics and state evolution solutions from high-dimensional asymptotics,
+        by default None.
+    """
+
     params: FloatArray
     bse: FloatArray
     zvalues: FloatArray
@@ -77,7 +121,29 @@ def summary(
     solve_se_kwargs: dict[str, Any] | None = None,
     high_dimensional_correction: bool = True,
 ) -> MDYPLSummary:
+    """Compute inferential statistics and asymptotic standard errors for an MDYPL fit.
 
+    Parameters
+    ----------
+    result : MDYPLResults
+        Fitted model results container returned by `fit_mdypl`.
+    start : FloatArray | None, optional
+        Initial starting values `(alpha, b, sigma)` for the state evolution
+        equation solver, by default None.
+    solve_se_kwargs : dict[str, Any] | None, optional
+        Additional keyword arguments forwarded to `solve_state_equation`,
+        by default None.
+    high_dimensional_correction : bool, optional
+        Whether to adjust parameter estimates, standard errors, and p-values using
+        high-dimensional asymptotics (SLOE and state evolution equations). If False,
+        standard GLM covariance asymptotics are used, by default True.
+
+    Returns
+    -------
+    MDYPLSummary
+        Summary container storing parameter estimates, standard errors, $z$-values,
+        p-values, predictions, deviance, AIC, and optional high-dimensional diagnostics.
+    """
     x = result.x
     nobs_eff = result.nobs_eff
     eps = 1e-15

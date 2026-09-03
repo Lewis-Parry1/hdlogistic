@@ -16,6 +16,37 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class PenalisedLRTResults:
+    """Results container for the penalised likelihood ratio test between nested models.
+
+    Parameters
+    ----------
+    statistic : float
+        Likelihood ratio test statistic (rescaled by high-dimensional asymptotics
+        if `hd_correction=True`).
+    df : int
+        Degrees of freedom for the test (`rank_full - rank_restricted`).
+    p_value : float
+        Asymptotic p-value computed from the chi-squared survival function.
+    deviance_full : float
+        Deviance of the full model.
+    deviance_restricted : float
+        Deviance of the restricted model.
+    rank_full : int
+        Column rank of the full model design matrix.
+    rank_restricted : int
+        Column rank of the restricted model design matrix.
+    hd_correction : bool
+        Whether the high-dimensional state evolution rescaling was applied.
+    kappa : float | None, optional
+        Aspect ratio `p / n` from high-dimensional asymptotics, by default None.
+    se_params : FloatArray | None, optional
+        State evolution parameter solutions `(alpha, b, sigma)` from the full model,
+        by default None.
+    signal_strength : float | None, optional
+        Estimated signal strength parameter `gamma` from high-dimensional asymptotics,
+        by default None.
+    """
+
     statistic: float
     df: int
     p_value: float
