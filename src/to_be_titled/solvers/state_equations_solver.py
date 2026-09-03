@@ -604,6 +604,20 @@ def solve_state_equation(
         stage1_start, stage1_name = start, "user_start"
     elif use_warm_start_interpolator:
         interp = _build_rgi_cubic_interpolator()
+
+        expected_alpha = 1 / (1 + kappa)
+        if not np.isclose(alpha, expected_alpha, rtol=1e-2):
+            warnings.warn(
+                f"use_warm_start_interpolator=True, but alpha={alpha} does not "
+                f"match the adaptive shrinkage value alpha=1/(1+kappa)={expected_alpha:.4f} "
+                "that the interpolator's reference grid was built on. The "
+                "interpolated warm start may not be as reliable in this setting."
+                "Consider supplying `start` explicitly, or setting "
+                "`use_warm_start_interpolator=False`, when using a non-adaptive alpha.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         if not corrupted:
             stage1_start = interp.evaluate(kappa, signal_strength)
         else:

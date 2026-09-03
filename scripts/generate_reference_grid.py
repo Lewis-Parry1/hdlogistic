@@ -1,7 +1,7 @@
 """
-This script generates a 100x100 grid of "true" values for the parameters
+This script generates a 80x80 grid of "true" values for the parameters
 `mu`, `b` and `sigma` given a 1D arrays of `kappa` and `gamma` points of
-length 100. A continuation strategy is used, wherein the closest previous
+length 80. A continuation strategy is used, wherein the closest previous
 solution is fed in to _root_solver() directly using 'hybr' method. This
 is sufficient to quickly recover the approximate true roots of the
 MDYPL state equation. We use kappa = (0.01, 0.975) and gamma = (0.025,30)
@@ -92,7 +92,7 @@ def evaluate_grid(
 
 if __name__ == "__main__":
     grid = evaluate_grid(
-        n_points_axis=100, kappa_range=(0.01, 0.975), gamma_range=(0.025, 30)
+        n_points_axis=80, kappa_range=(0.01, 0.975), gamma_range=(0.025, 30)
     )
     np.savez_compressed(
         OUTPUT_PATH,
