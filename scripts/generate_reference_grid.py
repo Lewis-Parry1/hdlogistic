@@ -1,10 +1,10 @@
 """
-This script generates a 100x100 grid of true values for the parameters
+This script generates a 100x100 grid of "true" values for the parameters
 `mu`, `b` and `sigma` given a 1D arrays of `kappa` and `gamma` points of
 length 100. A continuation strategy is used, wherein the closest previous
 solution is fed in to _root_solver() directly using 'hybr' method. This
 is sufficient to quickly recover the approximate true roots of the
-MDYPL state equation.
+MDYPL state equation. We use kappa = (0.01, 0.975) and gamma = (0.5,25)
 """
 
 from __future__ import annotations
@@ -33,12 +33,8 @@ def _solver_strategy(
     if solver_result.success and is_valid_domain(solver_result.solution.to_array()):
         return solver_result
 
-    default_guess = _default_start(False)
-    solver_result = _root_solver(kappa, gamma, alpha, default_guess)
-    if solver_result.success and is_valid_domain(solver_result.solution.to_array()):
-        return solver_result
-
-    init_result = _init_solver(kappa, gamma, alpha, default_guess, "BFGS")
+    # Fallback strategy; find warm start from init_solver
+    init_result = _init_solver(kappa, gamma, alpha, start, "Nelder-Mead")
     warm_start = init_result.solution.to_array()
     solver_result = _root_solver(kappa, gamma, alpha, warm_start)
     if solver_result.success and is_valid_domain(solver_result.solution.to_array()):
@@ -61,9 +57,11 @@ def evaluate_grid(
     b_grid = np.full((n_points_axis, n_points_axis), np.nan, dtype=np.float64)
     sigma_grid = np.full((n_points_axis, n_points_axis), np.nan, dtype=np.float64)
 
-    previous_solution: FloatArray = _default_start(has_intercept=False)
-
+    # Intialise start
+    previous_solution: FloatArray = _default_start()
+    
     for i, gamma in enumerate(gamma_arr):
+        print(f"Evaluating over gamma = {gamma}")
         # continuation startegy, left to right sweep
         kappa_iter = (
             range(n_points_axis) if i % 2 == 0 else range(n_points_axis - 1, -1, -1)
@@ -94,7 +92,7 @@ def evaluate_grid(
 
 if __name__ == "__main__":
     grid = evaluate_grid(
-        n_points_axis=100, kappa_range=(0.01, 0.975), gamma_range=(0.1, 25)
+        n_points_axis=100, kappa_range=(0.01, 0.975), gamma_range=(0.025, 25)
     )
     np.savez_compressed(
         OUTPUT_PATH,
