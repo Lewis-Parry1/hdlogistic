@@ -59,7 +59,7 @@ class MDYPLModel(GLM):  # type: ignore[misc]
         x_val = _ensure_design_matrix(x)
         y_val = _ensure_column_vector(y)
 
-        # TODO: Full rank check?
+        # TODO: Rank check / aliased column check required 
 
         n, p = x_val.shape[0], x_val.shape[1]
         has_intercept = _has_constant_col(x_val)

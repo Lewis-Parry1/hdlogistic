@@ -32,16 +32,32 @@ def main() -> None:
     )
     y = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
 
-    model = MDYPLModel(y=y, x=x)
-    result = model.fit()
+    # Full model: intercept + both covariates
+    full_model = MDYPLModel(y=y, x=x)
+    full_result = full_model.fit()
 
-    summ_no_hd = MDYPLSummary(result, hd_correction=False)
+    summ_no_hd = MDYPLSummary(full_result, hd_correction=False)
     print(summ_no_hd)
 
     print()
 
-    summ_hd = MDYPLSummary(result, hd_correction=True)
+    summ_hd = MDYPLSummary(full_result, hd_correction=True)
     print(summ_hd)
+
+    print()
+
+    # Reduced model: intercept + first covariate only, same alpha so the
+    # comparison is valid — nested inside the full model above.
+    reduced_model = MDYPLModel(y=y, x=x[:, :2], alpha=full_result.alpha)
+    reduced_result = reduced_model.fit()
+
+    lrt_no_hd = full_result.penalised_lrt(reduced_result, hd_correction=False)
+    print(lrt_no_hd)
+
+    print()
+
+    lrt_hd = full_result.penalised_lrt(reduced_result, hd_correction=True)
+    print(lrt_hd)
 
 
 if __name__ == "__main__":
