@@ -382,7 +382,9 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
             ("No. Iterations:", [str(self.iterations)]),
         ]
 
-        nobs_str = f"{int(self.nobs)}" if float(self.nobs).is_integer() else f"{self.nobs:.2f}"
+        nobs_str = (
+            f"{int(self.nobs)}" if float(self.nobs).is_integer() else f"{self.nobs:.2f}"
+        )
 
         top_right = [
             ("No. Observations:", [nobs_str]),
@@ -418,7 +420,9 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
             kappa = getattr(diag, "kappa", getattr(sd, "kappa", None))
             if kappa is not None:
-                extra_txt.append(f"  Dimensionality parameter (kappa)   = {float(kappa):.3f}")
+                extra_txt.append(
+                    f"  Dimensionality parameter (kappa)   = {float(kappa):.3f}"
+                )
 
             gamma2 = getattr(
                 diag,
@@ -426,12 +430,16 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
                 getattr(sd, "signal_strength", getattr(diag, "gamma2", None)),
             )
             if gamma2 is not None:
-                extra_txt.append(f"  Estimated signal strength (gamma^2) = {float(gamma2):.3f}")
+                extra_txt.append(
+                    f"  Estimated signal strength (gamma^2) = {float(gamma2):.3f}"
+                )
 
             se_params = getattr(diag, "se_params", getattr(sd, "se_params", None))
             if se_params is not None:
                 try:
-                    formatted_tuple = f"({', '.join(f'{float(v):.3f}' for v in se_params)})"
+                    formatted_tuple = (
+                        f"({', '.join(f'{float(v):.3f}' for v in se_params)})"
+                    )
                 except (TypeError, ValueError):
                     formatted_tuple = str(se_params)
                 extra_txt.append(
@@ -445,6 +453,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
             smry.add_extra_txt(extra_txt)
 
         return smry
+
 
 class MDYPLLogistic(Model):  # type: ignore[misc]
     """Modified Diaconis-Ylvisaker Penalized Logistic Regression (MDYPL).

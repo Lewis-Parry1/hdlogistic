@@ -79,7 +79,8 @@ class TestMDYPLEstimation:
             mdypl_result.params,
             standard_result.params,
             rtol=1e-6,
-            err_msg="MDYPL with alpha=1 should exactly match standard logistic regression",
+            err_msg="MDYPL with alpha=1 should exactly" \
+            " match standard logistic regression",
         )
 
     # --- Weight and Offset Length Checks ---
@@ -181,7 +182,7 @@ class TestMDYPLEstimation:
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=1.0)
         assert_allclose(result.null_deviance, result.null_deviance)  # sanity: no crash
-        # Recompute expected null deviance directly, since null_fitted_probs should be 0.5 everywhere
+        # Recompute expected null deviance directly
         from to_be_titled.inference import compute_deviance
 
         expected_null_deviance = compute_deviance(
