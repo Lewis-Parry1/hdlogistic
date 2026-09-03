@@ -84,6 +84,13 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         self.alpha: float = raw_results.alpha
         self.nobs: float = raw_results.nobs_eff
 
+    # TODO: Lewis,
+    # Set up basic print functionality 
+    # goes here so we can have print(result)
+    # Doesnt need to be pretty for now, just ensure usual 
+    # Statsmodels attibutes printed, we can add the odd extra attr
+    # Here and there
+
     @cached_property
     def _summary_data(self) -> MDYPLSummary:
         return summary(
@@ -146,9 +153,25 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         return self._summary_data.deviance
 
     @property
+    def null_deviance(self) -> float:
+        return self._summary_data.null_deviance
+
+    @property
+    def resid_deviance(self) -> FloatArray:
+        return self._summary_data.resid_deviance
+
+    @property
+    def resid_pearson(self) -> FloatArray:
+        return self._summary_data.resid_pearson
+
+    @property
     def aic(self) -> float:
         """Akaike Information Criterion evaluated on the adjusted response."""
         return self._summary_data.aic
+
+    @property
+    def bic(self) -> float:
+        return self._summary_data.bic
 
     @property
     def hd_diagnostics(self) -> HDDiagnostics | None:

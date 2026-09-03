@@ -220,7 +220,7 @@ def _init_solver(
     signal_strength: float,
     alpha: float,
     start: FloatArray,
-    init_method: str = "BFGS",
+    init_method: str = "Nelder-Mead",
     hermite_roots_weights: tuple[FloatArray, FloatArray] | None = None,
     prox_tol: float = 1e-10,
     corrupted: bool = False,

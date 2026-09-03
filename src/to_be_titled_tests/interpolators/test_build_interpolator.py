@@ -14,9 +14,9 @@ from to_be_titled.interpolators.build_interpolator import (
 )
 
 GRID_PATH = (
-    Path(__file__).resolve().parent.parent
-    / "to_be_titled"
-    / "interpolators"
+    Path(__file__).resolve().parent.parent.parent.parent
+    / "scripts"
+    / "data"
     / "true_reference_param_grid.npz"
 )
 

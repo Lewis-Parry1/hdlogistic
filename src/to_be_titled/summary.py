@@ -1,4 +1,3 @@
-#
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,14 +9,19 @@ from scipy.stats import norm
 
 from to_be_titled.estimation import MDYPLResults
 from to_be_titled.inference import (
+    compute_deviance,
+    compute_deviance_residuals,
+    compute_pearson_residuals,
     compute_sloe,
     compute_taus,
     derive_gamma_from_nu,
-    logist_aic,
+    logistic_aic,
+    logistic_bic,
 )
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.types import FloatArray
 
+# TODO: Ensure AIC, Deviance, etc. all computed on correct response
 
 @dataclass(frozen=True)
 class HDDiagnostics:
@@ -42,6 +46,7 @@ class HDDiagnostics:
     signal_strength: float
     nu_sloe: float
     se_params: FloatArray
+    func_value: FloatArray
     opt_chain: str
 
 
@@ -85,8 +90,14 @@ class MDYPLSummary:
     fitted_probs: FloatArray
 
     nobs_eff: float
+
     deviance: float
+    null_deviance: float
     aic: float
+    bic: float
+    # TODO: Lewis, Can/Should we make these arrays a cached_property
+    resid_deviance: FloatArray
+    resid_pearson: FloatArray
 
     hd_diagnostics: HDDiagnostics | None = None
 
@@ -136,10 +147,15 @@ def summary(
         zvalues = params / bse
         pvalues = 2.0 * norm.cdf(-np.abs(zvalues))
 
+        # No need to recompute
         linear_predictors = result.linear_predictors
         fitted_probs = result.fitted_probs
         deviance = result.deviance
+        resid_deviance = result.resid_deviance
+        resid_pearson = result.resid_pearson
         aic = result.aic
+        bic = result.bic
+
         hd_diagnostics = None
 
     else:
@@ -168,18 +184,20 @@ def summary(
         )
 
         se_params, opt_chain = solve_state_equation(**solver_kwargs)
-        mu_hat = se_params.solution.mu
-        sigma_hat = se_params.solution.sigma
+
+        func_value = se_params.func_value
+        mu_star = se_params.solution.mu
+        sigma_star = se_params.solution.sigma
 
         no_int = np.ones(len(params), dtype=bool)
         if has_intercept and intercept_idx is not None:
             no_int[intercept_idx] = False
 
-        params[no_int] = params[no_int] / mu_hat
+        params[no_int] = params[no_int] / mu_star
 
         taus = compute_taus(x, intercept_idx)
         bse = np.empty_like(params)
-        bse[no_int] = sigma_hat / (np.sqrt(nobs_eff) * taus * mu_hat)
+        bse[no_int] = sigma_star / (np.sqrt(nobs_eff) * taus * mu_star)
 
         zvalues = np.empty_like(params)
         pvalues = np.empty_like(params)
@@ -192,8 +210,9 @@ def summary(
             zvalues[intercept_idx] = np.nan
             pvalues[intercept_idx] = np.nan
 
+        # Compute gamma ^2 (estimate)
         signal_strength = float(
-            derive_gamma_from_nu(kappa, nu_sloe, sigma_hat, mu_hat) ** 2
+            derive_gamma_from_nu(kappa, nu_sloe, sigma_star, mu_star) ** 2
         )
 
         linear_predictors = x @ params
@@ -201,27 +220,29 @@ def summary(
             linear_predictors = linear_predictors + result.offset
         fitted_probs = expit(linear_predictors)
 
-        deviance = float(
-            -2.0
-            * np.sum(
-                result.weights
-                * np.where(
-                    result.y_raw == 1,
-                    np.log(np.clip(fitted_probs, eps, 1.0)),
-                    np.log(np.clip(1.0 - fitted_probs, eps, 1.0)),
-                )
-            )
+        # Null deviance does not need to be recomputed as null model fit on y_raw
+        # Deviance, residual deviance and pearson residuals built on y_raw
+        deviance = compute_deviance(result.y_raw, fitted_probs, result.weights, eps)
+
+        # TODO: Lewis,
+        # Can these two arrays be cached properties instead? Only computed when needed
+        resid_deviance = compute_deviance_residuals(
+            result.y_raw, fitted_probs, result.weights, eps
         )
-        aic = float(
-            logist_aic(result.y_adj, fitted_probs, result.weights) + 2.0 * result.rank
+        resid_pearson = compute_pearson_residuals(
+            result.y_raw, fitted_probs, result.weights, eps
         )
+
+        aic = logistic_aic(result.y_adj, fitted_probs, result.weights, result.rank, eps)
+        bic = logistic_bic(result.y_adj, fitted_probs, result.weights, result.rank, eps)
 
         hd_diagnostics = HDDiagnostics(
             kappa=kappa,
-            signal_strength=signal_strength,
+            signal_strength=signal_strength,  # Note: This is gamma^2 not gamma
             nu_sloe=nu_sloe,
             se_params=se_params.solution.to_array(),
             opt_chain=opt_chain,
+            func_value=func_value,
         )
 
     return MDYPLSummary(
@@ -233,6 +254,10 @@ def summary(
         fitted_probs=fitted_probs,
         nobs_eff=nobs_eff,
         deviance=deviance,
+        null_deviance=result.null_deviance,
+        resid_deviance=resid_deviance,
+        resid_pearson=resid_pearson,
         aic=aic,
+        bic=bic,
         hd_diagnostics=hd_diagnostics,
     )

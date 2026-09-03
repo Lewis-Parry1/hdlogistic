@@ -5,6 +5,7 @@ from functools import cached_property
 from typing import Any
 
 import numpy as np
+from scipy.special import expit, logit
 from statsmodels.genmod.families import (  # pyright: ignore[reportMissingTypeStubs]
     Binomial,
 )
@@ -12,7 +13,13 @@ from statsmodels.genmod.generalized_linear_model import (  # pyright: ignore[rep
     GLM,
 )
 
-from to_be_titled.inference import logist_aic
+from to_be_titled.inference import (
+    compute_deviance,
+    compute_deviance_residuals,
+    compute_pearson_residuals,
+    logistic_aic,
+    logistic_bic,
+)
 from to_be_titled.types import (
     FloatArray,
 )
@@ -22,6 +29,8 @@ from to_be_titled.validation import (
     ensure_design_matrix,
     is_full_rank,
 )
+
+# TODO: Confirm that deviance/null_deviance/aic all correctly computed on correct response
 
 
 @dataclass(frozen=True)
@@ -90,10 +99,15 @@ class MDYPLResults:
 
     data: MDYPLData
     params: FloatArray
+
     linear_predictors: FloatArray
     fitted_probs: FloatArray
-    deviance: float
+
     aic: float
+    bic: float
+    deviance: float
+    null_deviance: float
+
     converged: bool
     iterations: int
     alpha: float
@@ -238,6 +252,18 @@ class MDYPLResults:
         if self._glm_results is None:
             raise ValueError("Covariance matrix requires underlying GLM results.")
         return np.asarray(self._glm_results.cov_params(), dtype=np.float64)
+
+    @cached_property
+    def resid_deviance(self) -> FloatArray:
+        return compute_deviance_residuals(
+            self.y_adj, self.fitted_probs, self.data.weights, eps=1e-15
+        )
+
+    @cached_property
+    def resid_pearson(self) -> FloatArray:
+        return compute_pearson_residuals(
+            self.y_adj, self.fitted_probs, self.data.weights, eps=1e-15
+        )
 
 
 def prepare_mdypl_data(
@@ -408,15 +434,50 @@ def fit_mdypl(
 
     fitted_probs = np.asarray(glm_results.mu, dtype=np.float64)
 
-    aic = float(logist_aic(y_adj, fitted_probs, data.weights) + 2.0 * data.rank)
+    # Recomputed later if hd_correction is true.
+    # This is because fitted_probs is recomputed using rescaled coefficients
+    aic = logistic_aic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
+    bic = logistic_bic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
+
+    # Recomputed later as well if hd_correction is true.
+    deviance = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
+
+    # Build null model and get fitted probabilities.
+    # Null model fit on same adjusted responses used by original fitted model.
+    if data.has_intercept:
+        y_mean = float(np.average(y_adj, weights=data.weights))
+        logit_y_mean = logit(np.clip(y_mean, 1e-12, 1 - 1e-12))
+        null_start_params = np.asarray([logit_y_mean], dtype=np.float64)
+
+        intercept_col = data.x[:, data.intercept_idx].reshape(-1, 1)
+        null_model = GLM(
+            endog=y_adj,
+            exog=intercept_col,
+            family=Binomial(),
+            freq_weights=data.weights,
+            offset=offset_arr,
+        )
+        # drop the start params from the fit_kwargs to avoid passing it to the null model fit
+        null_kwargs = fit_kwargs.copy()
+        null_kwargs.pop("start_params", None)
+        null_results = null_model.fit(start_params=null_start_params, **null_kwargs)
+        null_fitted_probs = np.asarray(null_results.mu, dtype=np.float64)
+    else:
+        # If offset is defined then null_mus are sigmoid(offset) otherwise offset = 0
+        # sigmoid(0) =  0.5
+        null_fitted_probs = expit(offset_arr)
+
+    null_deviance = compute_deviance(y_adj, null_fitted_probs, data.weights, eps=1e-15)
 
     return MDYPLResults(
         data=data,
         params=params,
         linear_predictors=linear_predictors,
         fitted_probs=fitted_probs,
-        deviance=float(glm_results.deviance),
         aic=aic,
+        bic=bic,
+        deviance=deviance,
+        null_deviance=null_deviance,
         converged=bool(glm_results.converged),
         iterations=int(glm_results.fit_history.get("iteration", 0)),
         alpha=alpha_val,
