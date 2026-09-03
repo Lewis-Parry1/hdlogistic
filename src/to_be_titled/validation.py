@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import qr
 
 from to_be_titled.solvers.solver_types import SolverResult
 from to_be_titled.types import FloatArray
@@ -118,3 +119,18 @@ def _ensure_column_vector(y: FloatArray) -> FloatArray:
     if y.ndim != 1:
         raise ValueError("y must be a 1-D response vector or a 2-D column vector")
     return y
+
+
+def _is_full_rank(x: FloatArray, qr_tol: float = 1e-11) -> bool:
+    n, p = x.shape
+    if p > n:
+        return False
+
+    _, R, _ = qr(x, mode="economic", pivoting=True)
+    diag = np.abs(np.diag(R))
+
+    if diag.size == 0 or diag[0] == 0:
+        return diag.size == 0
+
+    threshold = qr_tol * diag[0]
+    return bool(np.all(diag > threshold))
