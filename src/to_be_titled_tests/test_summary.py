@@ -2,9 +2,15 @@
 
 import numpy as np
 from numpy.testing import assert_allclose
+<<<<<<< Updated upstream
 
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.summary import summary
+=======
+from to_be_titled.mdypl_fit import MDYPLModel
+
+from to_be_titled.summary import MDYPLSummary
+>>>>>>> Stashed changes
 
 # TODO: I end up creating this same toy dataset 3 times maybe
 # We should just have a dataset file in tests?

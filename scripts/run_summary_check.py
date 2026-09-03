@@ -35,17 +35,12 @@ def main() -> None:
     full_model = MDYPLLogistic(endog=y, exog=x)
     full_result = full_model.fit()
 
-    # Reduced model: intercept + first covariate only, same alpha so the
-    # comparison is valid — nested inside the full model above.
-    reduced_model = MDYPLLogistic(endog=y, exog=x[:, :2], alpha=full_result.alpha)
-    reduced_result = reduced_model.fit()
-    lrt_no_hd = full_result.penalised_lrt(reduced_result, hd_correction=False)
-    print(lrt_no_hd)
+    print(full_result.summary())
 
     print()
 
-    lrt_hd = full_result.penalised_lrt(reduced_result, hd_correction=True)
-    print(lrt_hd)
+    hd_result = full_result.get_high_dimensional()
+    print(hd_result.summary())
 
 
 if __name__ == "__main__":

@@ -401,3 +401,4 @@ def compute_pearson_residuals(
 # Or not rescaled coeffcients (hd = False). 
 def get_confidence_interval():
     pass
+    return float(-2.0 * np.sum(log_likelihood))
