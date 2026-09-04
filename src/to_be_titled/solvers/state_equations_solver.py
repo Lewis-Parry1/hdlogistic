@@ -7,7 +7,7 @@ from scipy.optimize import minimize, root
 
 from to_be_titled import state_equations, validation
 from to_be_titled.inference import derive_gamma_from_nu
-from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_interpolator
+from to_be_titled.interpolators.build_interpolator import _build_rgi_pchip_interpolator
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
@@ -225,6 +225,7 @@ def _init_solver(
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     intercept: float | None = None,
+    init_iter: int | None = None,
     **minimize_kwargs: Any,
 ) -> SolverResult:
     r"""
@@ -257,10 +258,10 @@ def _init_solver(
         positivity and prevent underflow
     init_method : str, optional
         The optimization method passed into `scipy.optimize.minimize`
-        to minimize the sum of squared residuals, by default 'BFGS'.
-    init_iter : int, optional
-        Maximum number of iterations for the initial minimization algorithm,
-        by default 50.
+        to minimize the sum of squared residuals, by default 'Nelder-Mead'.
+    init_iter : int | None, optional
+        Maximum number of iterations for the initial minimization algorithm.
+        By default, None and scipy.optimize.minimize() default used.
     hermite_roots_weights : tuple[FloatArray, FloatArray] | None, optional
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default None, in
@@ -312,6 +313,8 @@ def _init_solver(
         return float(np.dot(r, r))
 
     options_override = minimize_kwargs.pop("options", {})
+    if init_iter is not None:
+        options_override = {"maxiter": init_iter, **options_override}
 
     # Log-transform parameters except `intercept` if exists
     start_t = _transform_parameters(start, has_intercept, reverse=False)
@@ -320,7 +323,7 @@ def _init_solver(
         objective,
         start_t,
         method=cast(Any, init_method),
-        options=cast(Any, {**options_override}),
+        options=cast(Any, options_override),
         **minimize_kwargs,
     )  # pyright: ignore[reportCallIssue]
 
@@ -476,8 +479,9 @@ def solve_state_equation(
     transform: bool = True,
     corrupted: bool = False,
     intercept: float | None = None,
-    init_method: str = "BFGS",
+    init_method: str = "Nelder-Mead",
     main_method: str = "hybr",
+    init_iter: int | None = None,
     prox_tol: float = 1e-10,
     convergence_tol: float = 1e-4,
 ) -> tuple[SolverResult, str]:
@@ -515,7 +519,7 @@ def solve_state_equation(
         `[0.5, 2.0, 2.0, intercept]` when an intercept is specified,
         by default None.
     use_warm_start_interpolator : bool, optional
-        A cubic `RegularGridInterpolator` is fit on a grid of 100x100 approximate
+        A PCHIP `RegularGridInterpolator` is fit on a grid of 100x100 approximate
         true values of the state equations in the uncorrupted case without an
         intercept. If `use_warm_start_interpolator` is True, the true parameter
         values are interpolated using `kappa` and `signal_strength` and is used as
@@ -551,10 +555,13 @@ def solve_state_equation(
         initial guess for `theta0` if `start` is None.
     init_method : str, optional
         The optimization method to be passed to `scipy.optimize.minimize` for the
-        initial warm-start phase, by default "BFGS"
+        initial warm-start phase, by default "Nelder-Mead"
     main_method : str, optional
         The root-finding method to be passed to `scipy.optimize.root` for the exact
         solution phase, by default "hybr".
+    init_iter : int | None, optional
+        Maximum number of iterations for the initial minimization algorithm if needed.
+        By default, None and scipy.optimize.minimize() default used.
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
@@ -596,12 +603,26 @@ def solve_state_equation(
     if start is not None:
         stage1_start, stage1_name = start, "user_start"
     elif use_warm_start_interpolator:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
+
+        expected_alpha = 1 / (1 + kappa)
+        if not np.isclose(alpha, expected_alpha, rtol=1e-2):
+            warnings.warn(
+                f"use_warm_start_interpolator=True, but alpha={alpha} does not "
+                "match the adaptive shrinkage value"
+                f"alpha=1/(1+kappa)={expected_alpha:.4f}"
+                "that the interpolator's reference grid was built on. The "
+                "interpolated warm start may not be as reliable in this setting."
+                "Consider supplying `start` explicitly, or setting "
+                "`use_warm_start_interpolator=False`, when using a non-adaptive alpha.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         if not corrupted:
             stage1_start = interp.evaluate(kappa, signal_strength)
         else:
             start_temp = interp.evaluate(kappa, signal_strength)
-
             # get estimate for gamma, given kappa, corrupted ss
             # and interpolated values for `mu` and `sigma`
             gamma_est = derive_gamma_from_nu(
@@ -649,6 +670,7 @@ def solve_state_equation(
         prox_tol,
         corrupted,
         intercept,
+        init_iter,
         **minimize_kwargs,
     )
     warm_start = init_result.solution.to_array()
