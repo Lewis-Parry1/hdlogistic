@@ -17,6 +17,12 @@ class SolverConvergenceError(RuntimeError):
     to converge to a valid, in-domain root."""
 
 
+class AdaptiveAlphaMismatchWarning(RuntimeWarning):
+    """Raised when use_warm_start_interpolator=True but alpha does not
+    match the adaptive shrinkage value the interpolator's reference grid
+    was built on."""
+
+
 def _transform_parameters(
     pars: FloatArray, has_intercept: bool, reverse: bool = False
 ) -> FloatArray:
@@ -484,6 +490,7 @@ def solve_state_equation(
     init_iter: int | None = None,
     prox_tol: float = 1e-10,
     convergence_tol: float = 1e-4,
+    warn_interp_alpha_mismatch: bool = True,
 ) -> tuple[SolverResult, str]:
     r"""
     Solves the MDYPL state equations.
@@ -569,6 +576,15 @@ def solve_state_equation(
         Convergence tolerance used to assess final solution. Enforces
         that func(solution) is less than `convergence_tol`. By default,
         1e-4.
+    warn_interp_alpha_mismatch: bool, optional
+        If True, and `use_warm_start_interpolator=True`, warns via
+        `AdaptiveAlphaMismatchWarning` when `alpha` does not closely match
+        the adaptive shrinkage value `1/(1+kappa)` that the interpolator's
+        reference grid was built on. The interpolated warm start is
+        only technically valid for that adaptive alpha,
+        and may be a weaker starting guess for other values of `alpha`.
+        Set to False to silence this warning without changing solver
+        behaviour. By default, True.
 
     Returns
     -------
@@ -606,16 +622,15 @@ def solve_state_equation(
         interp = _build_rgi_pchip_interpolator()
 
         expected_alpha = 1 / (1 + kappa)
-        if not np.isclose(alpha, expected_alpha, rtol=1e-2):
+        if (
+            not np.isclose(alpha, expected_alpha, rtol=1e-2)
+            and warn_interp_alpha_mismatch
+        ):
             warnings.warn(
-                f"use_warm_start_interpolator=True, but alpha={alpha} does not "
-                "match the adaptive shrinkage value"
-                f"alpha=1/(1+kappa)={expected_alpha:.4f}"
-                "that the interpolator's reference grid was built on. The "
-                "interpolated warm start may not be as reliable in this setting."
-                "Consider supplying `start` explicitly, or setting "
-                "`use_warm_start_interpolator=False`, when using a non-adaptive alpha.",
-                RuntimeWarning,
+                "alpha does not match the adaptive shrinkage value 1/(1+kappa); "
+                "the interpolated warm start may be less reliable. See "
+                "solve_state_equation docs for details.",
+                AdaptiveAlphaMismatchWarning,
                 stacklevel=2,
             )
 

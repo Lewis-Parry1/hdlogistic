@@ -60,7 +60,7 @@ def evaluate_grid(
 
     # Intialise start
     previous_solution: FloatArray = _default_start()
-    
+
     for i, gamma in enumerate(gamma_arr):
         print(f"Evaluating over gamma = {gamma}")
         # continuation startegy, left to right sweep
