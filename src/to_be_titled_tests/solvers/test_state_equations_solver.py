@@ -194,7 +194,7 @@ def test_solve_se1_retrieve_nu() -> None:
     """
     kappa, gamma, alpha, theta = 0.2, 5, 0.88, 1.0
 
-    res1, chain = solve_state_equation(kappa, gamma, alpha, intercept=thet,
+    res1, chain = solve_state_equation(kappa, gamma, alpha, intercept=theta,
                                        warn_interp_alpha_mismatch=False)
 
     print(chain)
