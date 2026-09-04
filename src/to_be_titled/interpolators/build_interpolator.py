@@ -1,5 +1,5 @@
 """
-This module constructs a three cubic interpolators on a 100x100 grid
+This module constructs a three PCHIP interpolators on a 100x100 grid
 of true values of `mu`, `b` and `sigma`.
 """
 
@@ -27,7 +27,7 @@ FieldFunc = Callable[[FloatArray, FloatArray], FloatArray]
 
 
 @dataclass(frozen=True)
-class RgiCubicInterpolators:
+class RgiPchipInterpolators:
     kappa_arr: FloatArray
     gamma_arr: FloatArray
 
@@ -78,7 +78,7 @@ def _rgi_field(
     rgi = RegularGridInterpolator(
         points=(kappas, gammas),
         values=param_values,
-        method="cubic",
+        method="pchip",
         bounds_error=False,
         fill_value=None,
     )
@@ -91,7 +91,7 @@ def _rgi_field(
 
 
 @lru_cache(maxsize=1)
-def _build_rgi_cubic_interpolator() -> RgiCubicInterpolators:
+def _build_rgi_pchip_interpolator() -> RgiPchipInterpolators:
     """
     Build once and cache RegularGridInterpolators for `mu`, `b` and `sigma`
     over (kappa, gamma) grid of true values. Subsquent calls returns
@@ -105,7 +105,7 @@ def _build_rgi_cubic_interpolator() -> RgiCubicInterpolators:
         b_values = grid["b"]
         sigma_values = grid["sigma"]
 
-    return RgiCubicInterpolators(
+    return RgiPchipInterpolators(
         kappa_arr=kappas,
         gamma_arr=gammas,
         mu=_rgi_field(kappas, gammas, mu_values),

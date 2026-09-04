@@ -1,6 +1,6 @@
 """
 These tests ensure that build_interpolator.py correctly constructs
-cubic interpolators using a small random subsample drawn from the real
+pchip interpolators using a small random subsample drawn from the real
 reference grid."""
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from to_be_titled.interpolators.build_interpolator import (
-    _build_rgi_cubic_interpolator,
+    _build_rgi_pchip_interpolator,
 )
 
 GRID_PATH = (
@@ -23,19 +23,19 @@ GRID_PATH = (
 
 class TestBuildRgiCubicInterpolator:
     def test_is_cached_returns_same_instance(self) -> None:
-        first = _build_rgi_cubic_interpolator()
-        second = _build_rgi_cubic_interpolator()
+        first = _build_rgi_pchip_interpolator()
+        second = _build_rgi_pchip_interpolator()
 
         assert first is second
 
     def test_loads_correct_kappa_gamma(self) -> None:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
         with np.load(GRID_PATH) as grid:
             np.testing.assert_array_equal(interp.kappa_arr, grid["kappa"])
             np.testing.assert_array_equal(interp.gamma_arr, grid["gamma"])
 
     def test_evaluate_output_shape(self) -> None:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
         kappa_in = float(interp.kappa_arr[len(interp.kappa_arr) // 2])
         gamma_in = float(interp.gamma_arr[len(interp.gamma_arr) // 2])
 
@@ -45,7 +45,7 @@ class TestBuildRgiCubicInterpolator:
         assert out.dtype == np.float64
 
     def test_evaluate_recovers_exact_value(self) -> None:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
 
         with np.load(GRID_PATH) as grid:
             # off - diaganol points
@@ -67,7 +67,7 @@ class TestBuildRgiCubicInterpolator:
         np.testing.assert_allclose(result, expected_value, rtol=1e-6)
 
     def test_evaluate_clips_above(self) -> None:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
 
         kappa_max = float(interp.kappa_arr[-1])
 
@@ -81,7 +81,7 @@ class TestBuildRgiCubicInterpolator:
         np.testing.assert_allclose(beyond_boundary_pt, at_boundary_pt, rtol=1e-6)
 
     def test_evaluate_clip_gamma_below(self) -> None:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
 
         kappa_mid = float(interp.kappa_arr[len(interp.kappa_arr) // 2])
         gamma_min = float(interp.gamma_arr[0])

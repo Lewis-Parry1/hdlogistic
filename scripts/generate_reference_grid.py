@@ -92,7 +92,7 @@ def evaluate_grid(
 
 if __name__ == "__main__":
     grid = evaluate_grid(
-        n_points_axis=80, kappa_range=(0.01, 0.975), gamma_range=(0.025, 30)
+        n_points_axis=100, kappa_range=(0.01, 0.99), gamma_range=(0.01, 30)
     )
     np.savez_compressed(
         OUTPUT_PATH,

@@ -7,7 +7,7 @@ from scipy.optimize import minimize, root
 
 from to_be_titled import state_equations, validation
 from to_be_titled.inference import derive_gamma_from_nu
-from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_interpolator
+from to_be_titled.interpolators.build_interpolator import _build_rgi_pchip_interpolator
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
@@ -519,7 +519,7 @@ def solve_state_equation(
         `[0.5, 2.0, 2.0, intercept]` when an intercept is specified,
         by default None.
     use_warm_start_interpolator : bool, optional
-        A cubic `RegularGridInterpolator` is fit on a grid of 100x100 approximate
+        A PCHIP `RegularGridInterpolator` is fit on a grid of 100x100 approximate
         true values of the state equations in the uncorrupted case without an
         intercept. If `use_warm_start_interpolator` is True, the true parameter
         values are interpolated using `kappa` and `signal_strength` and is used as
@@ -603,7 +603,7 @@ def solve_state_equation(
     if start is not None:
         stage1_start, stage1_name = start, "user_start"
     elif use_warm_start_interpolator:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
 
         expected_alpha = 1 / (1 + kappa)
         if not np.isclose(alpha, expected_alpha, rtol=1e-2):
