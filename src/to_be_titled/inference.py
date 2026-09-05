@@ -397,8 +397,9 @@ def compute_pearson_residuals(
 
     return (residuals_raw) / np.sqrt(np.maximum(v_i, eps))
 
+
 # TODO: Lewis, when you add print summary can you fill this out
 # Just copy confint.mdyplFit in brglm2, use our rescaled (if hd=True)
-# Or not rescaled coeffcients (hd = False). 
+# Or not rescaled coeffcients (hd = False).
 def get_confidence_interval():
     pass

@@ -85,9 +85,9 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         self.nobs: float = raw_results.nobs_eff
 
     # TODO: Lewis,
-    # Set up basic print functionality 
+    # Set up basic print functionality
     # goes here so we can have print(result)
-    # Doesnt need to be pretty for now, just ensure usual 
+    # Doesnt need to be pretty for now, just ensure usual
     # Statsmodels attibutes printed, we can add the odd extra attr
     # Here and there
 
