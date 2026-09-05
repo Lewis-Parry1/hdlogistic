@@ -1,6 +1,7 @@
 import warnings
 from collections.abc import Callable
 from typing import Any, cast
+from enum import IntEnum
 
 import numpy as np
 from scipy.optimize import minimize, root
@@ -21,6 +22,11 @@ class AdaptiveAlphaMismatchWarning(RuntimeWarning):
     """Raised when use_warm_start_interpolator=True but alpha does not
     match the adaptive shrinkage value the interpolator's reference grid
     was built on."""
+
+class ConvergenceCode(IntEnum):
+    DID_NOT_CONVERGE = 0
+    CONVERGED_FIRST_TRY = 1
+    CONVERGED_AFTER_INIT = 2
 
 
 def _transform_parameters(
@@ -491,7 +497,7 @@ def solve_state_equation(
     prox_tol: float = 1e-10,
     convergence_tol: float = 1e-4,
     warn_interp_alpha_mismatch: bool = True,
-) -> tuple[SolverResult, str]:
+) -> tuple[SolverResult, ConvergenceCode]:
     r"""
     Solves the MDYPL state equations.
 
@@ -593,17 +599,19 @@ def solve_state_equation(
         - SolverResult: dataclass with the optimal real-space parameters
           (`solution`), the evaluated residual vector (`func_value`)and
           the main solver's converges success/message.
-        - str: a summary of the chain of optimisers used in order to converge
-        (or fail to converge) to a solution.
-
+        - ConvergenceCode: an IntEnum indicating which stage of the solve
+          cascade succeeded (or that none did):
+          `DID_NOT_CONVERGE` (0), `CONVERGED_FIRST_TRY` (1), or
+          `CONVERGED_AFTER_INIT` (2).
     Raises
     ------
     SolverConvergenceError
         If every strategy in the solve cascade fails to converge to a valid,
         in-domain root.
     """
-
-    has_intercept = intercept is not None
+    if intercept == 0.0: 
+        intercept = None 
+    has_intercept = intercept is not None 
 
     validation.validate_state_equation_fixed_params(alpha, kappa, signal_strength)
     if start is not None:
@@ -672,7 +680,7 @@ def solve_state_equation(
     attempts.append((stage1_name, result))
 
     if validation.is_valid(result):
-        return result, f"{stage1_name} -> root-finding algorithm: {main_method}"
+        return result, ConvergenceCode.CONVERGED_FIRST_TRY
 
     ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
     init_result = _init_solver(
@@ -696,7 +704,7 @@ def solve_state_equation(
     if validation.is_valid(result, tol=convergence_tol):
         return (
             result,
-            f"minimize method: {init_method} -> root-finding algorithm: {main_method}",
+            ConvergenceCode.CONVERGED_AFTER_INIT
         )
 
     warnings.warn(
@@ -710,6 +718,5 @@ def solve_state_equation(
 
     return (
         result,
-        f"minimize method: {init_method} -> root-finding algorithm: {main_method} "
-        "(did not converge to tolerance)",
+        ConvergenceCode.DID_NOT_CONVERGE
     )
