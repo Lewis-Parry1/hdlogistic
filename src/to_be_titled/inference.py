@@ -25,6 +25,11 @@ def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
     intercept_index: int | None,
         Index of intercept column of design matrix, if an intercept is included.
         By default, None.
+
+    Returns 
+    -------
+    FloatArray
+        Array of conditional standard deviations \tau_j for each j=1,...p.
     """
 
     mat_x = x if intercept_index is None else np.delete(x, intercept_index, axis=1)
@@ -62,9 +67,19 @@ def compute_sloe(
 
     Parameters
     ----------
-    fitted_probs: FloatArray
-
-    leverages: FloatArray
+    y_adj : FloatArray
+        Adjusted response vector of shape `(n,)` used to fit the model,
+        `y_adj = alpha * y_raw + (1 - alpha) / 2`. The SLOE estimator is
+        always evaluated on this scale, consistent with the penalised
+        likelihood the model was fit on.
+    linear_predictors : FloatArray
+        Linear predictors `X @ beta + offset` of shape `(n,)` from the
+        fitted (non-rescaled) model.
+    fitted_probs : FloatArray
+        Fitted probabilities of shape `(n,)` from the fitted
+        (non-rescaled) model.
+    leverages : FloatArray
+        Diagonal entries of the hat matrix, of shape `(n,)`.
 
     Returns
     -------
@@ -96,6 +111,32 @@ def compute_sloe(
 
 
 def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
+    r"""Derive the corrupted signal strength `nu` from the true signal
+    strength `gamma` and the state evolution parameters.
+
+    Computes `nu = sqrt(mu^2 * gamma^2 + kappa * sigma^2)`, the inverse
+    relationship to `derive_gamma_from_nu`, following the state evolution
+    equations in Sterzinger & Kosmidis (2024).
+
+    Parameters
+    ----------
+    kappa : float
+        Aspect ratio `p / nobs_eff` (ratio of predictors to effective
+        sample size).
+    gamma : float
+        True signal strength, the limit of `var(X @ beta)`.
+    mu : float
+        State evolution parameter `mu` from `solve_state_equation`.
+    sigma : float
+        State evolution parameter `sigma` from `solve_state_equation`.
+
+    Returns
+    -------
+    float
+        The derived corrupted signal strength `nu`, or `nan` (with a
+        `RuntimeWarning`) if the computation would require the square
+        root of a negative number.
+    """
     input = mu**2 * gamma**2 + kappa * sigma**2
     if input < 0:
         warnings.warn(
@@ -106,6 +147,33 @@ def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) ->
 
 
 def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
+    r"""Derive the true signal strength `gamma` from the corrupted signal
+    strength `nu` (e.g. from `compute_sloe`) and the state evolution
+    parameters.
+
+    Computes `gamma = sqrt(nu^2 - kappa * sigma^2) / mu`. Used to
+    obtain `signal_strength = gamma` in the high-dimensional summary
+    diagnostics.
+
+    Parameters
+    ----------
+    kappa : float
+        Aspect ratio `p / nobs_eff` (ratio of predictors to effective
+        sample size).
+    nu : float
+        Corrupted signal strength estimate (e.g. from `compute_sloe`).
+    sigma : float
+        State evolution parameter `sigma` from `solve_state_equation`.
+    mu : float
+        State evolution parameter `mu` from `solve_state_equation`.
+
+    Returns
+    -------
+    float
+        The derived true signal strength `gamma`, or `nan` (with a
+        `RuntimeWarning`) if `mu` is at or near zero, or if the
+        computation would require the square root of a negative number.
+    """
     if abs(mu) < 1e-12:
         warnings.warn(
             "State evolution parameter `mu` is at, near or below zero; "
@@ -133,7 +201,7 @@ def compute_likelihood(
     eps: float = 1e-15,
 ) -> float:
     r"""Compute the total log likelihood using the generalised
-    binomial probability mass function which allows non-integer x.
+    binomial probability mass function which allows non-integer y.
     This is defined as, with `s_i` being success rate,
     `f_i` being failure rate, and `fw_i` being the corresponding frequency
     weight component:
@@ -195,17 +263,18 @@ def logistic_aic(
     rank: int,
     eps: float = 1e-15,
 ) -> float:
-    """Calculates the AIC correctly for a logistic regression model, even when
+    """Calculates the AIC for a logistic regression model, even when
     the responses are [0,1] and not just binary. The AIC is defined as
     -2 * log likelihood + 2 * rank, where the log likelihood is the sum of
-    the log of the generalised binomial PMF for each observation.
+    the log of the generalised binomial PMF for each row of the design matric.
 
     Parameters
     ----------
     y : FloatArray
-        True (pseudo-)responses used to fit the model. If the responses are not
-        adjusted, this is simply the usual log likelihood for standard logistic
-        regression model.
+        True binary or pseudo-responses used to fit the model. 
+        If the responses are not adjusted, this is simply the usual 
+        log likelihood for standard logistic regression model. Usually computed
+        using the adjusted responses
     fitted_probs : FloatArray
         Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
         using rescaled coefficients if `hd_correction` was True.
@@ -231,52 +300,6 @@ def logistic_aic(
     aic = -2.0 * log_likelihood + 2.0 * rank
 
     return float(aic)
-
-
-def logistic_bic(
-    y: np.ndarray,
-    fitted_probs: np.ndarray,
-    freq_weights: np.ndarray,
-    rank: int,
-    eps: float = 1e-15,
-) -> float:
-    r"""
-    Computes the Bayesian Information Criterion (BIC)
-    for a logistic regression model.
-
-    The BIC is defined as:
-        BIC = -2 * log likelihood + log(n) * rank,
-    where the log likelihood is the sum of the log of
-    the generalised binomial PMF for each observation.
-
-    Parameters
-    ----------
-    y : np.ndarray
-        True response vector used to fit model. Adjusted responsed
-        passed in, are in [0,1]. Binary responses also supported.
-    fitted_probs : np.ndarray
-        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
-        using rescaled coefficients if `hd_correction` was True.
-    freq_weights : np.ndarray
-        Frequency weights used to fit model, which are the per observation trial
-        counts. If no frequency weights were supplied this is simply a vector of
-        1s of shape (n,).
-    rank : int
-        The rank of the design matrix used to fit the model. This is used to
-        compute the BIC penalty term.
-    eps : float, optional
-        Small value to avoid log(0) issues, by default 1e-15.
-    """
-    log_likelihood = compute_likelihood(
-        y, freq_weights, fitted_probs, log=True, eps=eps
-    )
-    # N is usually the sum of frequency weights (total trials)
-    nobs = np.sum(freq_weights)
-
-    bic = -2.0 * log_likelihood + rank * np.log(nobs)
-
-    return float(bic)
-
 
 def compute_deviance(
     y: FloatArray,
@@ -379,27 +402,3 @@ def compute_deviance_residuals(
 
     return sign_i * abs_deviance_residual
 
-
-def compute_pearson_residuals(
-    y: np.ndarray,
-    fitted_probs: np.ndarray,
-    freq_weights: np.ndarray,
-    eps: float = 1e-15,
-) -> np.ndarray:
-    """
-    Computes Pearson residuals:
-    r_i = (y - mu) / sqrt(mu * (1 - mu) / w)
-    """
-    mu_clipped = np.clip(fitted_probs, eps, 1.0 - eps)
-
-    v_i = (mu_clipped * (1.0 - mu_clipped)) / freq_weights
-    residuals_raw = y - mu_clipped
-
-    return (residuals_raw) / np.sqrt(np.maximum(v_i, eps))
-
-
-# TODO: Lewis, when you add print summary can you fill this out
-# Just copy confint.mdyplFit in brglm2, use our rescaled (if hd=True)
-# Or not rescaled coeffcients (hd = False).
-def get_confidence_interval():
-    pass
