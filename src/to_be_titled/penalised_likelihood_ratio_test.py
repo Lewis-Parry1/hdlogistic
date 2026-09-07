@@ -45,7 +45,7 @@ class PenalisedLRTResults:
         Aspect ratio `p / n` from high-dimensional asymptotics, by default None.
     se_params : FloatArray | None, optional
         State evolution parameter solutions `(mu, b, sigma)` from the full model,
-        and 'iota' if an intercept is included. By default None.
+        and 'theta_0' if an intercept is included. By default None.
     signal_strength : float | None, optional
         Estimated signal strength parameter `gamma**2` from high-dimensional asymptotics,
         by default None.
