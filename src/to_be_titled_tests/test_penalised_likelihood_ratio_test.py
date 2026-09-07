@@ -5,6 +5,7 @@ from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.penalised_likelihood_ratio_test import penalised_lrt
 
 
+from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.penalised_likelihood_ratio_test import (
     penalised_lrt,
 )

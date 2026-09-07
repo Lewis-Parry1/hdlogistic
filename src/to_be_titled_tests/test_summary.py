@@ -6,7 +6,6 @@ from numpy.testing import assert_allclose
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.summary import summary
 
-
 # TODO: I end up creating this same toy dataset 3 times maybe
 # We should just have a dataset file in tests?
 X_DATA = np.array(
