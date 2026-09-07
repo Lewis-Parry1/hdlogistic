@@ -6,9 +6,6 @@ from numpy.testing import assert_allclose
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.summary import summary
 
-
-# TODO: I end up creating this same toy dataset 3 times maybe
-# We should just have a dataset file in tests?
 X_DATA = np.array(
     [
         [1, 0.5, -1.2],
@@ -79,8 +76,8 @@ def test_hd_corrected_summary_matches_r_reference() -> None:
     )
     assert_allclose(hd_summ.hd_diagnostics.nu_sloe, expected_nu_sloe, rtol=1e-6)
 
-    assert_allclose(hd_summ.deviance, expected_deviance, rtol=1e-6)
-    assert_allclose(hd_summ.resid_deviance, expected_resid_deviance, rtol=1e-6)
+    assert_allclose(hd_summ.deviance_raw, expected_deviance, rtol=1e-6)
+    assert_allclose(hd_summ.resid_deviance_raw, expected_resid_deviance, rtol=1e-6)
     assert_allclose(hd_summ.aic, expected_aic, rtol=1e-6)
 
 
@@ -139,6 +136,7 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
         hd_summ.hd_diagnostics.signal_strength, expected_signal_strength, rtol=1e-6
     )
     assert_allclose(hd_summ.hd_diagnostics.nu_sloe, expected_nu_sloe, rtol=1e-6)
+    
     # TODO: Add tests back once R bug has been resolved.
     # assert_allclose(hd_summ.deviance, expected_deviance, rtol=1e-6)
     # assert_allclose(hd_summ.resid_deviance, expected_resid_deviance, rtol=1e-6)
