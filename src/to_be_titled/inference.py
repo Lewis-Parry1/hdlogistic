@@ -3,11 +3,9 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+from numpy.typing import NDArray
 from scipy.linalg import solve_triangular
 from scipy.special import betaln, xlogy
-
-if TYPE_CHECKING:
-    pass
 
 FloatArray = NDArray[np.float64]
 

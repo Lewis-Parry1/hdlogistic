@@ -108,8 +108,8 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
     )
     expected_kappa = 0.19047619047619
     expected_signal_strength = 4.67681318924516
-    expected_deviance = 7.47500655661417 # noqa: F841
-    expected_resid_deviance = np.asarray( # noqa: F841
+    expected_deviance = 7.47500655661417
+    expected_resid_deviance = np.asarray(
         [
             1.198657768757707,
             -0.614040422832868,
@@ -122,8 +122,8 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
             -0.352811360117789,
             -1.894260028540432,
         ]
-    ) 
-    expected_aic = 14.5077551413619 # noqa: F841
+    )
+    expected_aic = 14.5077551413619
     expected_nu_sloe = 1.90993381540636
 
     assert_allclose(hd_summ.params, expected_params, rtol=1e-6)

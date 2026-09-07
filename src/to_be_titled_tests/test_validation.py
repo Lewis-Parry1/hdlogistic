@@ -3,7 +3,6 @@ import numpy as np
 from to_be_titled.validation import is_full_rank
 
 
-
 class TestObviousCases:
     def test_identity_matrix_is_full_rank(self):
         assert is_full_rank(np.eye(5)) is True

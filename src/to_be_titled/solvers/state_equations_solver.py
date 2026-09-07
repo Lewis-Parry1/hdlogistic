@@ -1,13 +1,14 @@
 import warnings
 from collections.abc import Callable
 from typing import Any, cast
+from enum import IntEnum
 
 import numpy as np
 from scipy.optimize import minimize, root
 
 from to_be_titled import state_equations, validation
 from to_be_titled.inference import derive_gamma_from_nu
-from to_be_titled.interpolators.build_interpolator import _build_rgi_cubic_interpolator
+from to_be_titled.interpolators.build_interpolator import _build_rgi_pchip_interpolator
 from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
@@ -15,6 +16,17 @@ from to_be_titled.types import FloatArray
 class SolverConvergenceError(RuntimeError):
     """Raised when every strategy in the solve cascade fails
     to converge to a valid, in-domain root."""
+
+
+class AdaptiveAlphaMismatchWarning(RuntimeWarning):
+    """Raised when use_warm_start_interpolator=True but alpha does not
+    match the adaptive shrinkage value the interpolator's reference grid
+    was built on."""
+
+class ConvergenceCode(IntEnum):
+    DID_NOT_CONVERGE = 0
+    CONVERGED_FIRST_TRY = 1
+    CONVERGED_AFTER_INIT = 2
 
 
 def _transform_parameters(
@@ -225,6 +237,7 @@ def _init_solver(
     prox_tol: float = 1e-10,
     corrupted: bool = False,
     intercept: float | None = None,
+    init_iter: int | None = None,
     **minimize_kwargs: Any,
 ) -> SolverResult:
     r"""
@@ -257,10 +270,10 @@ def _init_solver(
         positivity and prevent underflow
     init_method : str, optional
         The optimization method passed into `scipy.optimize.minimize`
-        to minimize the sum of squared residuals, by default 'BFGS'.
-    init_iter : int, optional
-        Maximum number of iterations for the initial minimization algorithm,
-        by default 50.
+        to minimize the sum of squared residuals, by default 'Nelder-Mead'.
+    init_iter : int | None, optional
+        Maximum number of iterations for the initial minimization algorithm.
+        By default, None and scipy.optimize.minimize() default used.
     hermite_roots_weights : tuple[FloatArray, FloatArray] | None, optional
         A tuple of 1D arrays containing Gauss-Hermite quadrature nodes and weights
         used to approximate the system's expected values. By default None, in
@@ -312,6 +325,8 @@ def _init_solver(
         return float(np.dot(r, r))
 
     options_override = minimize_kwargs.pop("options", {})
+    if init_iter is not None:
+        options_override = {"maxiter": init_iter, **options_override}
 
     # Log-transform parameters except `intercept` if exists
     start_t = _transform_parameters(start, has_intercept, reverse=False)
@@ -320,7 +335,7 @@ def _init_solver(
         objective,
         start_t,
         method=cast(Any, init_method),
-        options=cast(Any, {**options_override}),
+        options=cast(Any, options_override),
         **minimize_kwargs,
     )  # pyright: ignore[reportCallIssue]
 
@@ -476,11 +491,13 @@ def solve_state_equation(
     transform: bool = True,
     corrupted: bool = False,
     intercept: float | None = None,
-    init_method: str = "BFGS",
+    init_method: str = "Nelder-Mead",
     main_method: str = "hybr",
+    init_iter: int | None = None,
     prox_tol: float = 1e-10,
     convergence_tol: float = 1e-4,
-) -> tuple[SolverResult, str]:
+    warn_interp_alpha_mismatch: bool = True,
+) -> tuple[SolverResult, ConvergenceCode]:
     r"""
     Solves the MDYPL state equations.
 
@@ -515,7 +532,7 @@ def solve_state_equation(
         `[0.5, 2.0, 2.0, intercept]` when an intercept is specified,
         by default None.
     use_warm_start_interpolator : bool, optional
-        A cubic `RegularGridInterpolator` is fit on a grid of 100x100 approximate
+        A PCHIP `RegularGridInterpolator` is fit on a grid of 100x100 approximate
         true values of the state equations in the uncorrupted case without an
         intercept. If `use_warm_start_interpolator` is True, the true parameter
         values are interpolated using `kappa` and `signal_strength` and is used as
@@ -551,10 +568,13 @@ def solve_state_equation(
         initial guess for `theta0` if `start` is None.
     init_method : str, optional
         The optimization method to be passed to `scipy.optimize.minimize` for the
-        initial warm-start phase, by default "BFGS"
+        initial warm-start phase, by default "Nelder-Mead"
     main_method : str, optional
         The root-finding method to be passed to `scipy.optimize.root` for the exact
         solution phase, by default "hybr".
+    init_iter : int | None, optional
+        Maximum number of iterations for the initial minimization algorithm if needed.
+        By default, None and scipy.optimize.minimize() default used.
     prox_tol : float, optional
         Convergence tolerance for the Newton-Raphson estimation of the
         proximal operator, by default 1e-10.
@@ -562,6 +582,15 @@ def solve_state_equation(
         Convergence tolerance used to assess final solution. Enforces
         that func(solution) is less than `convergence_tol`. By default,
         1e-4.
+    warn_interp_alpha_mismatch: bool, optional
+        If True, and `use_warm_start_interpolator=True`, warns via
+        `AdaptiveAlphaMismatchWarning` when `alpha` does not closely match
+        the adaptive shrinkage value `1/(1+kappa)` that the interpolator's
+        reference grid was built on. The interpolated warm start is
+        only technically valid for that adaptive alpha,
+        and may be a weaker starting guess for other values of `alpha`.
+        Set to False to silence this warning without changing solver
+        behaviour. By default, True.
 
     Returns
     -------
@@ -570,17 +599,19 @@ def solve_state_equation(
         - SolverResult: dataclass with the optimal real-space parameters
           (`solution`), the evaluated residual vector (`func_value`)and
           the main solver's converges success/message.
-        - str: a summary of the chain of optimisers used in order to converge
-        (or fail to converge) to a solution.
-
+        - ConvergenceCode: an IntEnum indicating which stage of the solve
+          cascade succeeded (or that none did):
+          `DID_NOT_CONVERGE` (0), `CONVERGED_FIRST_TRY` (1), or
+          `CONVERGED_AFTER_INIT` (2).
     Raises
     ------
     SolverConvergenceError
         If every strategy in the solve cascade fails to converge to a valid,
         in-domain root.
     """
-
-    has_intercept = intercept is not None
+    if intercept == 0.0: 
+        intercept = None 
+    has_intercept = intercept is not None 
 
     validation.validate_state_equation_fixed_params(alpha, kappa, signal_strength)
     if start is not None:
@@ -596,12 +627,25 @@ def solve_state_equation(
     if start is not None:
         stage1_start, stage1_name = start, "user_start"
     elif use_warm_start_interpolator:
-        interp = _build_rgi_cubic_interpolator()
+        interp = _build_rgi_pchip_interpolator()
+
+        expected_alpha = 1 / (1 + kappa)
+        if (
+            not np.isclose(alpha, expected_alpha, rtol=1e-2)
+            and warn_interp_alpha_mismatch
+        ):
+            warnings.warn(
+                "alpha does not match the adaptive shrinkage value 1/(1+kappa); "
+                "the interpolated warm start may be less reliable. See "
+                "solve_state_equation docs for details.",
+                AdaptiveAlphaMismatchWarning,
+                stacklevel=2,
+            )
+
         if not corrupted:
             stage1_start = interp.evaluate(kappa, signal_strength)
         else:
             start_temp = interp.evaluate(kappa, signal_strength)
-
             # get estimate for gamma, given kappa, corrupted ss
             # and interpolated values for `mu` and `sigma`
             gamma_est = derive_gamma_from_nu(
@@ -636,7 +680,7 @@ def solve_state_equation(
     attempts.append((stage1_name, result))
 
     if validation.is_valid(result):
-        return result, f"{stage1_name} -> root-finding algorithm: {main_method}"
+        return result, ConvergenceCode.CONVERGED_FIRST_TRY
 
     ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
     init_result = _init_solver(
@@ -649,6 +693,7 @@ def solve_state_equation(
         prox_tol,
         corrupted,
         intercept,
+        init_iter,
         **minimize_kwargs,
     )
     warm_start = init_result.solution.to_array()
@@ -659,7 +704,7 @@ def solve_state_equation(
     if validation.is_valid(result, tol=convergence_tol):
         return (
             result,
-            f"minimize method: {init_method} -> root-finding algorithm: {main_method}",
+            ConvergenceCode.CONVERGED_AFTER_INIT
         )
 
     warnings.warn(
@@ -673,6 +718,5 @@ def solve_state_equation(
 
     return (
         result,
-        f"minimize method: {init_method} -> root-finding algorithm: {main_method} "
-        "(did not converge to tolerance)",
+        ConvergenceCode.DID_NOT_CONVERGE
     )

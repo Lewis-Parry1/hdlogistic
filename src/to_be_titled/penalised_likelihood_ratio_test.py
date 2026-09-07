@@ -187,8 +187,7 @@ def penalised_lrt(
         deviance_difference < -1e-12
     ):  # allow for floating-point noise, not real negativity
         warnings.warn(
-            f"Deviance difference is negative ({deviance_difference:.3e});"
-            "this may indicate "
+            f"Deviance difference is negative ({deviance_difference:.3e}); this may indicate "
             "non-convergence in one of the fitted models. Clipping to 0.",
             RuntimeWarning,
         )
