@@ -26,7 +26,7 @@ def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
         Index of intercept column of design matrix, if an intercept is included.
         By default, None.
 
-    Returns 
+    Returns
     -------
     FloatArray
         Array of conditional standard deviations \tau_j for each j=1,...p.
@@ -271,8 +271,8 @@ def logistic_aic(
     Parameters
     ----------
     y : FloatArray
-        True binary or pseudo-responses used to fit the model. 
-        If the responses are not adjusted, this is simply the usual 
+        True binary or pseudo-responses used to fit the model.
+        If the responses are not adjusted, this is simply the usual
         log likelihood for standard logistic regression model. Usually computed
         using the adjusted responses
     fitted_probs : FloatArray
@@ -300,6 +300,7 @@ def logistic_aic(
     aic = -2.0 * log_likelihood + 2.0 * rank
 
     return float(aic)
+
 
 def compute_deviance(
     y: FloatArray,
@@ -401,4 +402,3 @@ def compute_deviance_residuals(
     sign_i = np.sign(y - mu_clipped)
 
     return sign_i * abs_deviance_residual
-

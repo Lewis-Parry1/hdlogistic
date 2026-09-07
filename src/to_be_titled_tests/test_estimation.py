@@ -8,7 +8,6 @@ from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.inference import compute_deviance
 
 
-
 class TestMDYPLEstimation:
     """Tests for `prepare_mdypl_data` and `fit_mdypl` in
     `to_be_titled.estimation` with simple dataset."""
@@ -81,7 +80,8 @@ class TestMDYPLEstimation:
             mdypl_result.params,
             standard_result.params,
             rtol=1e-6,
-            err_msg="MDYPL with alpha=1 should exactly match standard logistic regression",
+            err_msg="MDYPL with alpha=1 should exactly match standard "
+            "logistic regression",
         )
 
     # --- Weight and Offset Length Checks ---
@@ -155,7 +155,9 @@ class TestMDYPLEstimation:
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=0.8)
-        assert_allclose(np.sum(result.resid_deviance_adj**2), result.deviance_adj, rtol=1e-6)
+        assert_allclose(
+            np.sum(result.resid_deviance_adj**2), result.deviance_adj, rtol=1e-6
+        )
 
     @pytest.fixture
     def no_intercept_data(self):
@@ -282,7 +284,7 @@ def test_fitted_params_match_r_reference():
     expected_deviance = 3.268387
 
     # There is a slight discrepency with R
-    # In order for the null models to be the same, R must take in 
+    # In order for the null models to be the same, R must take in
     # the default alpha as fixed param, don't leave to be assigned
     expected_null_deviance = 8.126224
 
@@ -345,7 +347,7 @@ def test_fitted_params_match_r_reference_with_weights_and_offset():
     expected_deviance = 4.152915
 
     # There is a slight discrepency with R
-    # In order for the null models to be the same, R must take in 
+    # In order for the null models to be the same, R must take in
     # alpha as fixed param, don't leave to default
     expected_null_deviance = 8.204773
     expected_aic = 14.38138

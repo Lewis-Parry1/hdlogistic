@@ -109,7 +109,7 @@ class MDYPLResults:
     alpha : float
         Shrinkage parameter applied to the response.
     y_adj : FloatArray
-        Adjusted response vector of shape `(n,)`, 
+        Adjusted response vector of shape `(n,)`,
         `y_adj = alpha * y_raw + (1 - alpha) / 2`.
     _glm_results : Any, optional
         Underlying statsmodels `GLMResults` instance, by default None.
@@ -279,9 +279,9 @@ class MDYPLResults:
 
     @cached_property
     def resid_deviance_adj(self) -> FloatArray:
-        r"""Deviance residuals for all observations for the logistic 
-        regression model. Uses the penalised deviance. See `summary()` 
-        for the unpenalised (`_raw`) counterpart. 
+        r"""Deviance residuals for all observations for the logistic
+        regression model. Uses the penalised deviance. See `summary()`
+        for the unpenalised (`_raw`) counterpart.
 
         Returns
         -------
@@ -291,18 +291,17 @@ class MDYPLResults:
         return compute_deviance_residuals(
             self.y_adj, self.fitted_probs, self.data.weights, eps=1e-15
         )
-    
+
     @cached_property
-    def llf(self) -> float: 
+    def llf(self) -> float:
         """DY prior penalised likelihood for the fitted model.
 
-        Returns 
+        Returns
         -------
         float
             Total likelihood using the DY prior penalised likelihood.
         """
-        return compute_likelihood(self.y_adj, self.weights, self.fitted_probs,
-                                  log = True)
+        return compute_likelihood(self.y_adj, self.weights, self.fitted_probs, log=True)
 
 
 def prepare_mdypl_data(
@@ -477,12 +476,12 @@ def fit_mdypl(
     # This is because fitted_probs is recomputed using rescaled coefficients
     aic = logistic_aic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
 
-    # Deviance uses adjusted responses; needed for PLRT. 
+    # Deviance uses adjusted responses; needed for PLRT.
     deviance_adj = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
 
     # Build null model and get fitted probabilities.
     # Null model fit on same adjusted responses used by original fitted model.
-    # This is to ensure consistency across the two models 
+    # This is to ensure consistency across the two models
     if data.has_intercept:
         y_mean = float(np.average(y_adj, weights=data.weights))
         logit_y_mean = logit(np.clip(y_mean, 1e-12, 1 - 1e-12))
@@ -506,7 +505,9 @@ def fit_mdypl(
         # sigmoid(0) =  0.5
         null_fitted_probs = expit(offset_arr)
 
-    null_deviance_adj = compute_deviance(y_adj, null_fitted_probs, data.weights, eps=1e-15)
+    null_deviance_adj = compute_deviance(
+        y_adj, null_fitted_probs, data.weights, eps=1e-15
+    )
 
     return MDYPLResults(
         data=data,

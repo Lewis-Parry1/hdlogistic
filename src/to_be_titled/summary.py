@@ -17,8 +17,9 @@ from to_be_titled.inference import (
     logistic_aic,
 )
 from to_be_titled.solvers import solve_state_equation
-from to_be_titled.types import FloatArray
 from to_be_titled.solvers.state_equations_solver import ConvergenceCode
+from to_be_titled.types import FloatArray
+
 
 @dataclass(frozen=True)
 class HDDiagnostics:
@@ -34,7 +35,7 @@ class HDDiagnostics:
         Leave-one-out estimate of the linear predictor variance (SLOE).
     se_params : FloatArray
         Array containing the converged state evolution parameters `(mu, b, sigma)`,
-        plus the population intercept estimate `theta_0` as a 4th element if 
+        plus the population intercept estimate `theta_0` as a 4th element if
         the model has an intercept.
     func_value : FloatArray
         The vector of residuals when evaluating the state evolution equations at
@@ -85,13 +86,13 @@ class MDYPLSummary:
     deviance_raw : float
         Deviance evaluated on raw binary responses. Interpretable goodness-of-fit
         to the observed data; not comparable across nested models in the PLRT sense.
-    null_deviance_adj : float 
-        Total deviance of the null model. Computed as twice the 
+    null_deviance_adj : float
+        Total deviance of the null model. Computed as twice the
         the differene between the full model and the null model.
         Deviance is returned using the DY prior penalised likelihood
         ie. the penalised deviance (uses the adjusted responses).
-    null_deviance_raw : float 
-        Total deviance of the null model. Computed as twice the 
+    null_deviance_raw : float
+        Total deviance of the null model. Computed as twice the
         the differene between the full model and the null model.
         Deviance is returned using the unpenalised likelihood
         ie. the unpenalised deviance (uses the binary responses).
@@ -117,7 +118,7 @@ class MDYPLSummary:
     deviance_raw: float
     null_deviance_adj: float
     null_deviance_raw: float
-    aic: float          
+    aic: float
     resid_deviance_adj: FloatArray
     resid_deviance_raw: FloatArray
 
@@ -163,11 +164,10 @@ def summary(
     eps = 1e-15
     params = result.params.copy()
 
-    # Not hd_correction dependent 
-    null_deviance_raw = compute_deviance(result.y_raw, 
-                                         result.null_fitted_probs, 
-                                         result.weights, 
-                                         eps)
+    # Not hd_correction dependent
+    null_deviance_raw = compute_deviance(
+        result.y_raw, result.null_fitted_probs, result.weights, eps
+    )
 
     if not high_dimensional_correction:
         cov = np.asarray(result.cov_params, dtype=np.float64)
@@ -180,12 +180,14 @@ def summary(
         fitted_probs = result.fitted_probs
 
         deviance_adj = result.deviance_adj
-        deviance_raw = compute_deviance(result.y_raw, result.fitted_probs,
-                                        result.weights, eps)
-        
+        deviance_raw = compute_deviance(
+            result.y_raw, result.fitted_probs, result.weights, eps
+        )
+
         resid_deviance_adj = result.resid_deviance_adj
-        resid_deviance_raw = compute_deviance_residuals(result.y_raw, result.fitted_probs,
-                                        result.weights, eps)
+        resid_deviance_raw = compute_deviance_residuals(
+            result.y_raw, result.fitted_probs, result.weights, eps
+        )
 
         aic = result.aic
 
@@ -254,7 +256,6 @@ def summary(
 
         deviance_raw = compute_deviance(result.y_raw, fitted_probs, result.weights, eps)
         deviance_adj = compute_deviance(result.y_adj, fitted_probs, result.weights, eps)
-
 
         resid_deviance_raw = compute_deviance_residuals(
             result.y_raw, fitted_probs, result.weights, eps

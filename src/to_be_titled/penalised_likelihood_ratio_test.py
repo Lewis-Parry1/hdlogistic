@@ -34,7 +34,7 @@ class PenalisedLRTResults:
     deviance_restricted : float
         Deviance of the nested model. This deviance is the penalised deviance
         in the sense it uses the DY prior penalised likelihood (ie. uses adjusted
-        responses).   
+        responses).
     rank_full : int
         Column rank of the full model design matrix.
     rank_restricted : int
@@ -47,8 +47,8 @@ class PenalisedLRTResults:
         State evolution parameter solutions `(mu, b, sigma)` from the full model,
         and 'theta_0' if an intercept is included. By default None.
     signal_strength : float | None, optional
-        Estimated signal strength parameter `gamma**2` from high-dimensional asymptotics,
-        by default None.
+        Estimated signal strength parameter `gamma**2` from high-dimensional
+        asymptotics, by default None.
     """
 
     statistic: float
@@ -189,7 +189,8 @@ def penalised_lrt(
         deviance_difference < -1e-12
     ):  # allow for floating-point noise, not real negativity
         warnings.warn(
-            f"Deviance difference is negative ({deviance_difference:.3e}); this may indicate "
+            f"Deviance difference is negative ({deviance_difference:.3e});"
+            "this may indicate"
             "non-convergence in one of the fitted models. Clipping to 0.",
             RuntimeWarning,
         )
@@ -214,7 +215,7 @@ def penalised_lrt(
         hd = full_summary.hd_diagnostics
         kappa = hd.kappa
         se_params = hd.se_params
-        signal_strength = hd.signal_strength  
+        signal_strength = hd.signal_strength
 
         b_star = float(se_params[1])
         sigma_star = float(se_params[2])
