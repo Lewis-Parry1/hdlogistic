@@ -23,6 +23,7 @@ from to_be_titled.types import FloatArray
 
 # TODO: Ensure AIC, Deviance, etc. all computed on correct response
 
+
 @dataclass(frozen=True)
 class HDDiagnostics:
     """Inference diagnostics and parameter solutions from high-dimensional asymptotics.
