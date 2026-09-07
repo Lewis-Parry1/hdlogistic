@@ -11,17 +11,14 @@ from to_be_titled.estimation import MDYPLResults
 from to_be_titled.inference import (
     compute_deviance,
     compute_deviance_residuals,
-    compute_pearson_residuals,
     compute_sloe,
     compute_taus,
     derive_gamma_from_nu,
     logistic_aic,
-    logistic_bic,
 )
 from to_be_titled.solvers import solve_state_equation
+from to_be_titled.solvers.state_equations_solver import ConvergenceCode
 from to_be_titled.types import FloatArray
-
-# TODO: Ensure AIC, Deviance, etc. all computed on correct response
 
 
 @dataclass(frozen=True)
@@ -35,12 +32,21 @@ class HDDiagnostics:
     signal_strength : float
         Estimated squared signal strength parameter `gamma**2`.
     nu_sloe : float
-        Surrogate leave-one-out estimate of the linear predictor variance (SLOE).
+        Leave-one-out estimate of the linear predictor variance (SLOE).
     se_params : FloatArray
-        Array containing the converged state evolution parameters `(alpha, mu, sigma)`.
-    opt_chain : str
-        Description or identifier of the optimization solver chain used to solve
-        the state evolution equations.
+        Array containing the converged state evolution parameters `(mu, b, sigma)`,
+        plus the population intercept estimate `theta_0` as a 4th element if
+        the model has an intercept.
+    func_value : FloatArray
+        The vector of residuals when evaluating the state evolution equations at
+        the returned solution, used to assess solver convergence (all entries
+        should be close to zero at a valid solution).
+    opt_chain : ConvergenceCode
+        Convergence status of the state evolution equation solver. One of:
+        `DID_NOT_CONVERGE` (0) if the solver failed to converge,
+        `CONVERGED_FIRST_TRY` (1) if the initial solve converged directly, or
+        `CONVERGED_AFTER_INIT` (2) if convergence required a fallback/re-initialisation
+        step.
     """
 
     kappa: float
@@ -48,7 +54,7 @@ class HDDiagnostics:
     nu_sloe: float
     se_params: FloatArray
     func_value: FloatArray
-    opt_chain: str
+    opt_chain: ConvergenceCode
 
 
 @dataclass(frozen=True)
@@ -73,10 +79,26 @@ class MDYPLSummary:
         Fitted probabilities of shape `(n,)`.
     nobs_eff : float
         Effective sample size (sum of weights).
-    deviance : float
-        Model deviance evaluated at the final parameter estimates.
+    deviance_adj : float
+        Deviance evaluated on adjusted responses (penalized likelihood).
+        Consistent with the objective the model was fit on; used internally
+        for PLRT-type comparisons.
+    deviance_raw : float
+        Deviance evaluated on raw binary responses. Interpretable goodness-of-fit
+        to the observed data; not comparable across nested models in the PLRT sense.
+    null_deviance_adj : float
+        Total deviance of the null model. Computed as twice the
+        the differene between the full model and the null model.
+        Deviance is returned using the DY prior penalised likelihood
+        ie. the penalised deviance (uses the adjusted responses).
+    null_deviance_raw : float
+        Total deviance of the null model. Computed as twice the
+        the differene between the full model and the null model.
+        Deviance is returned using the unpenalised likelihood
+        ie. the unpenalised deviance (uses the binary responses).
     aic : float
-        Akaike Information Criterion evaluated on the adjusted response.
+        Always evaluated on adjusted responses (penalized likelihood), regardless
+        of `high_dimensional_correction`.
     hd_diagnostics : HDDiagnostics | None, optional
         Diagnostics and state evolution solutions from high-dimensional asymptotics,
         by default None.
@@ -92,13 +114,13 @@ class MDYPLSummary:
 
     nobs_eff: float
 
-    deviance: float
-    null_deviance: float
+    deviance_adj: float
+    deviance_raw: float
+    null_deviance_adj: float
+    null_deviance_raw: float
     aic: float
-    bic: float
-    # TODO: Lewis, Can/Should we make these arrays a cached_property
-    resid_deviance: FloatArray
-    resid_pearson: FloatArray
+    resid_deviance_adj: FloatArray
+    resid_deviance_raw: FloatArray
 
     hd_diagnostics: HDDiagnostics | None = None
 
@@ -142,6 +164,11 @@ def summary(
     eps = 1e-15
     params = result.params.copy()
 
+    # Not hd_correction dependent
+    null_deviance_raw = compute_deviance(
+        result.y_raw, result.null_fitted_probs, result.weights, eps
+    )
+
     if not high_dimensional_correction:
         cov = np.asarray(result.cov_params, dtype=np.float64)
         bse = np.sqrt(np.clip(np.diag(cov), 0.0, None))
@@ -151,11 +178,18 @@ def summary(
         # No need to recompute
         linear_predictors = result.linear_predictors
         fitted_probs = result.fitted_probs
-        deviance = result.deviance
-        resid_deviance = result.resid_deviance
-        resid_pearson = result.resid_pearson
+
+        deviance_adj = result.deviance_adj
+        deviance_raw = compute_deviance(
+            result.y_raw, result.fitted_probs, result.weights, eps
+        )
+
+        resid_deviance_adj = result.resid_deviance_adj
+        resid_deviance_raw = compute_deviance_residuals(
+            result.y_raw, result.fitted_probs, result.weights, eps
+        )
+
         aic = result.aic
-        bic = result.bic
 
         hd_diagnostics = None
 
@@ -184,7 +218,7 @@ def summary(
             corrupted=True,
         )
 
-        se_params, opt_chain = solve_state_equation(**solver_kwargs)
+        se_params, convergence_code = solve_state_equation(**solver_kwargs)
 
         func_value = se_params.func_value
         mu_star = se_params.solution.mu
@@ -211,7 +245,6 @@ def summary(
             zvalues[intercept_idx] = np.nan
             pvalues[intercept_idx] = np.nan
 
-        # Compute gamma ^2 (estimate)
         signal_strength = float(
             derive_gamma_from_nu(kappa, nu_sloe, sigma_star, mu_star) ** 2
         )
@@ -221,28 +254,24 @@ def summary(
             linear_predictors = linear_predictors + result.offset
         fitted_probs = expit(linear_predictors)
 
-        # Null deviance does not need to be recomputed as null model fit on y_raw
-        # Deviance, residual deviance and pearson residuals built on y_raw
-        deviance = compute_deviance(result.y_raw, fitted_probs, result.weights, eps)
+        deviance_raw = compute_deviance(result.y_raw, fitted_probs, result.weights, eps)
+        deviance_adj = compute_deviance(result.y_adj, fitted_probs, result.weights, eps)
 
-        # TODO: Lewis,
-        # Can these two arrays be cached properties instead? Only computed when needed
-        resid_deviance = compute_deviance_residuals(
+        resid_deviance_raw = compute_deviance_residuals(
             result.y_raw, fitted_probs, result.weights, eps
         )
-        resid_pearson = compute_pearson_residuals(
-            result.y_raw, fitted_probs, result.weights, eps
+        resid_deviance_adj = compute_deviance_residuals(
+            result.y_adj, fitted_probs, result.weights, eps
         )
 
         aic = logistic_aic(result.y_adj, fitted_probs, result.weights, result.rank, eps)
-        bic = logistic_bic(result.y_adj, fitted_probs, result.weights, result.rank, eps)
 
         hd_diagnostics = HDDiagnostics(
             kappa=kappa,
             signal_strength=signal_strength,  # Note: This is gamma^2 not gamma
             nu_sloe=nu_sloe,
             se_params=se_params.solution.to_array(),
-            opt_chain=opt_chain,
+            opt_chain=convergence_code,
             func_value=func_value,
         )
 
@@ -254,11 +283,12 @@ def summary(
         linear_predictors=linear_predictors,
         fitted_probs=fitted_probs,
         nobs_eff=nobs_eff,
-        deviance=deviance,
-        null_deviance=result.null_deviance,
-        resid_deviance=resid_deviance,
-        resid_pearson=resid_pearson,
+        null_deviance_adj=result.null_deviance_adj,
+        null_deviance_raw=null_deviance_raw,
+        deviance_adj=deviance_adj,
+        deviance_raw=deviance_raw,
+        resid_deviance_raw=resid_deviance_raw,
+        resid_deviance_adj=resid_deviance_adj,
         aic=aic,
-        bic=bic,
         hd_diagnostics=hd_diagnostics,
     )

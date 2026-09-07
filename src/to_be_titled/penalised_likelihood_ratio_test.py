@@ -28,9 +28,13 @@ class PenalisedLRTResults:
     p_value : float
         Asymptotic p-value computed from the chi-squared survival function.
     deviance_full : float
-        Deviance of the full model.
+        Deviance of the full model. This deviance is the penalised deviance
+        in the sense it uses the DY prior penalised likelihood (ie. uses adjusted
+        responses).
     deviance_restricted : float
-        Deviance of the restricted model.
+        Deviance of the nested model. This deviance is the penalised deviance
+        in the sense it uses the DY prior penalised likelihood (ie. uses adjusted
+        responses).
     rank_full : int
         Column rank of the full model design matrix.
     rank_restricted : int
@@ -40,11 +44,11 @@ class PenalisedLRTResults:
     kappa : float | None, optional
         Aspect ratio `p / n` from high-dimensional asymptotics, by default None.
     se_params : FloatArray | None, optional
-        State evolution parameter solutions `(alpha, b, sigma)` from the full model,
-        by default None.
+        State evolution parameter solutions `(mu, b, sigma)` from the full model,
+        and 'theta_0' if an intercept is included. By default None.
     signal_strength : float | None, optional
-        Estimated signal strength parameter `gamma` from high-dimensional asymptotics,
-        by default None.
+        Estimated signal strength parameter `gamma**2` from high-dimensional
+        asymptotics, by default None.
     """
 
     statistic: float
@@ -59,7 +63,6 @@ class PenalisedLRTResults:
     se_params: FloatArray | None = None
     signal_strength: float | None = None
 
-    # TODO: Lewis, check Lizzy's simple code, print(PenalisedLRTResults)
     def __str__(self) -> str:
         def sig_stars(p: float) -> str:
             if p < 0.001:
@@ -140,9 +143,9 @@ def penalised_lrt(
     Parameters
     ----------
     fit_1 : MDYPLResults
-        First fitted model result
+        First fitted model result.
     fit_2 : MDYPLResults
-        Second fitted model result (order does not matter)
+        Second fitted model result (order does not matter).
     hd_correction : bool, default=False
         Whether to rescale the test statistic using high-dimensional asymptotics.
     solve_se_kwargs : dict[str, Any] | None, default=None
@@ -180,14 +183,14 @@ def penalised_lrt(
 
     df_difference = full.rank - reduced.rank
 
-    # Deviance difference; D = D_reduced - D_full
-    # = 2 * (l_full - l_reduced)
-    deviance_difference = float(reduced.deviance - full.deviance)
+    # LRT Stat = l_fit - l_nested = D_reduced - D_full
+    deviance_difference = float(reduced.deviance_adj - full.deviance_adj)
     if (
         deviance_difference < -1e-12
     ):  # allow for floating-point noise, not real negativity
         warnings.warn(
-            f"Deviance difference is negative ({deviance_difference:.3e}); this may indicate "
+            f"Deviance difference is negative ({deviance_difference:.3e});"
+            "this may indicate"
             "non-convergence in one of the fitted models. Clipping to 0.",
             RuntimeWarning,
         )
@@ -212,7 +215,7 @@ def penalised_lrt(
         hd = full_summary.hd_diagnostics
         kappa = hd.kappa
         se_params = hd.se_params
-        signal_strength = hd.signal_strength  # Note: This is gamma^2 not gamma
+        signal_strength = hd.signal_strength
 
         b_star = float(se_params[1])
         sigma_star = float(se_params[2])
@@ -226,8 +229,8 @@ def penalised_lrt(
         statistic=lrt_stat,
         df=df_difference,
         p_value=p_value,
-        deviance_full=float(full.deviance),
-        deviance_restricted=float(reduced.deviance),
+        deviance_full=float(full.deviance_adj),
+        deviance_restricted=float(reduced.deviance_adj),
         rank_full=full.rank,
         rank_restricted=reduced.rank,
         hd_correction=hd_correction,

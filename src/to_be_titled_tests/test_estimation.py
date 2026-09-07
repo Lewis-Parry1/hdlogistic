@@ -5,6 +5,7 @@ from numpy.testing import assert_allclose
 from scipy.special import expit
 
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
+from to_be_titled.inference import compute_deviance
 
 
 class TestMDYPLEstimation:
@@ -79,7 +80,8 @@ class TestMDYPLEstimation:
             mdypl_result.params,
             standard_result.params,
             rtol=1e-6,
-            err_msg="MDYPL with alpha=1 should exactly match standard logistic regression",
+            err_msg="MDYPL with alpha=1 should exactly match standard "
+            "logistic regression",
         )
 
     # --- Weight and Offset Length Checks ---
@@ -136,7 +138,7 @@ class TestMDYPLEstimation:
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=1.0)
-        deviance = result.deviance
+        deviance = result.deviance_adj
 
         standard_result = sm.GLM(y, x, family=sm.families.Binomial()).fit()
         assert_allclose(deviance, standard_result.deviance, rtol=1e-5)
@@ -145,8 +147,7 @@ class TestMDYPLEstimation:
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=0.8)
-        assert result.resid_deviance.shape == (len(y),)
-        assert result.resid_pearson.shape == (len(y),)
+        assert result.resid_deviance_adj.shape == (len(y),)
 
     def test_deviance_residuals_sum_of_squares_equals_deviance(self, simple_data):
         """Sanity check on the mathematical relationship: sum(resid_deviance**2)
@@ -154,7 +155,9 @@ class TestMDYPLEstimation:
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=0.8)
-        assert_allclose(np.sum(result.resid_deviance**2), result.deviance, rtol=1e-6)
+        assert_allclose(
+            np.sum(result.resid_deviance_adj**2), result.deviance_adj, rtol=1e-6
+        )
 
     @pytest.fixture
     def no_intercept_data(self):
@@ -180,14 +183,11 @@ class TestMDYPLEstimation:
         y, x = no_intercept_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=1.0)
-        assert_allclose(result.null_deviance, result.null_deviance)  # sanity: no crash
-        # Recompute expected null deviance directly, since null_fitted_probs should be 0.5 everywhere
-        from to_be_titled.inference import compute_deviance
 
         expected_null_deviance = compute_deviance(
             data.y_raw, np.full(len(y), 0.5), data.weights, eps=1e-15
         )
-        assert_allclose(result.null_deviance, expected_null_deviance)
+        assert_allclose(result.null_deviance_adj, expected_null_deviance)
 
     def test_no_intercept_property_is_none(self, no_intercept_data):
         y, x = no_intercept_data
@@ -224,13 +224,13 @@ class TestMDYPLEstimation:
             err_msg="linear_predictors mismatch at alpha=1",
         )
         assert_allclose(
-            result.deviance,
+            result.deviance_adj,
             standard_result.deviance,
             rtol=1e-5,
             err_msg="deviance mismatch at alpha=1",
         )
         assert_allclose(
-            result.null_deviance,
+            result.null_deviance_adj,
             standard_result.null_deviance,
             rtol=1e-5,
             err_msg="null_deviance mismatch at alpha=1",
@@ -242,22 +242,10 @@ class TestMDYPLEstimation:
             err_msg="aic mismatch at alpha=1",
         )
         assert_allclose(
-            result.bic,
-            standard_result.bic_llf,
-            rtol=1e-5,
-            err_msg="bic mismatch at alpha=1",
-        )
-        assert_allclose(
-            result.resid_deviance,
+            result.resid_deviance_adj,
             standard_result.resid_deviance,
             rtol=1e-5,
             err_msg="resid_deviance mismatch at alpha=1",
-        )
-        assert_allclose(
-            result.resid_pearson,
-            standard_result.resid_pearson,
-            rtol=1e-5,
-            err_msg="resid_pearson mismatch at alpha=1",
         )
         assert result.converged == standard_result.converged
 
@@ -294,7 +282,12 @@ def test_fitted_params_match_r_reference():
     expected_alpha = 0.8333333
     expected_params = np.asarray([-0.5691641, 2.3274548, 0.2974664])
     expected_deviance = 3.268387
-    # expected_null_deviance = 8.126224  # TODO: re-enable once discrepancy
+
+    # There is a slight discrepency with R
+    # In order for the null models to be the same, R must take in
+    # the default alpha as fixed param, don't leave to be assigned
+    expected_null_deviance = 8.126224
+
     # with brglm2 expected null-deviance value is resolved.
     expected_aic = 13.49387
     expected_leverages = np.asarray(
@@ -328,11 +321,11 @@ def test_fitted_params_match_r_reference():
 
     assert_allclose(result.alpha, expected_alpha, rtol=1e-6)
     assert_allclose(result.params, expected_params, rtol=1e-6)
-    assert_allclose(result.deviance, expected_deviance, rtol=1e-6)
+    assert_allclose(result.deviance_adj, expected_deviance, rtol=1e-6)
     assert_allclose(result.aic, expected_aic, rtol=1e-6)
-    # assert_allclose(result.null_deviance, expected_null_deviance, rtol=1e-6)
+    assert_allclose(result.null_deviance_adj, expected_null_deviance, rtol=1e-6)
     assert_allclose(result.leverages, expected_leverages, rtol=1e-6)
-    assert_allclose(result.resid_deviance, expected_residual_deviances, rtol=1e-6)
+    assert_allclose(result.resid_deviance_adj, expected_residual_deviances, rtol=1e-6)
 
 
 def test_fitted_params_match_r_reference_with_weights_and_offset():
@@ -352,7 +345,11 @@ def test_fitted_params_match_r_reference_with_weights_and_offset():
     expected_alpha = 0.84
     expected_params = np.asarray([-0.5855203, 2.1187811, 0.2748631])
     expected_deviance = 4.152915
-    # expected_null_deviance = 13.9104 TODO: Fix discrepency
+
+    # There is a slight discrepency with R
+    # In order for the null models to be the same, R must take in
+    # alpha as fixed param, don't leave to default
+    expected_null_deviance = 8.204773
     expected_aic = 14.38138
     expected_leverages = np.asarray(
         [
@@ -385,8 +382,8 @@ def test_fitted_params_match_r_reference_with_weights_and_offset():
 
     assert_allclose(result.alpha, expected_alpha, rtol=1e-6)
     assert_allclose(result.params, expected_params, rtol=1e-6)
-    assert_allclose(result.deviance, expected_deviance, rtol=1e-6)
-    # assert_allclose(result.null_deviance, expected_null_deviance, rtol=1e-6)
+    assert_allclose(result.deviance_adj, expected_deviance, rtol=1e-6)
+    assert_allclose(result.null_deviance_adj, expected_null_deviance, rtol=1e-6)
     assert_allclose(result.aic, expected_aic, rtol=1e-6)
     assert_allclose(result.leverages, expected_leverages, rtol=1e-6)
-    assert_allclose(result.resid_deviance, expected_residual_deviances, rtol=1e-6)
+    assert_allclose(result.resid_deviance_adj, expected_residual_deviances, rtol=1e-6)

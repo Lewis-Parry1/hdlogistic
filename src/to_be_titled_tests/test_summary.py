@@ -6,8 +6,6 @@ from numpy.testing import assert_allclose
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.summary import summary
 
-# TODO: I end up creating this same toy dataset 3 times maybe
-# We should just have a dataset file in tests?
 X_DATA = np.array(
     [
         [1, 0.5, -1.2],
@@ -78,8 +76,8 @@ def test_hd_corrected_summary_matches_r_reference() -> None:
     )
     assert_allclose(hd_summ.hd_diagnostics.nu_sloe, expected_nu_sloe, rtol=1e-6)
 
-    assert_allclose(hd_summ.deviance, expected_deviance, rtol=1e-6)
-    assert_allclose(hd_summ.resid_deviance, expected_resid_deviance, rtol=1e-6)
+    assert_allclose(hd_summ.deviance_raw, expected_deviance, rtol=1e-6)
+    assert_allclose(hd_summ.resid_deviance_raw, expected_resid_deviance, rtol=1e-6)
     assert_allclose(hd_summ.aic, expected_aic, rtol=1e-6)
 
 
@@ -108,7 +106,7 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
     )
     expected_kappa = 0.19047619047619
     expected_signal_strength = 4.67681318924516
-    expected_deviance = 7.47500655661417
+    """expected_deviance = 7.47500655661417
     expected_resid_deviance = np.asarray(
         [
             1.198657768757707,
@@ -123,7 +121,7 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
             -1.894260028540432,
         ]
     )
-    expected_aic = 14.5077551413619
+    expected_aic = 14.5077551413619"""
     expected_nu_sloe = 1.90993381540636
 
     assert_allclose(hd_summ.params, expected_params, rtol=1e-6)
@@ -138,7 +136,6 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
         hd_summ.hd_diagnostics.signal_strength, expected_signal_strength, rtol=1e-6
     )
     assert_allclose(hd_summ.hd_diagnostics.nu_sloe, expected_nu_sloe, rtol=1e-6)
-    # TODO: Add tests back once R bug has been resolved.
-    # assert_allclose(hd_summ.deviance, expected_deviance, rtol=1e-6)
-    # assert_allclose(hd_summ.resid_deviance, expected_resid_deviance, rtol=1e-6)
-    # assert_allclose(hd_summ.aic, expected_aic, rtol=1e-6)
+
+    # TODO: Add tests back once R bug has been resolved. Deviance, resid_deviance
+    # and aic

@@ -4,12 +4,6 @@ from numpy.testing import assert_allclose
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.penalised_likelihood_ratio_test import penalised_lrt
 
-
-from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
-from to_be_titled.penalised_likelihood_ratio_test import (
-    penalised_lrt,
-)
-
 X_DATA = np.array(
     [
         [1, 0.5, -1.2],
@@ -44,12 +38,17 @@ def test_penalised_lrt_matches_r_reference_no_hd():
     fit_reduced = fit_mdypl(data_reduced, alpha=0.8)
     fit_full = fit_mdypl(data_full, alpha=0.8)
 
-    assert_allclose(fit_reduced.deviance, 3.062321, rtol=1e-5)
-    assert_allclose(fit_full.deviance, 2.956846, rtol=1e-5)
+    assert_allclose(fit_reduced.deviance_adj, 3.062321, rtol=1e-5)
+    assert_allclose(fit_full.deviance_adj, 2.956846, rtol=1e-5)
     assert fit_reduced.rank == 2
     assert fit_full.rank == 3
 
-    result = penalised_lrt(fit_reduced, fit_full, hd_correction=False)
+    result = penalised_lrt(
+        fit_reduced,
+        fit_full,
+        hd_correction=False,
+        solve_se_kwargs={"warn_interp_alpha_mismatch": False},
+    )
 
     expected_statistic = 0.105474361567877
     expected_df = 1
@@ -74,7 +73,12 @@ def test_penalised_lrt_matches_r_reference_with_hd():
     fit_reduced = fit_mdypl(data_reduced, alpha=0.8)
     fit_full = fit_mdypl(data_full, alpha=0.8)
 
-    result = penalised_lrt(fit_reduced, fit_full, hd_correction=True)
+    result = penalised_lrt(
+        fit_reduced,
+        fit_full,
+        hd_correction=True,
+        solve_se_kwargs={"warn_interp_alpha_mismatch": False},
+    )
 
     expected_statistic = 0.216012608750709
     expected_df = 1

@@ -1,7 +1,7 @@
 import warnings
 from collections.abc import Callable
-from typing import Any, cast
 from enum import IntEnum
+from typing import Any, cast
 
 import numpy as np
 from scipy.optimize import minimize, root
@@ -22,6 +22,7 @@ class AdaptiveAlphaMismatchWarning(RuntimeWarning):
     """Raised when use_warm_start_interpolator=True but alpha does not
     match the adaptive shrinkage value the interpolator's reference grid
     was built on."""
+
 
 class ConvergenceCode(IntEnum):
     DID_NOT_CONVERGE = 0
@@ -609,9 +610,7 @@ def solve_state_equation(
         If every strategy in the solve cascade fails to converge to a valid,
         in-domain root.
     """
-    if intercept == 0.0: 
-        intercept = None 
-    has_intercept = intercept is not None 
+    has_intercept = intercept is not None
 
     validation.validate_state_equation_fixed_params(alpha, kappa, signal_strength)
     if start is not None:
@@ -679,7 +678,7 @@ def solve_state_equation(
     result = try_root(stage1_start)
     attempts.append((stage1_name, result))
 
-    if validation.is_valid(result):
+    if validation.is_valid(result, tol=convergence_tol):
         return result, ConvergenceCode.CONVERGED_FIRST_TRY
 
     ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
@@ -702,10 +701,7 @@ def solve_state_equation(
     attempts.append((f"{init_method}_warm_start", result))
 
     if validation.is_valid(result, tol=convergence_tol):
-        return (
-            result,
-            ConvergenceCode.CONVERGED_AFTER_INIT
-        )
+        return (result, ConvergenceCode.CONVERGED_AFTER_INIT)
 
     warnings.warn(
         f"All strategies failed to converge at kappa={kappa}, "
@@ -716,7 +712,4 @@ def solve_state_equation(
         stacklevel=2,
     )
 
-    return (
-        result,
-        ConvergenceCode.DID_NOT_CONVERGE
-    )
+    return (result, ConvergenceCode.DID_NOT_CONVERGE)

@@ -16,9 +16,8 @@ from statsmodels.genmod.generalized_linear_model import (  # pyright: ignore[rep
 from to_be_titled.inference import (
     compute_deviance,
     compute_deviance_residuals,
-    compute_pearson_residuals,
+    compute_likelihood,
     logistic_aic,
-    logistic_bic,
 )
 from to_be_titled.types import (
     FloatArray,
@@ -30,8 +29,6 @@ from to_be_titled.validation import (
     is_full_rank,
 )
 
-# TODO: Confirm that deviance/null_deviance/aic all correctly computed on correct response
-
 
 @dataclass(frozen=True)
 class MDYPLData:
@@ -40,7 +37,8 @@ class MDYPLData:
     Attributes
     ----------
     x : FloatArray
-        Design matrix of shape `(n, p)`.
+        Design matrix of shape `(n, p)`. The matrix is checked
+        beforehand to ensure it is a valid full rank matrix.
     y_raw : FloatArray
         Raw binary response vector of shape `(n,)`.
     weights : FloatArray
@@ -48,7 +46,7 @@ class MDYPLData:
     offset : FloatArray | None
         Additive offset vector of shape `(n,)`, or None.
     rank : int
-        Column rank `p` of the design matrix.
+        Column rank `p` of the full rank design matrix.
     has_intercept : bool
         Whether a constant intercept column is present.
     intercept_idx : int | None
@@ -69,7 +67,8 @@ class MDYPLData:
 
 @dataclass(frozen=True)
 class MDYPLResults:
-    """Results container holding fitted parameters, predictions, and model diagnostics.
+    r"""Results container holding fitted parameters, predictions, and
+    model diagnostics.
 
     Parameters
     ----------
@@ -81,20 +80,45 @@ class MDYPLResults:
         Linear predictors `X @ beta + offset` of shape `(n,)`.
     fitted_probs : FloatArray
         Fitted probabilities of shape `(n,)`.
-    deviance : float
-        Model deviance at convergence.
+    null_fitted_probs : FloatArray
+        Fitted probabilities from the null (intercept-only) model, of shape `(n,)`.
+        Computed once at fit time on `y_adj`; reused by `summary()` to compute
+        `null_deviance_raw` without refitting, since the null model has no
+        slope parameters for high-dimensionality correction to rescale.
+    deviance_adj : float
+        Total deviance of the fitted model. Computed as twice the
+        difference between the saturated and fitted log-likelihoods,
+        evaluated using the DY prior penalised likelihood, i.e. the
+        penalised deviance (uses the adjusted responses `y_adj`). See
+        `summary()` for the unpenalised (`_raw`) counterpart.
+    null_deviance_adj : float
+        Total deviance of the null (intercept-only) model. Computed as
+        twice the difference between the saturated and null-model
+        log-likelihoods, evaluated using the DY prior penalised
+        likelihood, i.e. the penalised deviance (uses the adjusted
+        responses `y_adj`). See `summary()` for the unpenalised (`_raw`)
+        counterpart.
     aic : float
-        Akaike Information Criterion evaluated with adjusted response.
+        Akaike Information Criterion evaluated using the DY prior
+        penalised likelihood (evaluated on the adjusted response `y_adj`).
     converged : bool
-        Whether the optimization routine converged successfully.
+        Whether the optimisation routine used to find the MDYPL estimates
+        converged successfully.
     iterations : int
-        Number of iterations executed by the solver.
+        Number of iterations executed by the fitting routine.
     alpha : float
         Shrinkage parameter applied to the response.
     y_adj : FloatArray
-        Shrunk response vector of shape `(n,)`.
+        Adjusted response vector of shape `(n,)`,
+        `y_adj = alpha * y_raw + (1 - alpha) / 2`.
     _glm_results : Any, optional
         Underlying statsmodels `GLMResults` instance, by default None.
+    Notes
+    -----
+    Additional diagnostics (`leverages`, `cov_params`, `resid_deviance_adj`,
+    `llf`) are exposed as lazily-computed attributes
+    rather than constructor parameters; see their individual docstrings
+    below for details.
     """
 
     data: MDYPLData
@@ -102,11 +126,11 @@ class MDYPLResults:
 
     linear_predictors: FloatArray
     fitted_probs: FloatArray
+    null_fitted_probs: FloatArray
 
     aic: float
-    bic: float
-    deviance: float
-    null_deviance: float
+    deviance_adj: float
+    null_deviance_adj: float
 
     converged: bool
     iterations: int
@@ -138,7 +162,7 @@ class MDYPLResults:
 
     @property
     def weights(self) -> FloatArray:
-        """Observation weights vector.
+        """Frequency (observation) weights vector.
 
         Returns
         -------
@@ -165,7 +189,7 @@ class MDYPLResults:
         Returns
         -------
         int
-            Column rank `p` of the design matrix.
+            Column rank `p` of the full rank design matrix.
         """
         return self.data.rank
 
@@ -254,16 +278,30 @@ class MDYPLResults:
         return np.asarray(self._glm_results.cov_params(), dtype=np.float64)
 
     @cached_property
-    def resid_deviance(self) -> FloatArray:
+    def resid_deviance_adj(self) -> FloatArray:
+        r"""Deviance residuals for all observations for the logistic
+        regression model. Uses the penalised deviance. See `summary()`
+        for the unpenalised (`_raw`) counterpart.
+
+        Returns
+        -------
+        FloatArray
+            Deviance residuals of shape `(n,)`, evaluated on `y_adj`.
+        """
         return compute_deviance_residuals(
             self.y_adj, self.fitted_probs, self.data.weights, eps=1e-15
         )
 
     @cached_property
-    def resid_pearson(self) -> FloatArray:
-        return compute_pearson_residuals(
-            self.y_adj, self.fitted_probs, self.data.weights, eps=1e-15
-        )
+    def llf(self) -> float:
+        """DY prior penalised likelihood for the fitted model.
+
+        Returns
+        -------
+        float
+            Total likelihood using the DY prior penalised likelihood.
+        """
+        return compute_likelihood(self.y_adj, self.weights, self.fitted_probs, log=True)
 
 
 def prepare_mdypl_data(
@@ -437,13 +475,13 @@ def fit_mdypl(
     # Recomputed later if hd_correction is true.
     # This is because fitted_probs is recomputed using rescaled coefficients
     aic = logistic_aic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
-    bic = logistic_bic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
 
-    # Recomputed later as well if hd_correction is true.
-    deviance = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
+    # Deviance uses adjusted responses; needed for PLRT.
+    deviance_adj = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
 
     # Build null model and get fitted probabilities.
     # Null model fit on same adjusted responses used by original fitted model.
+    # This is to ensure consistency across the two models
     if data.has_intercept:
         y_mean = float(np.average(y_adj, weights=data.weights))
         logit_y_mean = logit(np.clip(y_mean, 1e-12, 1 - 1e-12))
@@ -457,9 +495,9 @@ def fit_mdypl(
             freq_weights=data.weights,
             offset=offset_arr,
         )
-        # drop the start params from the fit_kwargs to avoid passing it to the null model fit
         null_kwargs = fit_kwargs.copy()
         null_kwargs.pop("start_params", None)
+
         null_results = null_model.fit(start_params=null_start_params, **null_kwargs)
         null_fitted_probs = np.asarray(null_results.mu, dtype=np.float64)
     else:
@@ -467,17 +505,19 @@ def fit_mdypl(
         # sigmoid(0) =  0.5
         null_fitted_probs = expit(offset_arr)
 
-    null_deviance = compute_deviance(y_adj, null_fitted_probs, data.weights, eps=1e-15)
+    null_deviance_adj = compute_deviance(
+        y_adj, null_fitted_probs, data.weights, eps=1e-15
+    )
 
     return MDYPLResults(
         data=data,
         params=params,
         linear_predictors=linear_predictors,
         fitted_probs=fitted_probs,
+        null_fitted_probs=null_fitted_probs,
         aic=aic,
-        bic=bic,
-        deviance=deviance,
-        null_deviance=null_deviance,
+        deviance_adj=deviance_adj,
+        null_deviance_adj=null_deviance_adj,
         converged=bool(glm_results.converged),
         iterations=int(glm_results.fit_history.get("iteration", 0)),
         alpha=alpha_val,
