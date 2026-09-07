@@ -3,10 +3,13 @@ from __future__ import annotations
 from functools import cached_property
 from typing import Any, NoReturn
 
+import numpy as np
+from scipy.stats import norm
 from statsmodels.base.model import (  # pyright: ignore[reportMissingTypeStubs]
     Model,
     Results,
 )
+from statsmodels.iolib.summary import Summary  # pyright: ignore[reportMissingTypeStubs]
 
 from to_be_titled.estimation import (
     MDYPLData,
@@ -132,9 +135,38 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         return self._summary_data.zvalues
 
     @property
+    def tvalues(self) -> FloatArray:
+        """Alias for statsmodels Summary table generation."""
+        return self.zvalues
+
+    @property
     def pvalues(self) -> FloatArray:
         """Two-sided asymptotic p-values under the standard normal distribution."""
         return self._summary_data.pvalues
+
+    def conf_int(self, alpha: float = 0.05, cols: Any = None) -> FloatArray:
+        """Constructs two-sided normal confidence intervals for statsmodels Summary."""
+        q = norm.ppf(1.0 - alpha / 2.0)
+        lower = self.params - q * self.bse
+        upper = self.params + q * self.bse
+        ci = np.column_stack((lower, upper))
+        return ci[cols] if cols is not None else ci
+
+    @property
+    def scale(self) -> float:
+        return 1.0
+
+    @property
+    def df_resid(self) -> float:
+        if hasattr(self.model, "df_resid"):
+            return float(self.model.df_resid)
+        return float(self.nobs - len(self.params))
+
+    @property
+    def df_model(self) -> float:
+        if hasattr(self.model, "df_model"):
+            return float(self.model.df_model)
+        return float(len(self.params) - 1)
 
     @property
     def linear_predictors(self) -> FloatArray:
@@ -301,6 +333,131 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
             hd_correction=use_hd,
             solve_se_kwargs=solve_se_kwargs,
         )
+
+    def summary(
+        self,
+        yname: str | None = None,
+        xname: list[str] | None = None,
+        title: str | None = None,
+        alpha: float = 0.05,
+    ) -> Summary:
+        """
+        Summarize the Regression Results.
+
+        Parameters
+        ----------
+        yname : str, optional
+            Name of the dependent variable. Default is inferred from `model.endog_names`.
+        xname : list[str], optional
+            Names for the exogenous variables. Must match parameter length.
+        title : str, optional
+            Title for the top table.
+        alpha : float, default 0.05
+            Significance level for the confidence intervals.
+
+        Returns
+        -------
+        smry : statsmodels.iolib.summary.Summary
+            Summary instance containing formatted tables and diagnostic notes.
+        """
+        model = self.model
+        raw = self._raw_results
+
+        if yname is None:
+            yname = getattr(model, "endog_names", "y")
+        if xname is None:
+            xname = getattr(model, "exog_names", None)
+            if xname is None:
+                xname = [f"x{i}" for i in range(len(self.params))]
+
+        if title is None:
+            title = (
+                "MDYPL Logistic Regression Results (HD-corrected)"
+                if self.use_hd_correction
+                else "MDYPL Logistic Regression Results"
+            )
+
+        method = getattr(model, "method", getattr(raw, "method", "IRLS"))
+
+        top_left = [
+            ("Dep. Variable:", [yname]),
+            ("Model:", ["MDYPL-GLM"]),
+            ("Method:", [str(method)]),
+            ("Scale:", [f"{self.scale:#8.5g}"]),
+            ("No. Iterations:", [str(self.iterations)]),
+        ]
+
+        nobs_str = (
+            f"{int(self.nobs)}" if float(self.nobs).is_integer() else f"{self.nobs:.2f}"
+        )
+
+        top_right = [
+            ("No. Observations:", [nobs_str]),
+            ("Df Residuals:", [f"{int(self.df_resid)}"]),
+            ("Df Model:", [f"{int(self.df_model)}"]),
+            ("Deviance:", [f"{self.deviance:#8.5g}"]),
+            ("AIC:", [f"{self.aic:#8.5g}"]),
+            ("BIC:", [f"{self.bic:#8.5g}"]),
+        ]
+
+        smry = Summary()
+        smry.add_table_2cols(
+            self,
+            gleft=top_left,
+            gright=top_right,
+            yname=yname,
+            xname=xname,
+            title=title,
+        )
+        smry.add_table_params(
+            self,
+            yname=yname,
+            xname=xname,
+            alpha=alpha,
+            use_t=False,
+        )
+
+        extra_txt: list[str] = []
+        if self.use_hd_correction:
+            extra_txt.append("High Dimensionality Correction applied:")
+            diag = self.hd_diagnostics
+            sd = self._summary_data
+
+            kappa = getattr(diag, "kappa", getattr(sd, "kappa", None))
+            if kappa is not None:
+                extra_txt.append(
+                    f"  Dimensionality parameter (kappa)   = {float(kappa):.3f}"
+                )
+
+            gamma2 = getattr(
+                diag,
+                "signal_strength",
+                getattr(sd, "signal_strength", getattr(diag, "gamma2", None)),
+            )
+            if gamma2 is not None:
+                extra_txt.append(
+                    f"  Estimated signal strength (gamma^2) = {float(gamma2):.3f}"
+                )
+
+            se_params = getattr(diag, "se_params", getattr(sd, "se_params", None))
+            if se_params is not None:
+                try:
+                    formatted_tuple = (
+                        f"({', '.join(f'{float(v):.3f}' for v in se_params)})"
+                    )
+                except (TypeError, ValueError):
+                    formatted_tuple = str(se_params)
+                extra_txt.append(
+                    f"  State evolution parameters (mu, b, sigma, theta/iota): {formatted_tuple}"
+                )
+
+        if not self.converged:
+            extra_txt.append("WARNING: The algorithm failed to converge.")
+
+        if extra_txt:
+            smry.add_extra_txt(extra_txt)
+
+        return smry
 
 
 class MDYPLLogistic(Model):  # type: ignore[misc]
