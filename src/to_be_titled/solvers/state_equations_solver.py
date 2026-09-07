@@ -679,7 +679,7 @@ def solve_state_equation(
     result = try_root(stage1_start)
     attempts.append((stage1_name, result))
 
-    if validation.is_valid(result):
+    if validation.is_valid(result, tol = convergence_tol):
         return result, ConvergenceCode.CONVERGED_FIRST_TRY
 
     ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
