@@ -159,8 +159,8 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
     def df_model(self) -> float:
         if hasattr(self.model, "df_model"):
             return float(self.model.df_model)
-        
-        return (float(len(self.params) - 1) - int(self._raw_results.has_intercept))
+
+        return float(len(self.params) - 1) - int(self._raw_results.has_intercept)
 
     @property
     def linear_predictors(self) -> FloatArray:
@@ -172,7 +172,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         """Fitted response probabilities $\\mu = \\text{expit}(\\eta)$ of shape
         `(n,)`."""
         return self._summary_data.fitted_probs
-    
+
     @property
     def deviance_adj(self) -> float:
         return self._summary_data.deviance_adj
@@ -201,6 +201,13 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
     def aic(self) -> float:
         """Akaike Information Criterion evaluated on the adjusted response."""
         return self._summary_data.aic
+
+    @property
+    def llf(self) -> float:
+        """Total log-likelihood function evaluated using DY prior penalised
+        likelihood. Likelihood uses `y_adj`.
+        """
+        return self._summary_data.llf
 
     @property
     def hd_diagnostics(self) -> HDDiagnostics | None:
@@ -344,7 +351,8 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         Parameters
         ----------
         yname : str, optional
-            Name of the dependent variable. Default is inferred from `model.endog_names`.
+            Name of the dependent variable. Default is inferred from
+            `model.endog_names`.
         xname : list[str], optional
             Names for the exogenous variables. Must match parameter length.
         title : str, optional
@@ -361,7 +369,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         -----
             Under `use_hd_correction=True`, the confidence interval for the intercept
             (if present) will be `[nan, nan]`, since no standard error is available
-            for the corrected intercept estimate, this is subject to current/future 
+            for the corrected intercept estimate, this is subject to current/future
             work.
         """
         model = self.model
@@ -383,7 +391,6 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
         method = getattr(model, "method", getattr(raw, "method", "IRLS"))
 
-
         top_left = [
             ("Dep. Variable:", [yname]),
             ("Model:", ["MDYPL-GLM"]),
@@ -391,7 +398,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
             ("Alpha (shrinkage):", [f"{self.alpha:.3f}"]),
             ("Scale:", [f"{self.scale:#8.5g}"]),
             ("No. Iterations:", [str(self.iterations)]),
-         ]
+        ]
 
         nobs_str = (
             f"{int(self.nobs)}" if float(self.nobs).is_integer() else f"{self.nobs:.2f}"
@@ -427,10 +434,11 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
         resid = self.resid_deviance_raw
         quantiles = np.percentile(resid, [0, 25, 50, 75, 100])
-        resid_line = "Deviance Residuals (unpenalized): " + \
-            "  ".join(f"{label}={v:.4f}" for label, v in
-                    zip(["Min", "1Q", "Median", "3Q", "Max"], quantiles))
-        extra_txt.insert(0, resid_line) 
+        resid_line = "Deviance Residuals (unpenalized): " + "  ".join(
+            f"{label}={v:.4f}"
+            for label, v in zip(["Min", "1Q", "Median", "3Q", "Max"], quantiles)
+        )
+        extra_txt.insert(0, resid_line)
 
         if self.use_hd_correction:
             extra_txt.append("High Dimensionality Correction applied:")

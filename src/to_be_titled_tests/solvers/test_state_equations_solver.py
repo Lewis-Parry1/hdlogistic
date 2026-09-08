@@ -34,7 +34,10 @@ def test_solve_state_equation_no_int_compare_candes_sur(
     gamma = np.sqrt(5 + thetas**2)
 
     solver_result, chain = solve_state_equation(
-        kappa, gamma, alpha, use_warm_start_interpolator=False, 
+        kappa,
+        gamma,
+        alpha,
+        use_warm_start_interpolator=False,
     )
 
     print(chain)
@@ -65,7 +68,11 @@ def test_solve_state_equation_w_int_compare_candes_sur(
     alpha = 1.0
 
     solver_result, chain = solve_state_equation(
-        kappa, gamma, alpha, intercept=thetas, use_warm_start_interpolator=False,
+        kappa,
+        gamma,
+        alpha,
+        intercept=thetas,
+        use_warm_start_interpolator=False,
     )
 
     print(chain)

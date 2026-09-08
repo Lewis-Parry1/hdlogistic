@@ -84,7 +84,8 @@ def compute_sloe(
     Returns
     -------
     float
-        A scalar estimating the corrupted signal strength (nu).
+        A scalar estimating the square root of the corrupted signal
+        strength.
 
     References
     ----------
@@ -111,8 +112,9 @@ def compute_sloe(
 
 
 def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) -> float:
-    r"""Derive the corrupted signal strength `nu` from the true signal
-    strength `gamma` and the state evolution parameters.
+    r"""Derive `nu`, the square root of the corrupted signal strength, from
+    `gamma`, the square root of the true signal strength, and the state
+    evolution parameters.
 
     Computes `nu = sqrt(mu^2 * gamma^2 + kappa * sigma^2)`, the inverse
     relationship to `derive_gamma_from_nu`, following the state evolution
@@ -124,7 +126,8 @@ def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) ->
         Aspect ratio `p / nobs_eff` (ratio of predictors to effective
         sample size).
     gamma : float
-        True signal strength, the limit of `var(X @ beta)`.
+        The square root of true signal strength,
+        the limit of `var(X @ beta)`.
     mu : float
         State evolution parameter `mu` from `solve_state_equation`.
     sigma : float
@@ -147,12 +150,13 @@ def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) ->
 
 
 def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
-    r"""Derive the true signal strength `gamma` from the corrupted signal
-    strength `nu` (e.g. from `compute_sloe`) and the state evolution
+    r"""Derive, `gamma`, the square root of the true signal strength
+    `gamma**2` from the square root, ``nu`` of the corrupted signal
+    strength `n**2` (e.g. from `compute_sloe`) and the state evolution
     parameters.
 
     Computes `gamma = sqrt(nu^2 - kappa * sigma^2) / mu`. Used to
-    obtain `signal_strength = gamma` in the high-dimensional summary
+    obtain `signal_strength = gamma**2` in the high-dimensional summary
     diagnostics.
 
     Parameters
@@ -161,7 +165,8 @@ def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> fl
         Aspect ratio `p / nobs_eff` (ratio of predictors to effective
         sample size).
     nu : float
-        Corrupted signal strength estimate (e.g. from `compute_sloe`).
+        Square root of the signal strength estimate, `nu**2`. To obtain
+        the this quantitiy, see `compute_sloe()`.
     sigma : float
         State evolution parameter `sigma` from `solve_state_equation`.
     mu : float
@@ -256,37 +261,27 @@ def compute_likelihood(
     return np.exp(total_log_like)
 
 
-def logistic_aic(
-    y: FloatArray,
-    fitted_probs: FloatArray,
-    freq_weights: FloatArray,
+def compute_aic(
+    log_likelihood: float,
     rank: int,
-    eps: float = 1e-15,
 ) -> float:
-    """Calculates the AIC for a logistic regression model, even when
-    the responses are [0,1] and not just binary. The AIC is defined as
-    -2 * log likelihood + 2 * rank, where the log likelihood is the sum of
-    the log of the generalised binomial PMF for each row of the design matric.
+    """Calculates the AIC for a logistic regression model given a
+    precomputed total log-likelihood. The AIC is defined as
+    -2 * log likelihood + 2 * rank.
 
     Parameters
     ----------
-    y : FloatArray
-        True binary or pseudo-responses used to fit the model.
-        If the responses are not adjusted, this is simply the usual
-        log likelihood for standard logistic regression model. Usually computed
-        using the adjusted responses
-    fitted_probs : FloatArray
-        Vector of fitted probabilities found from `MDYPLModel.fit()` and computed
-        using rescaled coefficients if `hd_correction` was True.
-    freq_weights : FloatArray
-        Frequency weights used to fit model, which are the per observation trial
-        counts. If no frequency weights were supplied this is simply a vector of
-        1s of shape (n,).
+    log_likelihood : float
+        Total log-likelihood of the fitted model. Run `compute_likelihood`
+        (with `log=True`) beforehand to obtain this value, e.g.
+        `compute_likelihood(y, freq_weights, fitted_probs, log=True)`.
+        Passed in directly rather than recomputed here, since callers
+        typically already need the log-likelihood separately (e.g. as
+        `llf`) and recomputing it a second time inside this function
+        would duplicate that work.
     rank : int
         The rank of the design matrix used to fit the model. This is used to
         compute the AIC penalty term.
-    eps : float, optional
-        Small value to avoid log(0) issues, by default 1e-15.
 
     Returns
     -------
@@ -294,9 +289,6 @@ def logistic_aic(
         The -2 * log likelihood value + 2 * rank,
         which is the AIC for the fitted model.
     """
-    log_likelihood = compute_likelihood(
-        y, freq_weights, fitted_probs, log=True, eps=eps
-    )
     aic = -2.0 * log_likelihood + 2.0 * rank
 
     return float(aic)

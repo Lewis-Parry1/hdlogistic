@@ -9,12 +9,13 @@ from scipy.stats import norm
 
 from to_be_titled.estimation import MDYPLResults
 from to_be_titled.inference import (
+    compute_aic,
     compute_deviance,
     compute_deviance_residuals,
+    compute_likelihood,
     compute_sloe,
     compute_taus,
     derive_gamma_from_nu,
-    logistic_aic,
 )
 from to_be_titled.solvers import solve_state_equation
 from to_be_titled.solvers.state_equations_solver import ConvergenceCode
@@ -96,9 +97,21 @@ class MDYPLSummary:
         the differene between the full model and the null model.
         Deviance is returned using the unpenalised likelihood
         ie. the unpenalised deviance (uses the binary responses).
+    resid_deviance_adj : FloatArray
+        Per-observation deviance residuals evaluated on adjusted responses,
+        at the (possibly rescaled) fitted probabilities.
+    resid_deviance_raw : FloatArray
+        Per-observation deviance residuals evaluated on raw binary responses,
+        at the (possibly rescaled) fitted probabilities.
     aic : float
         Always evaluated on adjusted responses (penalized likelihood), regardless
         of `high_dimensional_correction`.
+    llf : float
+        Total log-likelihood of the fitted model, always evaluated on the
+        adjusted response `y_adj` (the DY prior penalised likelihood).
+        Consistent with `aic`, since AIC is derived from this value.
+        Reuses `result.llf` unchanged if `hd_correction=False`; recomputed
+        against the rescaled `fitted_probs` if `hd_correction=True`.
     hd_diagnostics : HDDiagnostics | None, optional
         Diagnostics and state evolution solutions from high-dimensional asymptotics,
         by default None.
@@ -118,9 +131,11 @@ class MDYPLSummary:
     deviance_raw: float
     null_deviance_adj: float
     null_deviance_raw: float
-    aic: float
     resid_deviance_adj: FloatArray
     resid_deviance_raw: FloatArray
+
+    aic: float
+    llf: float
 
     hd_diagnostics: HDDiagnostics | None = None
 
@@ -189,6 +204,7 @@ def summary(
             result.y_raw, result.fitted_probs, result.weights, eps
         )
 
+        llf = result.llf
         aic = result.aic
 
         hd_diagnostics = None
@@ -263,8 +279,10 @@ def summary(
         resid_deviance_adj = compute_deviance_residuals(
             result.y_adj, fitted_probs, result.weights, eps
         )
-
-        aic = logistic_aic(result.y_adj, fitted_probs, result.weights, result.rank, eps)
+        llf = compute_likelihood(
+            result.y_adj, result.weights, fitted_probs, log=True, eps=eps
+        )
+        aic = compute_aic(llf, result.rank)
 
         hd_diagnostics = HDDiagnostics(
             kappa=kappa,
@@ -290,5 +308,6 @@ def summary(
         resid_deviance_raw=resid_deviance_raw,
         resid_deviance_adj=resid_deviance_adj,
         aic=aic,
+        llf=llf,
         hd_diagnostics=hd_diagnostics,
     )
