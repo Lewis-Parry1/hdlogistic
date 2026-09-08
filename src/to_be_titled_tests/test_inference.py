@@ -13,6 +13,7 @@ from to_be_titled.inference import (
 
 
 # ---- SLOE Tests ----
+@pytest.mark.functional
 def test_compute_sloe_estimator_no_leverage_adjustment() -> None:
     """If h_i = 0 for all observations, the sloe scores collapse
     to being just the linear_predictors.
@@ -28,7 +29,7 @@ def test_compute_sloe_estimator_no_leverage_adjustment() -> None:
         expected,
     )
 
-
+@pytest.mark.functional
 def test_compute_sloe_estimator_excludes_infinite_values() -> None:
     """If h_i = 1.0 then a divide by zero error occurs. These values
     are ignored. For the other zero leverage values, the expected value
@@ -46,9 +47,9 @@ def test_compute_sloe_estimator_excludes_infinite_values() -> None:
     )
 
 
+@pytest.mark.functional
 def test_compute_sloe_estimator_happy_path() -> None:
     """Verify SLOE calculation with standard inputs."""
-
     # Setup inputs where 0 < mus < 1 and 0 < leverages < 1
     linear_predictors = np.array([0.0, 0.5, -0.5], dtype=np.float64)
     y_adjusted = np.array([1.0, 0.0, 1.0], dtype=np.float64)
@@ -66,6 +67,7 @@ def test_compute_sloe_estimator_happy_path() -> None:
 
 
 ## --- Test gamma to nu functions ---
+@pytest.mark.functional
 def test_derive_nu_from_gamma_expected():
     mu, gamma, kappa, sigma = 0.5, 1, 0.3, 1
     expected_nu = float(np.sqrt(55) / 10)
@@ -74,7 +76,7 @@ def test_derive_nu_from_gamma_expected():
 
     np.testing.assert_almost_equal(expected_nu, nu)
 
-
+@pytest.mark.functional
 def test_derive_gamma_from_nu_expected():
     kappa, nu, sigma, mu = 0.3, 1, 1, 0.5
     expected_gamma = float(np.sqrt(70) / 5)
@@ -84,7 +86,10 @@ def test_derive_gamma_from_nu_expected():
 
 
 # --- Test log-likelihood function ---
+@pytest.mark.brglm2
 def test_likelihood_expected():
+    """Result generated using brglm2's dbinom2 function.
+    """
     y_adj = np.asarray([0.5, 0.5, 0.2])
     freq_weights = np.asarray([1.0, 1.0, 2.0])
     fitted_probs = np.asarray([0.8, 0.8, 0.5])
@@ -100,8 +105,52 @@ def test_likelihood_expected():
     np.testing.assert_almost_equal(actual_raw_lik, expected_raw_lik, decimal=7)
 
 
+@pytest.mark.functional
+@pytest.mark.parametrize("y,fw,mu", [
+    (1.0, 1.0, 1.0),   # success == size, mu == 1 (clipped)
+    (0.0, 1.0, 0.0),   # success == 0, mu == 0 (clipped)
+    (1.0, 1.0, 0.0),   # success == size, but mu clipped near 0 -> should be very unlikely, finite log-lik
+    (0.0, 1.0, 1.0),   # success == 0, mu clipped near 1 -> same
+])
+def test_compute_likelihood_finite_at_boundaries(y, fw, mu):
+    y_arr = np.asarray([y])
+    fw_arr = np.asarray([fw])
+    mu_arr = np.asarray([mu])
+    result = compute_likelihood(y_arr, fw_arr, mu_arr, log=True)
+    assert np.isfinite(result)
+
+@pytest.mark.functional
+def test_compute_likelihood_returns_neg_inf_when_success_exceeds_size():
+    """y > 1 (or size_i < success_i more generally) triggers the explicit
+    `-np.inf` guard in compute_likelihood -- this is the only way to reach
+    that branch, since success_i = y * size_i <= size_i whenever y <= 1.
+    Confirms the guard fires as intended rather than being silently dead
+    code, and that it degrades gracefully (returns -inf, doesn't raise)."""
+    y_arr = np.asarray([1.5])   # invalid: y > 1, so success_i > size_i
+    fw_arr = np.asarray([1.0])
+    mu_arr = np.asarray([0.5])
+
+    result = compute_likelihood(y_arr, fw_arr, mu_arr, log=True)
+
+    assert result == -np.inf
+
+@pytest.mark.functional
+def test_compute_likelihood_raw_is_zero_when_success_exceeds_size():
+    """Same boundary case in raw (non-log) form: exp(-inf) = 0."""
+    y_arr = np.asarray([1.5])
+    fw_arr = np.asarray([1.0])
+    mu_arr = np.asarray([0.5])
+
+    result = compute_likelihood(y_arr, fw_arr, mu_arr, log=False)
+
+    assert result == 0.0
+
 ## --- Test compute taus ----
+@pytest.mark.brglm2
 def test_compute_taus_with_intercept():
+    """Tested against brglm2 taus() function
+    Intercept column will be dropped in both functions.
+    """
     x = np.array(
         [
             [1.0, 1.0, 1.0],
@@ -117,8 +166,10 @@ def test_compute_taus_with_intercept():
 
     np.testing.assert_allclose(compute_taus(x, intercept_index), expected, rtol=1e-6)
 
-
+@pytest.mark.brglm2
 def test_compute_taus_with_no_intercept():
+    """Tested against brlgm2's taus() function.
+    """
     x = np.array(
         [
             [1.0, 1.0],
@@ -135,6 +186,7 @@ def test_compute_taus_with_no_intercept():
     np.testing.assert_allclose(compute_taus(x, intercept_index), expected, rtol=1e-6)
 
 
+# ---- Test tau compuation by computing naively ----
 
 X_DATA = np.array(
     [
@@ -151,13 +203,12 @@ X_DATA = np.array(
     ]
 )
 
+
 @pytest.mark.functional
 def test_compute_taus_matches_manual_regression():
     """Reconstructs tau_j from first principles: regress each non-intercept
     covariate on all others via OLS, and check compute_taus reproduces the
     resulting conditional-standard-deviation value."""
-    from to_be_titled.inference import compute_taus
-
     x = X_DATA
     intercept_idx = 0
     mat_x = np.delete(x, intercept_idx, axis=1)  # shape (10, 2) — slopes only
@@ -181,16 +232,5 @@ def test_compute_taus_matches_manual_regression():
 
     assert_allclose(actual_taus, manual_taus, rtol=1e-6)
 
-@pytest.mark.functional
-@pytest.mark.parametrize("y,fw,mu", [
-    (1.0, 1.0, 1.0),   # success == size, mu == 1 (clipped)
-    (0.0, 1.0, 0.0),   # success == 0, mu == 0 (clipped)
-    (1.0, 1.0, 0.0),   # success == size, but mu clipped near 0 -> should be very unlikely, finite log-lik
-    (0.0, 1.0, 1.0),   # success == 0, mu clipped near 1 -> same
-])
-def test_compute_likelihood_finite_at_boundaries(y, fw, mu):
-    y_arr = np.asarray([y])
-    fw_arr = np.asarray([fw])
-    mu_arr = np.asarray([mu])
-    result = compute_likelihood(y_arr, fw_arr, mu_arr, log=True)
-    assert np.isfinite(result)
+
+
