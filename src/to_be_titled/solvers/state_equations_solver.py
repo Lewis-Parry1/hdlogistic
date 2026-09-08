@@ -13,15 +13,24 @@ from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
 
-class SolverConvergenceError(RuntimeError):
+class SolverConvergenceError(RuntimeWarning):
     """Raised when every strategy in the solve cascade fails
-    to converge to a valid, in-domain root."""
+    to converge to a solution within convergence threshold"""
 
 
 class AdaptiveAlphaMismatchWarning(RuntimeWarning):
-    """Raised when use_warm_start_interpolator=True but alpha does not
+    """Raised when `use_warm_start_interpolator=True` but alpha does not
     match the adaptive shrinkage value the interpolator's reference grid
     was built on."""
+
+class InterceptInterpolatedStartWarning(RuntimeWarning):
+    """
+    Raised when `use_warm_start_interpolator=True` but an intercept is 
+    included which is not 0.0. The grid used to build the interpolator 
+    was built on the assumption of a system of state equations with no
+    intercept. Results show the interpolated starts do not perform 
+    significantly better than default start.
+    """
 
 
 class ConvergenceCode(IntEnum):
@@ -33,12 +42,32 @@ class ConvergenceCode(IntEnum):
 def _transform_parameters(
     pars: FloatArray, has_intercept: bool, reverse: bool = False
 ) -> FloatArray:
-    """
-    If `reverse = False`, parameters are assumed to be in real-space and
-    `mu`, `b`, `sigmas` and are subsequently transformed into log-space.
-    If `reverse = True` then `mu`, `b`, and `sigma` (not iota) are
-    assumed to be in log-space, and subsequently clipped and exponetiated
-    back into real-space.
+    """Log-transform or inverse-transform the state evolution parameters.
+
+    If `reverse=False`, `mu`, `b`, `sigma` are assumed to be in real space
+    and are transformed into log-space to enforce strict positivity during
+    optimisation. The intercept/iota term (if present) is left untouched.
+
+    If `reverse=True`, `mu`, `b`, `sigma` are assumed to be in log-space;
+    they are clipped to `[-20, 20]` before exponentiating back to real
+    space, to guard against overflow/underflow. The intercept/iota term
+    (if present) is left untouched.
+
+    Parameters
+    ----------
+    pars : FloatArray
+        Parameter vector of length 3 (`mu`, `b`, `sigma`) or 4
+        (`mu`, `b`, `sigma`, intercept/iota).
+    has_intercept : bool
+        Whether `pars` includes a 4th intercept/iota element.
+    reverse : bool, optional
+        If False, transform real-space -> log-space. If True, transform
+        log-space -> real-space (with clipping). By default False.
+
+    Returns
+    -------
+    FloatArray
+        The transformed parameter vector, same length as `pars`.
     """
     if not reverse:
         pars_log = (
@@ -119,7 +148,7 @@ def _se_funcs(
         the inputs to enforce strict positivity and prevent numerical
         underflow/overflow during solver exploration. By default True.
     intercept: float | None, optional
-        If `intercept` is None, then the 3-equation system without an intercpet is
+        If `intercept` is None, then the 3-equation system without an intercept is
         used. If `intercept` is a float, then when
         - `corrupted = False`, `intercept` specifies the known (fixed) population
         intercept (\theta_0) used when solving the 4-equation state evolution system,
@@ -244,7 +273,7 @@ def _init_solver(
     r"""
     The initialisation solver aims to minimise the sum of squared residuals
     of the MDYPL state-evolution equations. Root-finding algorithms can be
-    sensitive to starting values, hence the goal of this intial minimisation
+    sensitive to starting values, hence the goal of this initial minimisation
     algorithm is to find a starting vector, closer to the true roots of the
     state-equations to be fed into a root-finding algorithm.
 
@@ -522,7 +551,7 @@ def solve_state_equation(
         \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
         signal strength leave one out estimator).
     alpha : float
-        Shrinkage parameter of the MDYPL estimator. `alpha` should be in [0,1].
+        Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1].
     start : FloatArray | None, optional
         Initial values for the state evolution parameters. If `intercept` is None,
         `start` must be a 1D array of length 3 containing (`mu`, `b`, `sigma`),
@@ -595,7 +624,7 @@ def solve_state_equation(
 
     Returns
     -------
-    tuple[SolverResult, str]
+    tuple[SolverResult, ConvergenceCode]
         A two-element tuple containing:
         - SolverResult: dataclass with the optimal real-space parameters
           (`solution`), the evaluated residual vector (`func_value`)and
@@ -611,6 +640,15 @@ def solve_state_equation(
         in-domain root.
     """
     has_intercept = intercept is not None
+
+    warnings.warn(
+        "The reference grid used to build the interpolator was fit assuming "
+        "a system of state equations with no intercept. Improved performance "
+        "from the interpolated start may be negligible when an intercept is "
+        "supplied. Consider setting `use_warm_start_interpolator=False`.",
+        InterceptInterpolatedStartWarning,
+        stacklevel=2,
+    )
 
     validation.validate_state_equation_fixed_params(alpha, kappa, signal_strength)
     if start is not None:
@@ -662,23 +700,23 @@ def solve_state_equation(
 
     def try_root(candidate_start: FloatArray) -> SolverResult:
         return _root_solver(
-            kappa,
-            signal_strength,
-            alpha,
-            candidate_start,
-            main_method,
-            hermite_roots_weights,
-            prox_tol,
-            corrupted,
-            transform,
-            intercept,
+            kappa=kappa,
+            signal_strength=signal_strength,
+            alpha=alpha,
+            start=candidate_start,
+            main_method=main_method,
+            hermite_roots_weights=hermite_roots_weights,
+            prox_tol=prox_tol,
+            corrupted=corrupted,
+            transform=transform,
+            intercept=intercept,
             **root_kwargs,
         )
 
     result = try_root(stage1_start)
     attempts.append((stage1_name, result))
 
-    if validation.is_valid(result, tol=convergence_tol):
+    if validation._has_converged(result, tol=convergence_tol):
         return result, ConvergenceCode.CONVERGED_FIRST_TRY
 
     ## -- Stage 2: Fallback method supplying stage1_start inot _init_solver --
@@ -700,15 +738,16 @@ def solve_state_equation(
     result = try_root(warm_start)
     attempts.append((f"{init_method}_warm_start", result))
 
-    if validation.is_valid(result, tol=convergence_tol):
+    if validation._has_converged(result, tol=convergence_tol):
         return (result, ConvergenceCode.CONVERGED_AFTER_INIT)
+
 
     warnings.warn(
         f"All strategies failed to converge at kappa={kappa}, "
         f"signal_strength={signal_strength}. Returning last (unvalidated) solution. "
         f"Attempts: {[(name, r.success) for name, r in attempts]}. "
         "Try alternative start or allow for interpolation warm start.",
-        RuntimeWarning,
+        SolverConvergenceError,
         stacklevel=2,
     )
 

@@ -5,7 +5,7 @@ from to_be_titled.solvers.solver_types import SolverResult
 from to_be_titled.types import FloatArray
 
 
-def is_valid(result: SolverResult, tol: float = 1e-4) -> bool:
+def _has_converged(result: SolverResult, tol: float = 1e-4) -> bool:
     converged = bool(np.all(np.abs(result.func_value) < tol))
     return converged
 

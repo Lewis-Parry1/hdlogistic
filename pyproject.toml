@@ -46,7 +46,6 @@ files = ["src/to_be_titled"]
 
 [[tool.mypy.overrides]]
 module = ["*.plugins.*", "statsmodels.*"]
-
 ignore_missing_imports = true
 
 [build-system]
@@ -55,6 +54,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/to_be_titled"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/to_be_titled/data/true_reference_param_grid.npz" = "to_be_titled/data/true_reference_param_grid.npz"
 
 [tool.pytest.ini_options]
 markers = [
