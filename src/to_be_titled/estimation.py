@@ -18,6 +18,7 @@ from to_be_titled.inference import (
     compute_deviance_residuals,
     compute_likelihood,
     logistic_aic,
+    compute_sloe
 )
 from to_be_titled.types import (
     FloatArray,
@@ -302,6 +303,20 @@ class MDYPLResults:
             Total likelihood using the DY prior penalised likelihood.
         """
         return compute_likelihood(self.y_adj, self.weights, self.fitted_probs, log=True)
+
+    @cached_property
+    def sloe(self) -> float:
+        """Estimates the corrupted signal strength using the signal strength
+        leave-one-out estimator (SLOE), per Yadlowsky et al. (2021) and its 
+        MDYPL adaptation (Sterzinger & Kosmidis, 2026). 
+
+        Returns
+        -------
+        float
+            _description_
+        """
+        return compute_sloe(self.y_adj, self.linear_predictors,
+                            self.fitted_probs, self.leverages)
 
 
 def prepare_mdypl_data(
