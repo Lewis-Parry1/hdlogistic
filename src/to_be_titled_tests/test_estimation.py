@@ -89,6 +89,45 @@ class TestMDYPLEstimation:
             "logistic regression",
         )
 
+    @pytest.mark.statsmodels
+    def test_general_alpha_matches_manual_y_adj_fit(self, simple_data):
+        """Reconstructs the MDYPL fit by hand: manually shrinks the response
+        toward 0.5 using a fixed alpha, fits an ordinary GLM on the adjusted
+        response, and checks fit_mdypl reproduces it exactly. 
+        
+        This directly tests the definitional equivalence between MDYPL fitting 
+        and an ordinary GLM fit on y_adj, at a non-degenerate alpha (unlike the
+        alpha=1 tests above, which don't exercise the response adjustment
+        logic at all)."""
+        y, x = simple_data
+        alpha = 0.3
+        data = prepare_mdypl_data(x=x, y=y)
+
+        mdypl_result = fit_mdypl(data, alpha=alpha)
+
+        y_adj_manual = alpha * y + (1.0 - alpha) / 2.0
+        manual_fit = sm.GLM(y_adj_manual, x, family=sm.families.Binomial()).fit()
+
+        assert_allclose(mdypl_result.params, manual_fit.params, rtol=1e-6)
+        assert_allclose(mdypl_result.deviance_adj, manual_fit.deviance, rtol=1e-6)
+
+    @pytest.mark.functional
+    def test_cov_params_matches_manual_fisher_information(self, simple_data):
+        """Reconstructs the covariance matrix from first principles (weighted
+        normal equations) rather than trusting statsmodels' internal cov_params,
+        mirroring brglm2's SE test."""
+        y, x = simple_data
+        a = 0.3
+        data = prepare_mdypl_data(x=x, y=y)
+        result = fit_mdypl(data, alpha=a)
+
+        mu = result.fitted_probs
+        working_weights = data.weights * mu * (1.0 - mu)
+        fisher_info = x.T @ (x * working_weights[:, None])
+        manual_cov = np.linalg.inv(fisher_info)
+
+        assert_allclose(np.diag(manual_cov), np.diag(result.cov_params), rtol=1e-5)
+
     # --- Weight and Offset Length Checks ---
     @pytest.mark.functional
     def test_weights_wrong_length_raises(self, simple_data):
@@ -293,6 +332,50 @@ class TestMDYPLEstimation:
         )
 
         assert result.converged == standard_result.converged
+
+    @pytest.fixture
+    def high_dim_data(self):
+        """p/n ratio and signal strength calibrated to approach the
+        high-dimensional regime the MDYPL estimator is designed for.
+
+        beta is normalised so that var(x_i^T beta) = beta^T Var(X) beta = gamma**2
+        exactly (population-level), since X has i.i.d. unit-variance columns and
+        beta^T beta = gamma**2 when ||beta|| = gamma.
+        """
+        rng = np.random.default_rng(11)
+        n, p_slopes = 60, 39
+        x_slopes = rng.normal(size=(n, p_slopes))
+        x = np.column_stack([np.ones(n), x_slopes])
+
+        gamma = 2
+        beta_raw = rng.normal(size=p_slopes)
+        beta_slopes = beta_raw * (gamma / np.linalg.norm(beta_raw))
+
+        intercept_true = 0.0
+        with np.errstate(all="ignore"):
+            linear_predictor = intercept_true + x_slopes @ beta_slopes
+        probs = expit(linear_predictor)
+
+        y = rng.binomial(1, probs).astype(np.float64)
+        return y, x
+
+    @pytest.mark.functional
+    def test_converges_in_high_dimensional_regime(self, high_dim_data):
+        """The core motivating case for MDYPL: fit_mdypl should still produce
+        finite, converged estimates where ordinary MLE would be expected to
+        struggle (large p/n, strong signal)."""
+        y, x = high_dim_data
+        data = prepare_mdypl_data(x=x, y=y)
+
+        with np.errstate(all="ignore"):
+            result = fit_mdypl(data, alpha=None)
+
+        assert result.converged
+        assert result.params.shape == (x.shape[1],)
+        assert np.all(np.isfinite(result.params))
+        assert np.isfinite(result.aic)
+        assert np.isfinite(result.llf)
+        assert np.isfinite(result.deviance_adj)
 
 
 ## --- Result cross check with brglm2 ---
