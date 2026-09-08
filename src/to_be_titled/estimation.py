@@ -310,6 +310,10 @@ class MDYPLResults:
         leave-one-out estimator (SLOE), per Yadlowsky et al. (2021) and its 
         MDYPL adaptation (Sterzinger & Kosmidis, 2026). 
 
+        Always evalutated on the original (not-rescaled) probabilities.
+        Uses the linear predictors, fitted probabilities, and leverages
+        from the base MDYPL fit, regardless of `use_hd_correction`. 
+
         Returns
         -------
         float
