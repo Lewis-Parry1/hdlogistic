@@ -38,6 +38,7 @@ References:
 
 # Test 1 & 2 : Ensure proximal operator successfully converges
 # suffciently close to known true values
+@pytest.mark.functional
 @pytest.mark.parametrize("b", [0.1, 1.0, 15.0, 40.0, 100.0])
 def test_prox_inverse_identity(b: float) -> None:
     """
@@ -61,6 +62,7 @@ def test_prox_inverse_identity(b: float) -> None:
 
 
 @pytest.mark.parametrize("b", [0.1, 1.0, 15.0, 40.0, 100.0])
+@pytest.mark.functional
 def test_prox_zero_point(b: float) -> None:
     """
     Evaluates the known analytic root where x = b / 2 yields exactly u = 0.
@@ -90,6 +92,7 @@ REGIMES: list[tuple[float, float, float, float, float]] = [
 
 # Test 3: Test _proximal_operator and se_no_intercept on different parameter reigmes
 @pytest.mark.parametrize("mu, b, sigma, kappa, gamma", REGIMES)
+@pytest.mark.functional
 def test_prox_data_regimes(
     mu: float, b: float, sigma: float, kappa: float, gamma: float
 ) -> None:
@@ -120,8 +123,8 @@ def test_prox_data_regimes(
         u_est = np.asarray(_proximal_operator(x_input, b))
         assert u_est.shape == x_input.shape
 
-
 @pytest.mark.parametrize("mu, b, sigma, kappa, gamma", REGIMES)
+@pytest.mark.functional
 def test_se_no_intercept_regimes(
     mu: float, b: float, sigma: float, kappa: float, gamma: float
 ) -> None:
@@ -145,7 +148,7 @@ def test_se_no_intercept_regimes(
                 f"Math instability at mu={mu}, kappa={kappa}, gamma={gamma}: {e}"
             )
 
-
+@pytest.mark.functional
 def test_se_no_intercept_shape_and_reproducibility() -> None:
     """
     Gauss Hermite nodes and weights are generated within _se_no_intercept.
@@ -200,6 +203,7 @@ def test_se_no_intercept_shape_and_reproducibility() -> None:
         ),
     ],
 )
+@pytest.mark.brglm2
 def test_se_no_intercept_matches_brglm2_se0(
     mu: float,
     b: float,
@@ -220,7 +224,7 @@ def test_se_no_intercept_matches_brglm2_se0(
 
     np.testing.assert_allclose(res, expected_res, atol=1e-7)
 
-
+@pytest.mark.brglm2
 def test_se_with_intercept_matches_brglm2_se1() -> None:
     kappa0 = 0.2
     gamma0 = 5
@@ -236,7 +240,7 @@ def test_se_with_intercept_matches_brglm2_se1() -> None:
     brglm_results = np.asarray([-0.05090216, -0.11007367, 0.11183220, -0.10479934])
     np.testing.assert_allclose(brglm_results, soln, atol=1e-7)
 
-
+@pytest.mark.brglm2
 def test_se0_se1_is_equal() -> None:
     """
     That the 4-parameter system with an intercept matches the
@@ -247,6 +251,4 @@ def test_se0_se1_is_equal() -> None:
 
     sol0 = se_no_intercept(mu, b, sigma, kappa, gamma, alpha)
     sol1 = se_with_intercept(mu, b, sigma, 0, kappa, gamma, alpha, 0)
-    # Assert, almost equal, a inisgniciant numerical differences
-    # occur
     np.testing.assert_array_almost_equal(sol0, sol1[0:3])

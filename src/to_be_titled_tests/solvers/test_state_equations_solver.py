@@ -7,7 +7,7 @@ import pytest
 
 from to_be_titled.inference import derive_nu_from_gamma
 from to_be_titled.solvers.state_equations_solver import (
-    SolverConvergenceError,
+    SolverConvergenceWarn,
     solve_state_equation,
 )
 from to_be_titled.types import FloatArray
@@ -37,7 +37,7 @@ def test_solve_state_equation_no_int_compare_candes_sur(
         kappa,
         gamma,
         alpha,
-        use_warm_start_interpolator=False,
+        warn_interpolator_issues=False,
     )
 
     print(chain)
@@ -72,7 +72,7 @@ def test_solve_state_equation_w_int_compare_candes_sur(
         gamma,
         alpha,
         intercept=thetas,
-        use_warm_start_interpolator=False,
+        warn_interpolator_issues=False,
     )
 
     print(chain)
@@ -93,7 +93,7 @@ def test_solve_state_equations_against_se0_brglm2() -> None:
     res_brglm2 = np.array([0.5649718, 2.5935673, 2.5376760])
 
     res, chain = solve_state_equation(
-        kappa, gamma, alpha, warn_interp_alpha_mismatch=False
+        kappa, gamma, alpha, warn_interpolator_issues=False
     )
 
     print(chain)
@@ -121,7 +121,7 @@ def test_solve_state_equations_not_corrupt_against_se1_brglm2() -> None:
         alpha,
         corrupted=False,
         intercept=theta,
-        warn_interp_alpha_mismatch=False,
+        warn_interpolator_issues=False,
     )
 
     print(chain)
@@ -154,7 +154,7 @@ def test_solve_state_equations_corrupt_against_se1_brglm2() -> None:
         alpha,
         corrupted=True,
         intercept=iota,
-        warn_interp_alpha_mismatch=False,
+        warn_interpolator_issues=False,
     )
 
     print(chain)
@@ -178,7 +178,7 @@ def test_solve_se0_with_nu() -> None:
     kappa, gamma, alpha = 0.2, 5, 0.88
 
     res0, chain = solve_state_equation(
-        kappa, gamma, alpha, warn_interp_alpha_mismatch=False
+        kappa, gamma, alpha, warn_interpolator_issues=False
     )
 
     print(chain)
@@ -186,7 +186,7 @@ def test_solve_se0_with_nu() -> None:
     nu = derive_nu_from_gamma(kappa, gamma, res0.solution.mu, res0.solution.sigma)
 
     res0_c, chain_c = solve_state_equation(
-        kappa, nu, alpha, corrupted=True, warn_interp_alpha_mismatch=False
+        kappa, nu, alpha, corrupted=True, warn_interpolator_issues=False
     )
 
     print(chain_c)
@@ -205,7 +205,7 @@ def test_solve_se1_retrieve_nu() -> None:
     kappa, gamma, alpha, theta = 0.2, 5, 0.88, 1.0
 
     res1, chain = solve_state_equation(
-        kappa, gamma, alpha, intercept=theta, warn_interp_alpha_mismatch=False
+        kappa, gamma, alpha, intercept=theta, warn_interpolator_issues=False
     )
 
     print(chain)
@@ -221,7 +221,7 @@ def test_solve_se1_retrieve_nu() -> None:
         alpha,
         corrupted=True,
         intercept=res1.solution.iota,
-        warn_interp_alpha_mismatch=False,
+        warn_interpolator_issues=False,
     )
 
     print(chain_c)
@@ -242,10 +242,10 @@ def test_solve_state_equation_no_int_transform_safely() -> None:
     kappa, gamma, alpha = 0.2, 5, 0.88
 
     soln, _ = solve_state_equation(
-        kappa, gamma, alpha, transform=False, warn_interp_alpha_mismatch=False
+        kappa, gamma, alpha, transform=False, warn_interpolator_issues=False
     )
     soln_t, _ = solve_state_equation(
-        kappa, gamma, alpha, transform=True, warn_interp_alpha_mismatch=False
+        kappa, gamma, alpha, transform=True, warn_interpolator_issues=False
     )
 
     np.testing.assert_array_almost_equal(
@@ -266,7 +266,7 @@ def test_solve_state_equation_int_transform_safely() -> None:
         alpha,
         transform=False,
         intercept=theta,
-        warn_interp_alpha_mismatch=False,
+        warn_interpolator_issues=False,
     )
     soln_t, _ = solve_state_equation(
         kappa,
@@ -274,7 +274,7 @@ def test_solve_state_equation_int_transform_safely() -> None:
         alpha,
         transform=True,
         intercept=theta,
-        warn_interp_alpha_mismatch=False,
+        warn_interpolator_issues=False,
     )
 
     np.testing.assert_array_almost_equal(
@@ -289,7 +289,7 @@ def test_rigon_alverti_case() -> None:
     alpha = 1 / (1 + kappa)
 
     res, chain = solve_state_equation(
-        kappa, gamma, alpha, corrupted=False, warn_interp_alpha_mismatch=False
+        kappa, gamma, alpha, corrupted=False, warn_interpolator_issues=False
     )
     print(chain)
 
@@ -310,9 +310,9 @@ def test_grid_sweep_solver(kappa: float, gamma: float) -> None:
 
     try:
         result, _ = solve_state_equation(
-            kappa, gamma, alpha, start=None, warn_interp_alpha_mismatch=False
+            kappa, gamma, alpha, start=None, warn_interpolator_issues=False
         )
-    except SolverConvergenceError as exc:
+    except SolverConvergenceWarn as exc:
         pytest.fail(f"Solver failed to converge at kappa={kappa}, gamma={gamma}: {exc}")
 
     np.testing.assert_allclose(

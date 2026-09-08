@@ -13,7 +13,7 @@ from to_be_titled.solvers.solver_types import SolverResult, StateParameters
 from to_be_titled.types import FloatArray
 
 
-class SolverConvergenceError(RuntimeWarning):
+class SolverConvergenceWarn(RuntimeWarning):
     """Raised when every strategy in the solve cascade fails
     to converge to a solution within convergence threshold"""
 
@@ -526,7 +526,7 @@ def solve_state_equation(
     init_iter: int | None = None,
     prox_tol: float = 1e-10,
     convergence_tol: float = 1e-4,
-    warn_interp_alpha_mismatch: bool = True,
+    warn_interpolator_issues: bool = True,
 ) -> tuple[SolverResult, ConvergenceCode]:
     r"""
     Solves the MDYPL state equations.
@@ -612,15 +612,18 @@ def solve_state_equation(
         Convergence tolerance used to assess final solution. Enforces
         that func(solution) is less than `convergence_tol`. By default,
         1e-4.
-    warn_interp_alpha_mismatch: bool, optional
-        If True, and `use_warm_start_interpolator=True`, warns via
-        `AdaptiveAlphaMismatchWarning` when `alpha` does not closely match
-        the adaptive shrinkage value `1/(1+kappa)` that the interpolator's
-        reference grid was built on. The interpolated warm start is
-        only technically valid for that adaptive alpha,
-        and may be a weaker starting guess for other values of `alpha`.
-        Set to False to silence this warning without changing solver
-        behaviour. By default, True.
+    warn_interpolator_issues : bool, optional
+        If True, warns whenever `use_warm_start_interpolator=True` and either
+        of the following interpolator-specific conditions hold:
+        - `alpha` does not closely match the adaptive shrinkage value
+          `1/(1+kappa)` that the interpolator's reference grid was built on
+          (`AdaptiveAlphaMismatchWarning`).
+        - An intercept is supplied, since the reference grid was built
+          assuming no intercept (`InterceptInterpolatedStartWarning`).
+        Set to False to silence both warnings without changing solver
+        behaviour. Does not affect the separate `RuntimeWarning` emitted
+        if the solve cascade fails to converge, which is always active.
+        By default, True.
 
     Returns
     -------
@@ -636,19 +639,10 @@ def solve_state_equation(
     Raises
     ------
     SolverConvergenceError
-        If every strategy in the solve cascade fails to converge to a valid,
-        in-domain root.
+        If every strategy in the solve cascade fails to converge to solution
+        which satisfies the convergence threshold.
     """
-    has_intercept = intercept is not None
-
-    warnings.warn(
-        "The reference grid used to build the interpolator was fit assuming "
-        "a system of state equations with no intercept. Improved performance "
-        "from the interpolated start may be negligible when an intercept is "
-        "supplied. Consider setting `use_warm_start_interpolator=False`.",
-        InterceptInterpolatedStartWarning,
-        stacklevel=2,
-    )
+    has_intercept = intercept is not None        
 
     validation.validate_state_equation_fixed_params(alpha, kappa, signal_strength)
     if start is not None:
@@ -667,15 +661,23 @@ def solve_state_equation(
         interp = _build_rgi_pchip_interpolator()
 
         expected_alpha = 1 / (1 + kappa)
-        if (
-            not np.isclose(alpha, expected_alpha, rtol=1e-2)
-            and warn_interp_alpha_mismatch
-        ):
-            warnings.warn(
-                "alpha does not match the adaptive shrinkage value 1/(1+kappa); "
-                "the interpolated warm start may be less reliable. See "
-                "solve_state_equation docs for details.",
-                AdaptiveAlphaMismatchWarning,
+        if warn_interpolator_issues: 
+            if np.isclose(alpha, expected_alpha, rtol=1e-2): 
+                warnings.warn(
+                    "alpha does not match the adaptive shrinkage value 1/(1+kappa); "
+                    "the interpolated warm start may be less reliable. See "
+                    "solve_state_equation docs for details.",
+                    AdaptiveAlphaMismatchWarning,
+                    stacklevel=2,
+                )
+            if has_intercept and intercept != 0.0: 
+                warnings.warn(
+                "The reference grid used to build the interpolator was fit "
+                "assuming a system of state equations with no intercept. "
+                "Improved performance from the interpolated start may be "
+                "negligible when an intercept is supplied. Consider setting "
+                "`use_warm_start_interpolator=False`.",
+                InterceptInterpolatedStartWarning,
                 stacklevel=2,
             )
 
@@ -747,7 +749,7 @@ def solve_state_equation(
         f"signal_strength={signal_strength}. Returning last (unvalidated) solution. "
         f"Attempts: {[(name, r.success) for name, r in attempts]}. "
         "Try alternative start or allow for interpolation warm start.",
-        SolverConvergenceError,
+        SolverConvergenceWarn,
         stacklevel=2,
     )
 
