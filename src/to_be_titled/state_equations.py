@@ -222,7 +222,7 @@ def se_with_intercept(
 def _proximal_operator(
     x: float | FloatArray,
     b: float,
-    tol: float = 1e-10,
+    rtol: float = 1e-10,
     max_iter: int = 100_000,
 ) -> float | FloatArray:
     """
@@ -238,7 +238,7 @@ def _proximal_operator(
         Scalar or vector of x values for proximal operator to be evaluated on.
     b : float
         Parameter 'b' in state evolution functions.
-    tol : float, optional
+    rtol : float, optional
         Convergence threshold for newton raphson step size, by default 1e-10.
     max_iter : int, optional
         Maximum number of Newton-Raphson updates, by default 10000.
@@ -267,7 +267,7 @@ def _proximal_operator(
 
         # Use adaptive tolerance; when magnitude of x gets meaningfully
         # large, convergence tolerance becomes less strict
-        if np.all(np.abs(g0) < tol * (1 + np.abs(x_arr))):
+        if np.all(np.abs(g0) < rtol * (1 + np.abs(x_arr))):
             break
 
         step = g0 / (b * expit_u * (1 - expit_u) + 1)

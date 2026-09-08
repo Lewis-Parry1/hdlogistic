@@ -46,7 +46,6 @@ files = ["src/to_be_titled"]
 
 [[tool.mypy.overrides]]
 module = ["*.plugins.*", "statsmodels.*"]
-
 ignore_missing_imports = true
 
 [build-system]
@@ -56,9 +55,14 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/to_be_titled"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"src/to_be_titled/data/true_reference_param_grid.npz" = "to_be_titled/data/true_reference_param_grid.npz"
+
 [tool.pytest.ini_options]
 markers = [
     "candes_sur: tests comparing solver output against Candes & Sur Table 13",
     "brglm2: tests comparing output of any functions to output of brglm2",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "functional: small functional/unit checks (correct shape, dtype, presence, error raised)", 
+    "statsmodels: tests comparing output of any functions to output in statsmodels"
 ]

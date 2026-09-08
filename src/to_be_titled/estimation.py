@@ -14,10 +14,11 @@ from statsmodels.genmod.generalized_linear_model import (  # pyright: ignore[rep
 )
 
 from to_be_titled.inference import (
+    compute_aic,
     compute_deviance,
     compute_deviance_residuals,
     compute_likelihood,
-    logistic_aic,
+    compute_sloe,
 )
 from to_be_titled.types import (
     FloatArray,
@@ -101,6 +102,10 @@ class MDYPLResults:
     aic : float
         Akaike Information Criterion evaluated using the DY prior
         penalised likelihood (evaluated on the adjusted response `y_adj`).
+    llf: float
+        Total log-likelihood of the fitted model, always evaluated on the
+        adjusted response `y_adj` (the DY prior penalised likelihood).
+        Consistent with `aic`, since AIC is derived from this value.
     converged : bool
         Whether the optimisation routine used to find the MDYPL estimates
         converged successfully.
@@ -116,9 +121,8 @@ class MDYPLResults:
     Notes
     -----
     Additional diagnostics (`leverages`, `cov_params`, `resid_deviance_adj`,
-    `llf`) are exposed as lazily-computed attributes
-    rather than constructor parameters; see their individual docstrings
-    below for details.
+    `sloe`) are exposed as lazily-computed attributes rather than constructor
+    parameters; see their individual docstrings below for details.
     """
 
     data: MDYPLData
@@ -128,6 +132,7 @@ class MDYPLResults:
     fitted_probs: FloatArray
     null_fitted_probs: FloatArray
 
+    llf: float
     aic: float
     deviance_adj: float
     null_deviance_adj: float
@@ -293,15 +298,24 @@ class MDYPLResults:
         )
 
     @cached_property
-    def llf(self) -> float:
-        """DY prior penalised likelihood for the fitted model.
+    def sloe(self) -> float:
+        """Estimates `nu`, the square root of the corrupted signal strength,
+        using the signal strength leave-one-out estimator (SLOE), per
+        Yadlowsky et al. (2021) and its MDYPL adaptation (Sterzinger &
+        Kosmidis, 2026).
+
+        Always evaluated on the original (non-rescaled) fit — i.e. using
+        `y_adj`, the linear predictors, fitted probabilities, and leverages
+        from the base MDYPL fit, regardless of `use_hd_correction`.
 
         Returns
         -------
         float
-            Total likelihood using the DY prior penalised likelihood.
+            Estimate of `nu`, the square root of the corrupted signal strength.
         """
-        return compute_likelihood(self.y_adj, self.weights, self.fitted_probs, log=True)
+        return compute_sloe(
+            self.y_adj, self.linear_predictors, self.fitted_probs, self.leverages
+        )
 
 
 def prepare_mdypl_data(
@@ -472,16 +486,15 @@ def fit_mdypl(
 
     fitted_probs = np.asarray(glm_results.mu, dtype=np.float64)
 
-    # Recomputed later if hd_correction is true.
-    # This is because fitted_probs is recomputed using rescaled coefficients
-    aic = logistic_aic(y_adj, fitted_probs, data.weights, data.rank, eps=1e-15)
+    llf = compute_likelihood(y_adj, data.weights, fitted_probs, log=True, eps=1e-15)
+    aic = compute_aic(llf, data.rank)
 
     # Deviance uses adjusted responses; needed for PLRT.
     deviance_adj = compute_deviance(y_adj, fitted_probs, data.weights, eps=1e-15)
 
     # Build null model and get fitted probabilities.
     # Null model fit on same adjusted responses used by original fitted model.
-    # This is to ensure consistency across the two models
+    # This is to ensure consistency across the two models.
     if data.has_intercept:
         y_mean = float(np.average(y_adj, weights=data.weights))
         logit_y_mean = logit(np.clip(y_mean, 1e-12, 1 - 1e-12))
@@ -501,8 +514,6 @@ def fit_mdypl(
         null_results = null_model.fit(start_params=null_start_params, **null_kwargs)
         null_fitted_probs = np.asarray(null_results.mu, dtype=np.float64)
     else:
-        # If offset is defined then null_mus are sigmoid(offset) otherwise offset = 0
-        # sigmoid(0) =  0.5
         null_fitted_probs = expit(offset_arr)
 
     null_deviance_adj = compute_deviance(
@@ -515,6 +526,7 @@ def fit_mdypl(
         linear_predictors=linear_predictors,
         fitted_probs=fitted_probs,
         null_fitted_probs=null_fitted_probs,
+        llf=llf,
         aic=aic,
         deviance_adj=deviance_adj,
         null_deviance_adj=null_deviance_adj,
