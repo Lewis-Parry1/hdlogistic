@@ -126,8 +126,8 @@ def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) ->
         Aspect ratio `p / nobs_eff` (ratio of predictors to effective
         sample size).
     gamma : float
-        The square root of true signal strength,
-        the limit of `var(X @ beta)`.
+        The square root of the true signal strength, i.e. the square
+        root of the limit of `var(X @ beta)`.
     mu : float
         State evolution parameter `mu` from `solve_state_equation`.
     sigma : float
@@ -136,9 +136,9 @@ def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) ->
     Returns
     -------
     float
-        The derived corrupted signal strength `nu`, or `nan` (with a
-        `RuntimeWarning`) if the computation would require the square
-        root of a negative number.
+        The derived `nu`, the square root of the corrupted signal
+        strength, or `nan` (with a `RuntimeWarning`) if the computation
+        would require the square root of a negative number.
     """
     input = mu**2 * gamma**2 + kappa * sigma**2
     if input < 0:
@@ -150,10 +150,9 @@ def derive_nu_from_gamma(kappa: float, gamma: float, mu: float, sigma: float) ->
 
 
 def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> float:
-    r"""Derive, `gamma`, the square root of the true signal strength
-    `gamma**2` from the square root, ``nu`` of the corrupted signal
-    strength `n**2` (e.g. from `compute_sloe`) and the state evolution
-    parameters.
+    r"""Derive `gamma`, the square root of the true signal strength, from
+    `nu`, the square root of the corrupted signal strength (e.g. from
+    `compute_sloe`), and the state evolution parameters.
 
     Computes `gamma = sqrt(nu^2 - kappa * sigma^2) / mu`. Used to
     obtain `signal_strength = gamma**2` in the high-dimensional summary
@@ -165,8 +164,8 @@ def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> fl
         Aspect ratio `p / nobs_eff` (ratio of predictors to effective
         sample size).
     nu : float
-        Square root of the signal strength estimate, `nu**2`. To obtain
-        the this quantitiy, see `compute_sloe()`.
+        Square root of the corrupted signal strength estimate. To
+        obtain this quantity, see `compute_sloe()`.
     sigma : float
         State evolution parameter `sigma` from `solve_state_equation`.
     mu : float
@@ -175,9 +174,10 @@ def derive_gamma_from_nu(kappa: float, nu: float, sigma: float, mu: float) -> fl
     Returns
     -------
     float
-        The derived true signal strength `gamma`, or `nan` (with a
-        `RuntimeWarning`) if `mu` is at or near zero, or if the
-        computation would require the square root of a negative number.
+        The derived `gamma`, the square root of the true signal strength,
+        or `nan` (with a `RuntimeWarning`) if `mu` is at or near zero, or
+        if the computation would require the square root of a negative
+        number.
     """
     if abs(mu) < 1e-12:
         warnings.warn(

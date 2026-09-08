@@ -31,9 +31,10 @@ class HDDiagnostics:
     kappa : float
         Aspect ratio `p / nobs_eff` (ratio of predictors to effective sample size).
     signal_strength : float
-        Estimated squared signal strength parameter `gamma**2`.
+        Estimated signal strength parameter `gamma**2`.
     nu_sloe : float
-        Leave-one-out estimate of the linear predictor variance (SLOE).
+        Square root of the corrupted signal strength, estimated via the
+        signal-strength leave-one-out estimator (SLOE); see `compute_sloe`.
     se_params : FloatArray
         Array containing the converged state evolution parameters `(mu, b, sigma)`,
         plus the population intercept estimate `theta_0` as a 4th element if

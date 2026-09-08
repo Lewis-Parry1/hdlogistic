@@ -434,7 +434,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
         resid = self.resid_deviance_raw
         quantiles = np.percentile(resid, [0, 25, 50, 75, 100])
-        resid_line = "Deviance Residuals (unpenalized): " + "  ".join(
+        resid_line = "Deviance Residuals (unpenalised): " + "  ".join(
             f"{label}={v:.4f}"
             for label, v in zip(["Min", "1Q", "Median", "3Q", "Max"], quantiles)
         )

@@ -299,19 +299,19 @@ class MDYPLResults:
 
     @cached_property
     def sloe(self) -> float:
-        """Estimates the square root of the corrupted signal strength (`nu**2`)
-        using the signal strength leave-one-out estimator (SLOE), per Yadlowsky
-        et al. (2021) and its MDYPL adaptation (Sterzinger & Kosmidis, 2026).
+        """Estimates `nu`, the square root of the corrupted signal strength,
+        using the signal strength leave-one-out estimator (SLOE), per
+        Yadlowsky et al. (2021) and its MDYPL adaptation (Sterzinger &
+        Kosmidis, 2026).
 
-        Always evalutated on the original (not-rescaled) probabilities.
-        Uses the linear predictors, fitted probabilities, and leverages
+        Always evaluated on the original (non-rescaled) fit — i.e. using
+        `y_adj`, the linear predictors, fitted probabilities, and leverages
         from the base MDYPL fit, regardless of `use_hd_correction`.
 
         Returns
         -------
         float
-            Estimate of the square root of the corrupted signal
-            strength `nu**2`.
+            Estimate of `nu`, the square root of the corrupted signal strength.
         """
         return compute_sloe(
             self.y_adj, self.linear_predictors, self.fitted_probs, self.leverages
