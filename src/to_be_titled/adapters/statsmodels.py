@@ -159,7 +159,8 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
     def df_model(self) -> float:
         if hasattr(self.model, "df_model"):
             return float(self.model.df_model)
-        return float(len(self.params) - 1)
+        
+        return (float(len(self.params) - 1) - int(self._raw_results.has_intercept))
 
     @property
     def linear_predictors(self) -> FloatArray:
