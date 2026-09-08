@@ -37,6 +37,7 @@ class TestMDYPLEstimation:
         )
         assert_allclose(result.alpha, expected_alpha)
 
+    @pytest.mark.functional
     def test_fixed_alpha_is_respected(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
@@ -44,6 +45,7 @@ class TestMDYPLEstimation:
         result = fit_mdypl(data, alpha=0.7)
         assert result.alpha == 0.7
 
+    @pytest.mark.functional
     def test_alpha_out_of_range_raises(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
@@ -51,6 +53,7 @@ class TestMDYPLEstimation:
         with pytest.raises(ValueError, match="Shrinkage parameter"):
             fit_mdypl(data, alpha=1.5)
 
+    @pytest.mark.functional
     def test_rank_deficient_design_raises(self, simple_data):
         y, x = simple_data
         x_deficient = np.column_stack(
@@ -60,6 +63,7 @@ class TestMDYPLEstimation:
         with pytest.raises(ValueError, match="rank-deficient"):
             prepare_mdypl_data(x=x_deficient, y=y)
 
+    @pytest.mark.functional
     def test_intercept_detected_correctly(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
@@ -67,6 +71,7 @@ class TestMDYPLEstimation:
         assert data.has_intercept is True
         assert data.intercept_idx == 0
 
+    @pytest.mark.statsmodels
     def test_alpha_equals_one_matches_standard_logistic_regression(self, simple_data):
         """With alpha=1, y_adj == y exactly, so MDYPL should reduce to an
         ordinary logistic regression fit."""
@@ -85,16 +90,19 @@ class TestMDYPLEstimation:
         )
 
     # --- Weight and Offset Length Checks ---
+    @pytest.mark.functional
     def test_weights_wrong_length_raises(self, simple_data):
         y, x = simple_data
         with pytest.raises(ValueError, match="weights length"):
             prepare_mdypl_data(x=x, y=y, weights=np.ones(len(y) - 1))
 
+    @pytest.mark.functional
     def test_offset_wrong_length_raises(self, simple_data):
         y, x = simple_data
         with pytest.raises(ValueError, match="offset length"):
             prepare_mdypl_data(x=x, y=y, offset=np.ones(len(y) - 1))
 
+    @pytest.mark.functional
     def test_scalar_offset_is_broadcast(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y, offset=np.array([0.5]))
@@ -102,6 +110,7 @@ class TestMDYPLEstimation:
         assert data.offset.shape == (len(y),)
         assert_allclose(data.offset, np.full(len(y), 0.5))
 
+    @pytest.mark.functional
     def test_offset_accepts_bare_float(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y, offset=0.5)
@@ -110,16 +119,19 @@ class TestMDYPLEstimation:
         assert data.offset.shape == (len(y),)
         assert_allclose(data.offset, np.full(len(y), 0.5))
 
+    @pytest.mark.functional
     def test_no_weights_defaults_to_ones(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         assert_allclose(data.weights, np.ones(len(y)))
 
+    @pytest.mark.functional
     def test_no_offset_defaults_to_none(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         assert data.offset is None
 
+    @pytest.mark.functional
     def test_nobs_eff_equals_sum_of_weights(self, simple_data):
         y, x = simple_data
         rng = np.random.default_rng(2)
@@ -127,11 +139,13 @@ class TestMDYPLEstimation:
         data = prepare_mdypl_data(x=x, y=y, weights=weights)
         assert_allclose(data.nobs_eff, np.sum(weights))
 
+    @pytest.mark.functional
     def test_rank_equals_number_of_columns(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         assert data.rank == x.shape[1]
 
+    @pytest.mark.statsmodels
     def test_deviance_matches_statsmodels_at_alpha_one(self, simple_data):
         """At alpha=1, y_adj == y, so deviance should match statsmodels' own
         deviance computation exactly."""
@@ -143,12 +157,14 @@ class TestMDYPLEstimation:
         standard_result = sm.GLM(y, x, family=sm.families.Binomial()).fit()
         assert_allclose(deviance, standard_result.deviance, rtol=1e-5)
 
+    @pytest.mark.functional
     def test_resid_deviance_shape(self, simple_data):
         y, x = simple_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=0.8)
         assert result.resid_deviance_adj.shape == (len(y),)
 
+    @pytest.mark.functional
     def test_deviance_residuals_sum_of_squares_equals_deviance(self, simple_data):
         """Sanity check on the mathematical relationship: sum(resid_deviance**2)
         should equal `deviance`."""
@@ -171,6 +187,7 @@ class TestMDYPLEstimation:
         y = rng.binomial(1, probs).astype(np.float64)
         return y, x
 
+    @pytest.mark.functional
     def test_no_intercept_detected_correctly(self, no_intercept_data):
         y, x = no_intercept_data
         data = prepare_mdypl_data(x=x, y=y)
@@ -184,17 +201,38 @@ class TestMDYPLEstimation:
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=1.0)
 
+        assert_allclose(result.null_fitted_probs, np.full(len(y), 0.5))
+
         expected_null_deviance = compute_deviance(
             data.y_raw, np.full(len(y), 0.5), data.weights, eps=1e-15
         )
         assert_allclose(result.null_deviance_adj, expected_null_deviance)
 
+    @pytest.mark.functional
     def test_no_intercept_property_is_none(self, no_intercept_data):
         y, x = no_intercept_data
         data = prepare_mdypl_data(x=x, y=y)
         result = fit_mdypl(data, alpha=1.0)
         assert result.intercept is None
 
+    @pytest.mark.functional
+    def test_aic_consistent_with_llf(self, simple_data):
+        """Guards the llf/aic decoupling: aic must always equal
+        -2 * llf + 2 * rank, regardless of how each was computed."""
+        y, x = simple_data
+        data = prepare_mdypl_data(x=x, y=y)
+        result = fit_mdypl(data, alpha=0.8)
+        assert_allclose(result.aic, -2.0 * result.llf + 2.0 * result.rank, rtol=1e-10)
+
+    @pytest.mark.functional
+    def test_sloe_returns_finite_scalar(self, simple_data):
+        y, x = simple_data
+        data = prepare_mdypl_data(x=x, y=y)
+        result = fit_mdypl(data, alpha=0.8)
+        assert isinstance(result.sloe, float)
+        assert np.isfinite(result.sloe)
+
+    @pytest.mark.statsmodels
     def test_common_values_match_statsmodels_at_alpha_one(self, simple_data):
         """At alpha=1, y_adj == y exactly, so MDYPL should reduce to an ordinary
         logistic regression fit. Every commonly-used fitted quantity should
@@ -247,6 +285,13 @@ class TestMDYPLEstimation:
             rtol=1e-5,
             err_msg="resid_deviance mismatch at alpha=1",
         )
+        assert_allclose(
+            result.llf,
+            standard_result.llf,
+            rtol=1e-5,
+            err_msg="llf mismatch at alpha=1",
+        )
+
         assert result.converged == standard_result.converged
 
 
@@ -267,123 +312,60 @@ X_DATA = np.array(
 )
 Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
 
-
-def test_fitted_params_match_r_reference():
-    """Cross-check against R's mdyplFit() on a fixed, hand-written dataset.
-    Reference values generated by running the R script in the test docstring
-    / project notes and copying `coef(fit)`, `fit$alpha`, `fit$deviance`.
-    """
-    x = X_DATA
-    y = Y_DATA
-
-    data = prepare_mdypl_data(x=x, y=y)
+@pytest.mark.brglm2
+@pytest.mark.parametrize(
+    "kwargs, expected",
+    [
+        (
+            {},
+            dict(
+                alpha=0.8333333,
+                params=np.asarray([-0.5691641, 2.3274548, 0.2974664]),
+                deviance=3.268387,
+                null_deviance=8.126224,
+                aic=13.49387,
+                leverages=np.asarray([0.4939179, 0.3314687, 0.2039765, 0.2356371,
+                                      0.5064856, 0.2523204, 0.1937260, 0.2242109,
+                                      0.3728649, 0.1853921]),
+                resid=np.asarray([0.79290616, -0.45690657, 0.10078244, -0.01413417,
+                                  0.75916487, -0.06840387, 0.16265343, 0.29149666,
+                                  -0.15171620, -1.30579923]),
+            ),
+        ),
+        (
+            dict(
+                weights=np.array([1.2, 0.8, 1.5, 0.6, 1.0, 1.3, 0.9, 1.1, 0.7, 1.4]),
+                offset=np.array([0.1, -0.2, 0.05, 0.3, -0.1, 0.15, -0.05, 0.2, -0.15, 0.1]),
+            ),
+            dict(
+                alpha=0.84,
+                params=np.asarray([-0.5855203, 2.1187811, 0.2748631]),
+                deviance=4.152915,
+                null_deviance=8.204773,
+                aic=14.38138,
+                leverages=np.asarray([0.5365223, 0.2632042, 0.2706447, 0.2262324,
+                                      0.5129572, 0.2901187, 0.2168195, 0.2004426,
+                                      0.2776447, 0.2054137]),
+                resid=np.asarray([0.87540945, -0.35848960, 0.21396128, -0.12155933,
+                                  0.85392097, -0.01625093, 0.10688309, 0.31573416,
+                                  -0.12231564, -1.53035414]),
+            ),
+        ),
+    ],
+    ids=["no_weights_no_offset", "with_weights_and_offset"],
+)
+def test_fitted_params_match_r_reference(kwargs, expected):
+    """Cross-check against R's mdyplFit() on a fixed, hand-written dataset."""
+    data = prepare_mdypl_data(x=X_DATA, y=Y_DATA, **kwargs)
     result = fit_mdypl(data, alpha=None)
 
-    expected_alpha = 0.8333333
-    expected_params = np.asarray([-0.5691641, 2.3274548, 0.2974664])
-    expected_deviance = 3.268387
-
-    # There is a slight discrepency with R
-    # In order for the null models to be the same, R must take in
-    # the default alpha as fixed param, don't leave to be assigned
-    expected_null_deviance = 8.126224
-
-    # with brglm2 expected null-deviance value is resolved.
-    expected_aic = 13.49387
-    expected_leverages = np.asarray(
-        [
-            0.4939179,
-            0.3314687,
-            0.2039765,
-            0.2356371,
-            0.5064856,
-            0.2523204,
-            0.1937260,
-            0.2242109,
-            0.3728649,
-            0.1853921,
-        ]
-    )
-    expected_residual_deviances = np.asarray(
-        [
-            0.79290616,
-            -0.45690657,
-            0.10078244,
-            -0.01413417,
-            0.75916487,
-            -0.06840387,
-            0.16265343,
-            0.29149666,
-            -0.15171620,
-            -1.30579923,
-        ]
-    )
-
-    assert_allclose(result.alpha, expected_alpha, rtol=1e-6)
-    assert_allclose(result.params, expected_params, rtol=1e-6)
-    assert_allclose(result.deviance_adj, expected_deviance, rtol=1e-6)
-    assert_allclose(result.aic, expected_aic, rtol=1e-6)
-    assert_allclose(result.null_deviance_adj, expected_null_deviance, rtol=1e-6)
-    assert_allclose(result.leverages, expected_leverages, rtol=1e-6)
-    assert_allclose(result.resid_deviance_adj, expected_residual_deviances, rtol=1e-6)
-
-
-def test_fitted_params_match_r_reference_with_weights_and_offset():
-    """Cross-check against R's mdyplFit() with weights and an offset,
-    on the same fixed 10-observation dataset used in the no-weights/
-    no-offset reference test. Reference values generated by running
-    the R script in the test docstring / project notes.
-    """
-    x = X_DATA
-    y = Y_DATA
-    weights = np.array([1.2, 0.8, 1.5, 0.6, 1.0, 1.3, 0.9, 1.1, 0.7, 1.4])
-    offset = np.array([0.1, -0.2, 0.05, 0.3, -0.1, 0.15, -0.05, 0.2, -0.15, 0.1])
-
-    data = prepare_mdypl_data(x=x, y=y, weights=weights, offset=offset)
-    result = fit_mdypl(data, alpha=None)
-
-    expected_alpha = 0.84
-    expected_params = np.asarray([-0.5855203, 2.1187811, 0.2748631])
-    expected_deviance = 4.152915
-
-    # There is a slight discrepency with R
-    # In order for the null models to be the same, R must take in
-    # alpha as fixed param, don't leave to default
-    expected_null_deviance = 8.204773
-    expected_aic = 14.38138
-    expected_leverages = np.asarray(
-        [
-            0.5365223,
-            0.2632042,
-            0.2706447,
-            0.2262324,
-            0.5129572,
-            0.2901187,
-            0.2168195,
-            0.2004426,
-            0.2776447,
-            0.2054137,
-        ]
-    )
-    expected_residual_deviances = np.asarray(
-        [
-            0.87540945,
-            -0.35848960,
-            0.21396128,
-            -0.12155933,
-            0.85392097,
-            -0.01625093,
-            0.10688309,
-            0.31573416,
-            -0.12231564,
-            -1.53035414,
-        ]
-    )
-
-    assert_allclose(result.alpha, expected_alpha, rtol=1e-6)
-    assert_allclose(result.params, expected_params, rtol=1e-6)
-    assert_allclose(result.deviance_adj, expected_deviance, rtol=1e-6)
-    assert_allclose(result.null_deviance_adj, expected_null_deviance, rtol=1e-6)
-    assert_allclose(result.aic, expected_aic, rtol=1e-6)
-    assert_allclose(result.leverages, expected_leverages, rtol=1e-6)
-    assert_allclose(result.resid_deviance_adj, expected_residual_deviances, rtol=1e-6)
+    assert_allclose(result.alpha, expected["alpha"], rtol=1e-6)
+    assert_allclose(result.params, expected["params"], rtol=1e-6)
+    assert_allclose(result.deviance_adj, expected["deviance"], rtol=1e-6)
+    assert_allclose(result.aic, expected["aic"], rtol=1e-6)
+    # Slight discrepency in the way R fits the null model compared to this package
+    # In order to get the same result, alpha must be fixed to default value
+    # in R. If it defaults then this causes null to be fit with alpha =1. 
+    assert_allclose(result.null_deviance_adj, expected["null_deviance"], rtol=1e-6)
+    assert_allclose(result.leverages, expected["leverages"], rtol=1e-6)
+    assert_allclose(result.resid_deviance_adj, expected["resid"], rtol=1e-6)
