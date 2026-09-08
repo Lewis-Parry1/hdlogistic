@@ -1,7 +1,7 @@
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
 from scipy.special import expit
-import pytest 
 
 from to_be_titled.inference import (
     compute_likelihood,
@@ -28,6 +28,7 @@ def test_compute_sloe_estimator_no_leverage_adjustment() -> None:
         compute_sloe(y_adjusted, linear_predictors, fitted_probs, leverages),
         expected,
     )
+
 
 @pytest.mark.functional
 def test_compute_sloe_estimator_excludes_infinite_values() -> None:
@@ -76,6 +77,7 @@ def test_derive_nu_from_gamma_expected():
 
     np.testing.assert_almost_equal(expected_nu, nu)
 
+
 @pytest.mark.functional
 def test_derive_gamma_from_nu_expected():
     kappa, nu, sigma, mu = 0.3, 1, 1, 0.5
@@ -88,8 +90,7 @@ def test_derive_gamma_from_nu_expected():
 # --- Test log-likelihood function ---
 @pytest.mark.brglm2
 def test_likelihood_expected():
-    """Result generated using brglm2's dbinom2 function.
-    """
+    """Result generated using brglm2's dbinom2 function."""
     y_adj = np.asarray([0.5, 0.5, 0.2])
     freq_weights = np.asarray([1.0, 1.0, 2.0])
     fitted_probs = np.asarray([0.8, 0.8, 0.5])
@@ -106,18 +107,26 @@ def test_likelihood_expected():
 
 
 @pytest.mark.functional
-@pytest.mark.parametrize("y,fw,mu", [
-    (1.0, 1.0, 1.0),   # success == size, mu == 1 (clipped)
-    (0.0, 1.0, 0.0),   # success == 0, mu == 0 (clipped)
-    (1.0, 1.0, 0.0),   # success == size, but mu clipped near 0 -> should be very unlikely, finite log-lik
-    (0.0, 1.0, 1.0),   # success == 0, mu clipped near 1 -> same
-])
+@pytest.mark.parametrize(
+    "y,fw,mu",
+    [
+        (1.0, 1.0, 1.0),  # success == size, mu == 1 (clipped)
+        (0.0, 1.0, 0.0),  # success == 0, mu == 0 (clipped)
+        (
+            1.0,
+            1.0,
+            0.0,
+        ),
+        (0.0, 1.0, 1.0),  # success == 0, mu clipped near 1 -> same
+    ],
+)
 def test_compute_likelihood_finite_at_boundaries(y, fw, mu):
     y_arr = np.asarray([y])
     fw_arr = np.asarray([fw])
     mu_arr = np.asarray([mu])
     result = compute_likelihood(y_arr, fw_arr, mu_arr, log=True)
     assert np.isfinite(result)
+
 
 @pytest.mark.functional
 def test_compute_likelihood_returns_neg_inf_when_success_exceeds_size():
@@ -126,13 +135,14 @@ def test_compute_likelihood_returns_neg_inf_when_success_exceeds_size():
     that branch, since success_i = y * size_i <= size_i whenever y <= 1.
     Confirms the guard fires as intended rather than being silently dead
     code, and that it degrades gracefully (returns -inf, doesn't raise)."""
-    y_arr = np.asarray([1.5])   # invalid: y > 1, so success_i > size_i
+    y_arr = np.asarray([1.5])  # invalid: y > 1, so success_i > size_i
     fw_arr = np.asarray([1.0])
     mu_arr = np.asarray([0.5])
 
     result = compute_likelihood(y_arr, fw_arr, mu_arr, log=True)
 
     assert result == -np.inf
+
 
 @pytest.mark.functional
 def test_compute_likelihood_raw_is_zero_when_success_exceeds_size():
@@ -144,6 +154,7 @@ def test_compute_likelihood_raw_is_zero_when_success_exceeds_size():
     result = compute_likelihood(y_arr, fw_arr, mu_arr, log=False)
 
     assert result == 0.0
+
 
 ## --- Test compute taus ----
 @pytest.mark.brglm2
@@ -166,10 +177,10 @@ def test_compute_taus_with_intercept():
 
     np.testing.assert_allclose(compute_taus(x, intercept_index), expected, rtol=1e-6)
 
+
 @pytest.mark.brglm2
 def test_compute_taus_with_no_intercept():
-    """Tested against brlgm2's taus() function.
-    """
+    """Tested against brlgm2's taus() function."""
     x = np.array(
         [
             [1.0, 1.0],
@@ -212,17 +223,17 @@ def test_compute_taus_matches_manual_regression():
     x = X_DATA
     intercept_idx = 0
     mat_x = np.delete(x, intercept_idx, axis=1)  # shape (10, 2) — slopes only
-    n, p = mat_x.shape  # p = 2, matches compute_taus's internal p 
+    n, p = mat_x.shape  # p = 2, matches compute_taus's internal p
 
     manual_taus = []
     for j in range(p):  # 0, 1 — indexes mat_x directly, no intercept to skip anymore
         other_cols = [c for c in range(p) if c != j]
-        X_others = mat_x[:, other_cols]
+        x_others = mat_x[:, other_cols]
         x_j = mat_x[:, j]
         # Find OLS coeffcients
-        coef, _, _, _ = np.linalg.lstsq(X_others, x_j, rcond=None)
-        # Get residuals squared 
-        resid = x_j - X_others @ coef
+        coef, _, _, _ = np.linalg.lstsq(x_others, x_j, rcond=None)
+        # Get residuals squared
+        resid = x_j - x_others @ coef
         rss = np.sum(resid**2)
         # tau_j = sqrt(RSS/ n- (p + 1))
         manual_taus.append(np.sqrt(rss / (n - p + 1)))
@@ -231,6 +242,3 @@ def test_compute_taus_matches_manual_regression():
     actual_taus = compute_taus(x, intercept_idx)
 
     assert_allclose(actual_taus, manual_taus, rtol=1e-6)
-
-
-

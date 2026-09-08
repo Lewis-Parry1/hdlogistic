@@ -17,25 +17,27 @@ from scipy.interpolate import RegularGridInterpolator
 from to_be_titled.types import FloatArray
 
 GRID_PATH = files("to_be_titled") / "data" / "true_reference_param_grid.npz"
+
 FieldFunc = Callable[[FloatArray, FloatArray], FloatArray]
 
 
 @dataclass(frozen=True)
 class RgiPchipInterpolators:
     """Container for fitted PCHIP interpolators of `mu`, `b`, `sigma`
-      over a (kappa, gamma) reference grid, used to produce warm-start
-      values for `solve_state_equation`.
+    over a (kappa, gamma) reference grid, used to produce warm-start
+    values for `solve_state_equation`.
 
-      Parameters
-      ----------
-      kappa_arr : FloatArray
-          1D array of kappa grid points the interpolators were fit on.
-      gamma_arr : FloatArray
-          1D array of gamma grid points the interpolators were fit on.
-      mu, b, sigma : FieldFunc
-          Callables evaluating the interpolated `mu`/`b`/`sigma` surface
-          at arbitrary (kappa, gamma) query points.
-      """
+    Parameters
+    ----------
+    kappa_arr : FloatArray
+        1D array of kappa grid points the interpolators were fit on.
+    gamma_arr : FloatArray
+        1D array of gamma grid points the interpolators were fit on.
+    mu, b, sigma : FieldFunc
+        Callables evaluating the interpolated `mu`/`b`/`sigma` surface
+        at arbitrary (kappa, gamma) query points.
+    """
+
     kappa_arr: FloatArray
     gamma_arr: FloatArray
 
@@ -77,7 +79,6 @@ class RgiPchipInterpolators:
         return cast(FloatArray, np.squeeze(out, axis=0))
 
 
-
 def _rgi_field(
     grid_kappas: FloatArray, grid_gammas: FloatArray, param_values: FloatArray
 ) -> FieldFunc:
@@ -115,7 +116,6 @@ def _build_rgi_pchip_interpolator() -> RgiPchipInterpolators:
             f"`solve_state_equation(..., use_warm_start_interpolator=False)` "
             f"to skip the interpolated warm start entirely."
         )
-
 
     with GRID_PATH.open("rb") as f, np.load(f) as grid:
         kappas = grid["kappa"]

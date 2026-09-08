@@ -256,9 +256,9 @@ def compute_likelihood(
     total_log_like = np.sum(log_db)  # Get sum of log - likelihood
 
     if log:
-        return total_log_like
+        return float(total_log_like)
 
-    return np.exp(total_log_like)
+    return float(np.exp(total_log_like))
 
 
 def compute_aic(
@@ -393,4 +393,4 @@ def compute_deviance_residuals(
 
     sign_i = np.sign(y - mu_clipped)
 
-    return sign_i * abs_deviance_residual
+    return np.asarray(sign_i * abs_deviance_residual)

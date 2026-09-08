@@ -23,12 +23,13 @@ class AdaptiveAlphaMismatchWarning(RuntimeWarning):
     match the adaptive shrinkage value the interpolator's reference grid
     was built on."""
 
+
 class InterceptInterpolatedStartWarning(RuntimeWarning):
     """
-    Raised when `use_warm_start_interpolator=True` but an intercept is 
-    included which is not 0.0. The grid used to build the interpolator 
+    Raised when `use_warm_start_interpolator=True` but an intercept is
+    included which is not 0.0. The grid used to build the interpolator
     was built on the assumption of a system of state equations with no
-    intercept. Results show the interpolated starts do not perform 
+    intercept. Results show the interpolated starts do not perform
     significantly better than default start.
     """
 
@@ -636,13 +637,14 @@ def solve_state_equation(
           cascade succeeded (or that none did):
           `DID_NOT_CONVERGE` (0), `CONVERGED_FIRST_TRY` (1), or
           `CONVERGED_AFTER_INIT` (2).
-    Raises
+
+    Warns
     ------
-    SolverConvergenceError
+    SolverConvergenceWarn
         If every strategy in the solve cascade fails to converge to solution
         which satisfies the convergence threshold.
     """
-    has_intercept = intercept is not None        
+    has_intercept = intercept is not None
 
     validation.validate_state_equation_fixed_params(alpha, kappa, signal_strength)
     if start is not None:
@@ -661,8 +663,8 @@ def solve_state_equation(
         interp = _build_rgi_pchip_interpolator()
 
         expected_alpha = 1 / (1 + kappa)
-        if warn_interpolator_issues: 
-            if np.isclose(alpha, expected_alpha, rtol=1e-2): 
+        if warn_interpolator_issues:
+            if not np.isclose(alpha, expected_alpha, rtol=1e-2):
                 warnings.warn(
                     "alpha does not match the adaptive shrinkage value 1/(1+kappa); "
                     "the interpolated warm start may be less reliable. See "
@@ -670,16 +672,16 @@ def solve_state_equation(
                     AdaptiveAlphaMismatchWarning,
                     stacklevel=2,
                 )
-            if has_intercept and intercept != 0.0: 
+            if has_intercept and intercept != 0.0:
                 warnings.warn(
-                "The reference grid used to build the interpolator was fit "
-                "assuming a system of state equations with no intercept. "
-                "Improved performance from the interpolated start may be "
-                "negligible when an intercept is supplied. Consider setting "
-                "`use_warm_start_interpolator=False`.",
-                InterceptInterpolatedStartWarning,
-                stacklevel=2,
-            )
+                    "The reference grid used to build the interpolator was fit "
+                    "assuming a system of state equations with no intercept. "
+                    "Improved performance from the interpolated start may be "
+                    "negligible when an intercept is supplied. Consider setting "
+                    "`use_warm_start_interpolator=False`.",
+                    InterceptInterpolatedStartWarning,
+                    stacklevel=2,
+                )
 
         if not corrupted:
             stage1_start = interp.evaluate(kappa, signal_strength)
@@ -742,7 +744,6 @@ def solve_state_equation(
 
     if validation._has_converged(result, tol=convergence_tol):
         return (result, ConvergenceCode.CONVERGED_AFTER_INIT)
-
 
     warnings.warn(
         f"All strategies failed to converge at kappa={kappa}, "

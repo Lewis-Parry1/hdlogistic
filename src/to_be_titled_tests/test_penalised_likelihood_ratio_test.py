@@ -1,11 +1,11 @@
-import numpy as np
-import pytest 
 import dataclasses
+
+import numpy as np
+import pytest
 from numpy.testing import assert_allclose
 
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.penalised_likelihood_ratio_test import penalised_lrt
-
 
 X_DATA = np.array(
     [
@@ -24,6 +24,7 @@ X_DATA = np.array(
 
 Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
 
+
 @pytest.mark.functional
 def test_penalised_lrt_raises_on_alpha_mismatch():
     x_full = X_DATA
@@ -36,6 +37,7 @@ def test_penalised_lrt_raises_on_alpha_mismatch():
 
     with pytest.raises(ValueError, match="alpha"):
         penalised_lrt(fit_reduced, fit_full)
+
 
 @pytest.mark.functional
 def test_penalised_lrt_raises_on_response_mismatch():
@@ -53,6 +55,7 @@ def test_penalised_lrt_raises_on_response_mismatch():
     with pytest.raises(ValueError, match="response"):
         penalised_lrt(fit_reduced, fit_full)
 
+
 @pytest.mark.functional
 def test_penalised_lrt_raises_on_weights_mismatch():
     x_full = X_DATA
@@ -69,6 +72,7 @@ def test_penalised_lrt_raises_on_weights_mismatch():
     with pytest.raises(ValueError, match="weights"):
         penalised_lrt(fit_reduced, fit_full)
 
+
 @pytest.mark.functional
 def test_penalised_lrt_raises_on_identical_rank():
     data_a = prepare_mdypl_data(x=X_DATA, y=Y_DATA)
@@ -79,6 +83,7 @@ def test_penalised_lrt_raises_on_identical_rank():
 
     with pytest.raises(ValueError, match="rank"):
         penalised_lrt(fit_a, fit_b)
+
 
 @pytest.mark.functional
 def test_penalised_lrt_order_invariant():
@@ -97,6 +102,7 @@ def test_penalised_lrt_order_invariant():
     assert_allclose(result_a.statistic, result_b.statistic)
     assert result_a.rank_full == result_b.rank_full == fit_full.rank
     assert result_a.rank_restricted == result_b.rank_restricted == fit_reduced.rank
+
 
 @pytest.mark.functional
 def test_penalised_lrt_warns_and_clips_on_negative_deviance_difference():
@@ -119,6 +125,7 @@ def test_penalised_lrt_warns_and_clips_on_negative_deviance_difference():
         result = penalised_lrt(fit_reduced, fit_full_bad)
 
     assert result.statistic == 0.0
+
 
 @pytest.mark.brglm2
 def test_penalised_lrt_matches_r_reference_no_hd():
@@ -146,7 +153,7 @@ def test_penalised_lrt_matches_r_reference_no_hd():
         fit_reduced,
         fit_full,
         hd_correction=False,
-        solve_se_kwargs={"warn_interp_alpha_mismatch": False},
+        solve_se_kwargs={"warn_interpolator_issues": False},
     )
 
     expected_statistic = 0.105474361567877
@@ -177,7 +184,7 @@ def test_penalised_lrt_matches_r_reference_with_hd():
         fit_reduced,
         fit_full,
         hd_correction=True,
-        solve_se_kwargs={"warn_interp_alpha_mismatch": False},
+        solve_se_kwargs={"warn_interpolator_issues": False},
     )
 
     expected_statistic = 0.216012608750709
@@ -216,6 +223,7 @@ def test_penalised_lrt_results_str_contains_key_fields():
 
     assert "Penalised Likelihood Ratio Test" in text
     assert "Pr(>Chi)" in text
+
 
 @pytest.mark.functional
 def test_penalised_lrt_results_repr_is_concise():

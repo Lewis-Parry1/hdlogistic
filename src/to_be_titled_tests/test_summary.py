@@ -1,17 +1,12 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose
-
 from scipy.special import expit
-from to_be_titled.inference import compute_likelihood, compute_aic
-
 
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
-from to_be_titled.summary import summary
-
+from to_be_titled.inference import compute_aic, compute_likelihood, compute_sloe
 from to_be_titled.solvers import solve_state_equation
-from to_be_titled.inference import compute_sloe
-
+from to_be_titled.summary import summary
 
 X_DATA = np.array(
     [
@@ -29,6 +24,7 @@ X_DATA = np.array(
 )
 
 Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
+
 
 @pytest.mark.functional
 def test_summary_shapes_and_types_hd_correction():
@@ -51,9 +47,10 @@ def test_summary_shapes_and_types_hd_correction():
 
     assert isinstance(hd_summ.aic, float)
     assert isinstance(hd_summ.llf, float)
-    
+
     assert hd_summ.hd_diagnostics is not None
     assert isinstance(hd_summ.hd_diagnostics.kappa, float)
+
 
 @pytest.mark.functional
 def test_summary_hd_correction_false_has_no_diagnostics():
@@ -62,14 +59,14 @@ def test_summary_hd_correction_false_has_no_diagnostics():
     summ = summary(result, high_dimensional_correction=False)
     assert summ.hd_diagnostics is None
 
+
 @pytest.mark.functional
 def test_summary_aic_consistent_with_llf():
     data = prepare_mdypl_data(x=X_DATA, y=Y_DATA)
     result = fit_mdypl(data, alpha=None)
     hd_summ = summary(result, high_dimensional_correction=True)
-    assert_allclose(
-        hd_summ.aic, -2.0 * hd_summ.llf + 2.0 * result.rank, rtol=1e-10
-    )
+    assert_allclose(hd_summ.aic, -2.0 * hd_summ.llf + 2.0 * result.rank, rtol=1e-10)
+
 
 @pytest.mark.functional
 def test_summary_aic_matches_manual_reconstruction_from_rescaled_params():
@@ -84,6 +81,7 @@ def test_summary_aic_matches_manual_reconstruction_from_rescaled_params():
     manual_aic = compute_aic(manual_llf, result.rank)
 
     assert_allclose(hd_summ.aic, manual_aic, rtol=1e-8)
+
 
 @pytest.mark.functional
 def test_summary_se_params_matches_direct_solver_call():
@@ -115,6 +113,7 @@ def test_summary_se_params_matches_direct_solver_call():
         se_params_direct.solution.to_array(),
         rtol=1e-8,
     )
+
 
 @pytest.mark.brglm2
 def test_hd_corrected_summary_matches_r_reference() -> None:
@@ -172,6 +171,7 @@ def test_hd_corrected_summary_matches_r_reference() -> None:
     assert_allclose(hd_summ.deviance_raw, expected_deviance, rtol=1e-6)
     assert_allclose(hd_summ.resid_deviance_raw, expected_resid_deviance, rtol=1e-6)
     assert_allclose(hd_summ.aic, expected_aic, rtol=1e-6)
+
 
 @pytest.mark.brglm2
 def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():

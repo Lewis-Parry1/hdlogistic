@@ -123,6 +123,7 @@ def test_prox_data_regimes(
         u_est = np.asarray(_proximal_operator(x_input, b))
         assert u_est.shape == x_input.shape
 
+
 @pytest.mark.parametrize("mu, b, sigma, kappa, gamma", REGIMES)
 @pytest.mark.functional
 def test_se_no_intercept_regimes(
@@ -147,6 +148,7 @@ def test_se_no_intercept_regimes(
             pytest.fail(
                 f"Math instability at mu={mu}, kappa={kappa}, gamma={gamma}: {e}"
             )
+
 
 @pytest.mark.functional
 def test_se_no_intercept_shape_and_reproducibility() -> None:
@@ -224,6 +226,7 @@ def test_se_no_intercept_matches_brglm2_se0(
 
     np.testing.assert_allclose(res, expected_res, atol=1e-7)
 
+
 @pytest.mark.brglm2
 def test_se_with_intercept_matches_brglm2_se1() -> None:
     kappa0 = 0.2
@@ -239,6 +242,7 @@ def test_se_with_intercept_matches_brglm2_se1() -> None:
 
     brglm_results = np.asarray([-0.05090216, -0.11007367, 0.11183220, -0.10479934])
     np.testing.assert_allclose(brglm_results, soln, atol=1e-7)
+
 
 @pytest.mark.brglm2
 def test_se0_se1_is_equal() -> None:

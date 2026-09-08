@@ -93,9 +93,9 @@ class TestMDYPLEstimation:
     def test_general_alpha_matches_manual_y_adj_fit(self, simple_data):
         """Reconstructs the MDYPL fit by hand: manually shrinks the response
         toward 0.5 using a fixed alpha, fits an ordinary GLM on the adjusted
-        response, and checks fit_mdypl reproduces it exactly. 
-        
-        This directly tests the definitional equivalence between MDYPL fitting 
+        response, and checks fit_mdypl reproduces it exactly.
+
+        This directly tests the definitional equivalence between MDYPL fitting
         and an ordinary GLM fit on y_adj, at a non-degenerate alpha (unlike the
         alpha=1 tests above, which don't exercise the response adjustment
         logic at all)."""
@@ -395,6 +395,7 @@ X_DATA = np.array(
 )
 Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
 
+
 @pytest.mark.brglm2
 @pytest.mark.parametrize(
     "kwargs, expected",
@@ -407,18 +408,42 @@ Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
                 deviance=3.268387,
                 null_deviance=8.126224,
                 aic=13.49387,
-                leverages=np.asarray([0.4939179, 0.3314687, 0.2039765, 0.2356371,
-                                      0.5064856, 0.2523204, 0.1937260, 0.2242109,
-                                      0.3728649, 0.1853921]),
-                resid=np.asarray([0.79290616, -0.45690657, 0.10078244, -0.01413417,
-                                  0.75916487, -0.06840387, 0.16265343, 0.29149666,
-                                  -0.15171620, -1.30579923]),
+                leverages=np.asarray(
+                    [
+                        0.4939179,
+                        0.3314687,
+                        0.2039765,
+                        0.2356371,
+                        0.5064856,
+                        0.2523204,
+                        0.1937260,
+                        0.2242109,
+                        0.3728649,
+                        0.1853921,
+                    ]
+                ),
+                resid=np.asarray(
+                    [
+                        0.79290616,
+                        -0.45690657,
+                        0.10078244,
+                        -0.01413417,
+                        0.75916487,
+                        -0.06840387,
+                        0.16265343,
+                        0.29149666,
+                        -0.15171620,
+                        -1.30579923,
+                    ]
+                ),
             ),
         ),
         (
             dict(
                 weights=np.array([1.2, 0.8, 1.5, 0.6, 1.0, 1.3, 0.9, 1.1, 0.7, 1.4]),
-                offset=np.array([0.1, -0.2, 0.05, 0.3, -0.1, 0.15, -0.05, 0.2, -0.15, 0.1]),
+                offset=np.array(
+                    [0.1, -0.2, 0.05, 0.3, -0.1, 0.15, -0.05, 0.2, -0.15, 0.1]
+                ),
             ),
             dict(
                 alpha=0.84,
@@ -426,12 +451,34 @@ Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
                 deviance=4.152915,
                 null_deviance=8.204773,
                 aic=14.38138,
-                leverages=np.asarray([0.5365223, 0.2632042, 0.2706447, 0.2262324,
-                                      0.5129572, 0.2901187, 0.2168195, 0.2004426,
-                                      0.2776447, 0.2054137]),
-                resid=np.asarray([0.87540945, -0.35848960, 0.21396128, -0.12155933,
-                                  0.85392097, -0.01625093, 0.10688309, 0.31573416,
-                                  -0.12231564, -1.53035414]),
+                leverages=np.asarray(
+                    [
+                        0.5365223,
+                        0.2632042,
+                        0.2706447,
+                        0.2262324,
+                        0.5129572,
+                        0.2901187,
+                        0.2168195,
+                        0.2004426,
+                        0.2776447,
+                        0.2054137,
+                    ]
+                ),
+                resid=np.asarray(
+                    [
+                        0.87540945,
+                        -0.35848960,
+                        0.21396128,
+                        -0.12155933,
+                        0.85392097,
+                        -0.01625093,
+                        0.10688309,
+                        0.31573416,
+                        -0.12231564,
+                        -1.53035414,
+                    ]
+                ),
             ),
         ),
     ],
@@ -448,7 +495,7 @@ def test_fitted_params_match_r_reference(kwargs, expected):
     assert_allclose(result.aic, expected["aic"], rtol=1e-6)
     # Slight discrepency in the way R fits the null model compared to this package
     # In order to get the same result, alpha must be fixed to default value
-    # in R. If it defaults then this causes null to be fit with alpha =1. 
+    # in R. If it defaults then this causes null to be fit with alpha =1.
     assert_allclose(result.null_deviance_adj, expected["null_deviance"], rtol=1e-6)
     assert_allclose(result.leverages, expected["leverages"], rtol=1e-6)
     assert_allclose(result.resid_deviance_adj, expected["resid"], rtol=1e-6)
