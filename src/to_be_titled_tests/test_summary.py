@@ -1,10 +1,17 @@
-# TODO: Lewis, smaller unit tests needed (shape, type etc.)
-
 import numpy as np
+import pytest
 from numpy.testing import assert_allclose
+
+from scipy.special import expit
+from to_be_titled.inference import compute_likelihood, compute_aic
+
 
 from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
 from to_be_titled.summary import summary
+
+from to_be_titled.solvers import solve_state_equation
+from to_be_titled.inference import compute_sloe
+
 
 X_DATA = np.array(
     [
@@ -23,7 +30,93 @@ X_DATA = np.array(
 
 Y_DATA = np.array([1, 0, 1, 0, 1, 1, 0, 1, 0, 0], dtype=np.float64)
 
+@pytest.mark.functional
+def test_summary_shapes_and_types_hd_correction():
+    data = prepare_mdypl_data(x=X_DATA, y=Y_DATA)
+    result = fit_mdypl(data, alpha=None)
+    hd_summ = summary(result, high_dimensional_correction=True)
 
+    p = X_DATA.shape[1]
+    assert hd_summ.params.shape == (p,)
+    assert hd_summ.bse.shape == (p,)
+    assert hd_summ.zvalues.shape == (p,)
+    assert hd_summ.pvalues.shape == (p,)
+
+    assert isinstance(hd_summ.deviance_adj, float)
+    assert isinstance(hd_summ.deviance_raw, float)
+    assert isinstance(hd_summ.null_deviance_adj, float)
+    assert isinstance(hd_summ.null_deviance_raw, float)
+    assert np.isfinite(hd_summ.deviance_adj)
+    assert np.isfinite(hd_summ.deviance_raw)
+
+    assert isinstance(hd_summ.aic, float)
+    assert isinstance(hd_summ.llf, float)
+    
+    assert hd_summ.hd_diagnostics is not None
+    assert isinstance(hd_summ.hd_diagnostics.kappa, float)
+
+@pytest.mark.functional
+def test_summary_hd_correction_false_has_no_diagnostics():
+    data = prepare_mdypl_data(x=X_DATA, y=Y_DATA)
+    result = fit_mdypl(data, alpha=None)
+    summ = summary(result, high_dimensional_correction=False)
+    assert summ.hd_diagnostics is None
+
+@pytest.mark.functional
+def test_summary_aic_consistent_with_llf():
+    data = prepare_mdypl_data(x=X_DATA, y=Y_DATA)
+    result = fit_mdypl(data, alpha=None)
+    hd_summ = summary(result, high_dimensional_correction=True)
+    assert_allclose(
+        hd_summ.aic, -2.0 * hd_summ.llf + 2.0 * result.rank, rtol=1e-10
+    )
+
+@pytest.mark.functional
+def test_summary_aic_matches_manual_reconstruction_from_rescaled_params():
+    data = prepare_mdypl_data(x=X_DATA, y=Y_DATA)
+    result = fit_mdypl(data, alpha=None)
+    hd_summ = summary(result, high_dimensional_correction=True)
+
+    manual_probs = expit(X_DATA @ hd_summ.params)
+    manual_llf = compute_likelihood(
+        result.y_adj, result.weights, manual_probs, log=True
+    )
+    manual_aic = compute_aic(manual_llf, result.rank)
+
+    assert_allclose(hd_summ.aic, manual_aic, rtol=1e-8)
+
+@pytest.mark.functional
+def test_summary_se_params_matches_direct_solver_call():
+    """Reconstructs the state-evolution solve independently of summary(),
+    checking summary() wires up solve_state_equation with the same
+    arguments/results it would get calling the solver directly"""
+
+    data = prepare_mdypl_data(x=X_DATA, y=Y_DATA)
+    result = fit_mdypl(data, alpha=None)
+    hd_summ = summary(result, high_dimensional_correction=True)
+
+    nu_sloe = compute_sloe(
+        result.y_adj, result.linear_predictors, result.fitted_probs, result.leverages
+    )
+    p = X_DATA.shape[1] - 1
+    kappa = p / result.nobs_eff
+
+    se_params_direct, _ = solve_state_equation(
+        kappa=kappa,
+        signal_strength=nu_sloe,
+        alpha=result.alpha,
+        intercept=result.intercept,
+        corrupted=True,
+    )
+
+    assert hd_summ.hd_diagnostics is not None
+    assert_allclose(
+        hd_summ.hd_diagnostics.se_params,
+        se_params_direct.solution.to_array(),
+        rtol=1e-8,
+    )
+
+@pytest.mark.brglm2
 def test_hd_corrected_summary_matches_r_reference() -> None:
     """Cross-check high-dimensional-corrected summary() output against R's
     summary.mdyplFit(fit, hd_correction = TRUE) on the same fixed
@@ -41,7 +134,7 @@ def test_hd_corrected_summary_matches_r_reference() -> None:
     expected_zvalues = np.asarray([np.nan, 2.787755888595702, 0.371653109339544])
     expected_pvalues = np.asarray([np.nan, 0.00530745201030741, 0.71015114136352198])
     expected_se_params = np.asarray(
-        [0.701913500972281, 1.794149062275304, 2.269248438727002]
+        [0.701913500972281, 1.794149062275304, 2.269248438727002, -0.803798876398766]
     )
     expected_kappa = 0.2
     expected_signal_strength = 6.11663335935136
@@ -69,7 +162,7 @@ def test_hd_corrected_summary_matches_r_reference() -> None:
     assert_allclose(hd_summ.pvalues, expected_pvalues, rtol=1e-6, equal_nan=True)
 
     assert hd_summ.hd_diagnostics is not None
-    assert_allclose(hd_summ.hd_diagnostics.se_params[:3], expected_se_params, rtol=1e-6)
+    assert_allclose(hd_summ.hd_diagnostics.se_params, expected_se_params, rtol=1e-6)
     assert_allclose(hd_summ.hd_diagnostics.kappa, expected_kappa, rtol=1e-6)
     assert_allclose(
         hd_summ.hd_diagnostics.signal_strength, expected_signal_strength, rtol=1e-6
@@ -80,7 +173,7 @@ def test_hd_corrected_summary_matches_r_reference() -> None:
     assert_allclose(hd_summ.resid_deviance_raw, expected_resid_deviance, rtol=1e-6)
     assert_allclose(hd_summ.aic, expected_aic, rtol=1e-6)
 
-
+@pytest.mark.brglm2
 def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
     """Cross-check high-dimensional-corrected summary() output against R's
     summary.mdyplFit(fit, hd_correction = TRUE), fit with weights and an
@@ -102,10 +195,11 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
     expected_zvalues = np.asarray([np.nan, 2.566641506353996, 0.347313750134928])
     expected_pvalues = np.asarray([np.nan, 0.0102688716479713, 0.7283556218810713])
     expected_se_params = np.asarray(
-        [0.751459400416222, 1.622533520155142, 2.299169821844732]
+        [0.751459400416222, 1.622533520155142, 2.299169821844732, -0.772004562718499]
     )
     expected_kappa = 0.19047619047619
     expected_signal_strength = 4.67681318924516
+    # TODO: Uncomment when offset issue fixed in MDYPL Summary
     """expected_deviance = 7.47500655661417
     expected_resid_deviance = np.asarray(
         [
@@ -130,7 +224,7 @@ def test_hd_corrected_summary_matches_r_reference_with_weights_and_offset():
     assert_allclose(hd_summ.pvalues, expected_pvalues, rtol=1e-6, equal_nan=True)
 
     assert hd_summ.hd_diagnostics is not None
-    assert_allclose(hd_summ.hd_diagnostics.se_params[:3], expected_se_params, rtol=1e-6)
+    assert_allclose(hd_summ.hd_diagnostics.se_params, expected_se_params, rtol=1e-6)
     assert_allclose(hd_summ.hd_diagnostics.kappa, expected_kappa, rtol=1e-6)
     assert_allclose(
         hd_summ.hd_diagnostics.signal_strength, expected_signal_strength, rtol=1e-6
