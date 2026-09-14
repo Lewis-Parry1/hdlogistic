@@ -21,6 +21,67 @@ This ensures the package is installed from the local source tree and ready to im
 
 To build the Sphinx documentation locally, run `uv run sphinx-build -b html docs/source docs/build/html`, then open `docs/build/html/index.html` in a browser to view it.
 
+## Example Usage 
+
+Consider the [Multiple Features dataset](https://archive.ics.uci.edu/dataset/72/multiple+features) containing digits (0-9) obtained from a collection of Dutch public utility maps. It contains 200 different 30 x 48 handwritten variations of each digit from 0-9. This example is inspired by that in [**brglm2**](https://github.com/ikosmidis/brglm2/) and extracts the columns in the dataset representing the Fourier coefficients and Karhunen-Loeve coefficients.
+
+```python
+import pandas as pd
+import numpy as np
+
+from hdlogistic import MDYPLLogistic
+
+CSV_PATH = # YOUR FILE PATH GOES HERE
+
+df = pd.read_csv(CSV_PATH)
+
+vars_ = [c for c in df.columns if c.startswith('fou') or c.startswith('kar')]
+nest_vars = [c for c in vars_ if c.startswith('fou')]
+```
+
+The response vector (digit from 0-9) and the corresponding design matrices for the fitted and nested model are:
+```python
+# get response
+y = np.asarray((df['digit'] == 7).astype(float).values)
+
+# full model features (fou + kar)
+X_full = df[vars_].values.astype(float)
+
+# nested model features (fou only)
+X_nest = df[nest_vars].values.astype(float)
+```
+
+The full model is fit, and the nested model used in the penalised likelihood ratio test is also fitted with the same shrinkage parameter, alpha, used to transform the responses that the full model was fit on.
+```python
+# compute the mdypl fits
+full_model = MDYPLLogistic(endog=y, exog=X_full)
+full_fit = full_model.fit()
+
+# extract the default shrinkage parameter used in the full model
+alpha = full_fit.alpha
+
+# shrinkage parameter used in full model must also be used in nested model
+nested_model = MDYPLLogistic(endog=y, exog=X_nest, alpha=alpha)
+nested_fit = nested_model.fit()
+```
+
+To apply the high dimensional corrections to the estimates, standard errors, and confidence intervals, and print results:
+```python
+# get high dimensional corrections
+full_hd_corrected = full_fit.get_high_dimensional_result()
+
+# Get full model summary
+summ_hd = full_hd_corrected.summary()
+print(summ_hd)
+```
+
+The penalised likelihood ratio test with the high dimensional correction applied is conducted and printed as follows:
+```python
+# conduct penalised likelihood ratio test with high dim correction applied
+plr_results = full_fit.penalised_lrt(nested_fit, hd_correction=True)
+print(plr_results)
+```
+
 ## CI
 
 This repository includes a GitHub Actions workflow at `.github/workflows/pre-commit.yml` that runs `pre-commit run --all-files` on pushes and pull requests.
