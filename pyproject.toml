@@ -1,9 +1,12 @@
 [project]
 name = "hdlogistic"
 version = "0.1.0"
-description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
+authors = [
+    { name = "Lewis Parry" },
+    { name = "Elizabeth White" },
+]
 dependencies = [
     "numpy <= 2",
     "scipy",
