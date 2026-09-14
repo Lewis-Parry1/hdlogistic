@@ -12,9 +12,10 @@ FloatArray = NDArray[np.float64]
 
 def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
     r"""
-    Computes \tau_j which is \text{var}(x_{,j}|\textbf x_{,-j}). In other
-    words this function returns an array of \tau_j for each covariate j, where
-    \tau_j is the conditional variance of covariate j conditioned on all remianing
+    Computes :math:`\tau_j`, the conditional variance of covariate
+    :math:`x_{,j}` given the remaining covariates :math:`\mathbf{x}_{,-j}`.
+    In other words, this function returns an array of :math:`\tau_j` for each
+    covariate j.
     covariates.
 
     Parameters
@@ -29,7 +30,8 @@ def compute_taus(x: FloatArray, intercept_index: int | None) -> FloatArray:
     Returns
     -------
     FloatArray
-        Array of conditional standard deviations \tau_j for each j=1,...p.
+        Array of conditional standard deviations :math:`\tau_j` for each
+        :math:`j = 1, \ldots, p`.
     """
 
     mat_x = x if intercept_index is None else np.delete(x, intercept_index, axis=1)
@@ -51,18 +53,19 @@ def compute_sloe(
     fitted_probs: FloatArray,
     leverages: FloatArray,
 ) -> float:
-    """
+    r"""
     Estimate the corrupted signal strength in a model with (sub-)Gaussian covariates.
 
     The Signal Strength Leave-One-Out Estimator (SLOE) is defined in
-    Yadlowsky et al. (2021) when the model is estimated using maximum
+    Yadlowsky et al. (2021) [2]_ when the model is estimated using maximum
     likelihood (i.e., when the shrinkage parameter alpha = 1). The SLOE
     adaptation when estimation is through maximum Diaconis-Ylvisaker prior
-    penalized likelihood has been put forward in Sterzinger & Kosmidis (2026).
+    penalized likelihood has been put forward in Sterzinger & Kosmidis (2026) [1]_.
 
     In particular, `compute_sloe_estimator` computes an estimate of the
-    corrupted signal strength which is the limit: nu^2 of var(X^T beta(alpha)),
-    where beta(alpha) is the maximum Diaconis-Ylvisaker prior penalized likelihood
+    corrupted signal strength, the limit :math:`\nu^2` of
+    :math:`\operatorname{var}(X^T\beta(\alpha))`, where :math:`\beta(\alpha)`
+    is the maximum Diaconis-Ylvisaker prior penalized likelihood
     (MDYPL) estimator with shrinkage parameter alpha.
 
     Parameters

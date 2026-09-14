@@ -140,8 +140,8 @@ def _se_funcs(
         Convergence tolerance for the Newton-Raphson estimation of
         proximal operator. Default is 1e-10.
     corrupted : bool, optional
-        If False, `signal_strength` is the true signal strength \gamma.
-        If True, `signal_strength` is the corrupted signal strength, \nu.
+        If False, `signal_strength` is the true signal strength :math:`\\gamma`.
+        If True, `signal_strength` is the corrupted signal strength :math:`\\nu`.
         Default is False.
     transform : bool, optional
         If True, the closure expects the input parameters (`mu`, `b`, `sigma`)
@@ -285,11 +285,12 @@ def _init_solver(
         `kappa` should be in (0,1).
     signal_strength : float
         Square root of the signal strength (ss).
-        - If `corrupted = False`, represents the true signal strength
-        \gamma (square root of the limit of Var(X * \beta_0))
-        - If `corrupted = True`, represents the corrupted signal strength
-        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
-        signal strength leave one out estimator).
+
+            * If `corrupted = False`, represents the true signal strength
+                    \gamma (square root of the limit of Var(X * \beta_0)).
+                * If `corrupted = True`, represents the corrupted signal strength
+                    \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+                    signal strength leave one out estimator).
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1).
     start : FloatArray
@@ -343,8 +344,8 @@ def _init_solver(
         hermite_roots_weights=hermite_roots_weights,
         prox_tol=prox_tol,
         corrupted=corrupted,
-        transform=True,
         intercept=intercept,
+        transform=True,
     )
 
     def objective(pars_log: FloatArray) -> float:
@@ -418,11 +419,12 @@ def _root_solver(
         `kappa` should be in (0,1).
     signal_strength : float
         Square root of the signal strength (ss).
-        - If `corrupted = False`, represents the true signal strength
-        \gamma (square root of the limit of Var(X * \beta_0))
-        - If `corrupted = True`, represents the corrupted signal strength
-        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
-        signal strength leave one out estimator).
+
+            * If `corrupted = False`, represents the true signal strength
+                    \gamma (square root of the limit of Var(X * \beta_0)).
+                * If `corrupted = True`, represents the corrupted signal strength
+                    \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
+                    signal strength leave one out estimator).
     alpha : float
         Shrinkage hyperparameter of the MDYPL estimator. `alpha` should be in `(0,1]`.
     start : FloatArray
@@ -546,11 +548,14 @@ def solve_state_equation(
         `kappa` should be in (0,1).
     signal_strength : float
         Square root of the signal strength (ss).
-        - If `corrupted = False`, represents the true signal strength
-        \gamma (square root of the limit of Var(X * \beta_0))
-        - If `corrupted = True`, represents the corrupted signal strength
-        \nu (square root of the limit of Var(X * \hat{\beta}) estimated via the
-        signal strength leave one out estimator).
+
+                * If `corrupted = False`, represents the true signal strength
+                    :math:`\gamma` (square root of the limit of
+                    :math:`\operatorname{Var}(X^T\beta_0)`).
+                * If `corrupted = True`, represents the corrupted signal strength
+                    :math:`\nu` (square root of the limit of
+                    :math:`\operatorname{Var}(X^T\hat{\beta})` estimated via the
+                    signal-strength leave-one-out estimator).
     alpha : float
         Shrinkage parameter of the MDYPL estimator. `alpha` should be in (0,1].
     start : FloatArray | None, optional
@@ -584,19 +589,20 @@ def solve_state_equation(
         This enforces strict positivity and can improve convergence.
         By default, True.
     corrupted : bool, optional
-        If False, `signal_strength` is the true signal strength \gamma.
-        If True, `signal_strength` is the corrupted signal strength, \nu.
+        If False, `signal_strength` is the true signal strength :math:`\gamma`.
+        If True, `signal_strength` is the corrupted signal strength, :math:`\nu`.
         Default is False
     intercept : float | None, optional
         If None, the function minimizes residuals for the 3-equation system
         without an intercept (`mu`,`b`, `sigma`).
-        If a float:
-        - If `corrupted = False`, `intercept` represents the true population
-        intercept \theta_0, which is appended as the intial guess for `iota`
-        if `start` is None.
-        - If `corrupted = True`, `intercept` represents the limit, `iota`, of the
-        MDYPL sample-estimated intercept \hat{\theta}_0, which is appended as the
-        initial guess for `theta0` if `start` is None.
+                If a float:
+
+                * If `corrupted = False`, `intercept` represents the true population
+                    intercept :math:`\theta_0`, which is appended as the initial guess
+                    for `iota` if `start` is None.
+                * If `corrupted = True`, `intercept` represents the limit, `iota`, of
+                    the MDYPL sample-estimated intercept :math:`\hat{\theta}_0`, which
+                    is appended to the initial guess for `theta0` if `start` is None.
     init_method : str, optional
         The optimization method to be passed to `scipy.optimize.minimize` for the
         initial warm-start phase, by default "Nelder-Mead"
@@ -614,13 +620,14 @@ def solve_state_equation(
         that func(solution) is less than `convergence_tol`. By default,
         1e-4.
     warn_interpolator_issues : bool, optional
-        If True, warns whenever `use_warm_start_interpolator=True` and either
-        of the following interpolator-specific conditions hold:
-        - `alpha` does not closely match the adaptive shrinkage value
-          `1/(1+kappa)` that the interpolator's reference grid was built on
-          (`AdaptiveAlphaMismatchWarning`).
-        - An intercept is supplied, since the reference grid was built
-          assuming no intercept (`InterceptInterpolatedStartWarning`).
+                If True, warns whenever `use_warm_start_interpolator=True` and either
+                of the following interpolator-specific conditions hold:
+
+                * `alpha` does not closely match the adaptive shrinkage value
+                    `1/(1+kappa)` that the interpolator's reference grid was built on
+                    (`AdaptiveAlphaMismatchWarning`).
+                * An intercept is supplied, since the reference grid was built
+                    assuming no intercept (`InterceptInterpolatedStartWarning`).
         Set to False to silence both warnings without changing solver
         behaviour. Does not affect the separate `RuntimeWarning` emitted
         if the solve cascade fails to converge, which is always active.

@@ -101,7 +101,7 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
         """Parameter estimates.
 
         If `use_hd_correction=True`, non-intercept coefficients are debiased
-        via the state evolution scaling factor $\\hat{\\mu}$ and the intercept is
+        via the state evolution scaling factor :math:`\\hat{\\mu}` and the intercept is
         replaced by its state evolution estimate.
         """
         return self._summary_data.params
@@ -164,12 +164,12 @@ class MDYPLLogisticResult(Results):  # type: ignore[misc]
 
     @property
     def linear_predictors(self) -> FloatArray:
-        """Linear predictors $\\eta = X\\beta + \\text{offset}$ of shape `(n,)`."""
+        r"""Linear predictors :math:`\\eta = X\\beta + \\text{offset}` of shape `(n,)`."""
         return self._summary_data.linear_predictors
 
     @property
     def fitted_probs(self) -> FloatArray:
-        """Fitted response probabilities $\\mu = \\text{expit}(\\eta)$ of shape
+        r"""Fitted response probabilities :math:`\\mu = \\text{expit}(\\eta)` of shape
         `(n,)`."""
         return self._summary_data.fitted_probs
 
@@ -486,9 +486,9 @@ class MDYPLLogistic(Model):  # type: ignore[misc]
     """Modified Diaconis-Ylvisaker Penalized Logistic Regression (MDYPL).
 
     Fits a logistic regression model with response shrinkage derived from a modified
-    Diaconis-Ylvisaker conjugate prior. Binary responses $y \\in \\{0, 1\\}$ are shrunk
-    toward 0.5 via shrinkage parameter $\\alpha \\in [0, 1]$:
-    $\\tilde{y} = \\alpha y + (1 - \\alpha) / 2$, guaranteeing the existence of finite
+    Diaconis-Ylvisaker conjugate prior. Binary responses :math:`y \\in \\{0, 1\\}` are shrunk
+    toward 0.5 via shrinkage parameter :math:`\\alpha \\in [0, 1]`:
+    :math:`\\tilde{y} = \\alpha y + (1 - \\alpha) / 2`, guaranteeing the existence of finite
     maximum penalized likelihood estimates even under complete data separation.
 
     Parameters
