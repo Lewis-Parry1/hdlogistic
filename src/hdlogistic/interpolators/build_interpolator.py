@@ -14,9 +14,9 @@ from typing import cast
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
-from to_be_titled.types import FloatArray
+from hdlogistic.types import FloatArray
 
-GRID_PATH = files("to_be_titled") / "data" / "true_reference_param_grid.npz"
+GRID_PATH = files("hdlogistic") / "data" / "true_reference_param_grid.npz"
 
 FieldFunc = Callable[[FloatArray, FloatArray], FloatArray]
 

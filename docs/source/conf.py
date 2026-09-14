@@ -7,7 +7,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "to-be-titled"
+project = "hdlogistic"
 copyright = "2026, Lewis Parry and Elizabeth White"
 author = "Lewis Parry and Elizabeth White"
 release = "0.1"

@@ -1,6 +1,6 @@
 import numpy as np
 
-from to_be_titled.validation import is_full_rank
+from hdlogistic.validation import is_full_rank
 
 
 class TestObviousCases:

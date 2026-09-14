@@ -5,12 +5,12 @@ from itertools import product
 import numpy as np
 import pytest
 
-from to_be_titled.inference import derive_nu_from_gamma
-from to_be_titled.solvers.state_equations_solver import (
+from hdlogistic.inference import derive_nu_from_gamma
+from hdlogistic.solvers.state_equations_solver import (
     SolverConvergenceWarn,
     solve_state_equation,
 )
-from to_be_titled.types import FloatArray
+from hdlogistic.types import FloatArray
 
 
 @pytest.mark.candes_sur

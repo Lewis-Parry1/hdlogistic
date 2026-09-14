@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from to_be_titled.types import FloatArray
+from hdlogistic.types import FloatArray
 
 
 @dataclass

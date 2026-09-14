@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from to_be_titled.utils import get_intercept_idx, has_constant_col
+from hdlogistic.utils import get_intercept_idx, has_constant_col
 
 
 class TestHasConstantCol:

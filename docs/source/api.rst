@@ -1,5 +1,5 @@
 API
 ===
 
-.. automodule:: to_be_titled
+.. automodule:: hdlogistic
    :members:

@@ -11,18 +11,18 @@ from statsmodels.base.model import (  # pyright: ignore[reportMissingTypeStubs]
 )
 from statsmodels.iolib.summary import Summary  # pyright: ignore[reportMissingTypeStubs]
 
-from to_be_titled.estimation import (
+from hdlogistic.estimation import (
     MDYPLData,
     MDYPLResults,
     fit_mdypl,
     prepare_mdypl_data,
 )
-from to_be_titled.penalised_likelihood_ratio_test import (
+from hdlogistic.penalised_likelihood_ratio_test import (
     PenalisedLRTResults,
     penalised_lrt,
 )
-from to_be_titled.summary import HDDiagnostics, MDYPLSummary, summary
-from to_be_titled.types import (
+from hdlogistic.summary import HDDiagnostics, MDYPLSummary, summary
+from hdlogistic.types import (
     FloatArray,
 )
 

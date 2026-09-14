@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy.stats import chi2
 
-from to_be_titled.summary import summary
-from to_be_titled.types import FloatArray
+from hdlogistic.summary import summary
+from hdlogistic.types import FloatArray
 
 if TYPE_CHECKING:
-    from to_be_titled.estimation import MDYPLResults
+    from hdlogistic.estimation import MDYPLResults
 
 
 @dataclass(frozen=True)

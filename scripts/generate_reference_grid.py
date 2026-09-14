@@ -13,14 +13,14 @@ from pathlib import Path
 
 import numpy as np
 
-from to_be_titled.solvers.solver_types import SolverResult
-from to_be_titled.solvers.state_equations_solver import (
+from hdlogistic.solvers.solver_types import SolverResult
+from hdlogistic.solvers.state_equations_solver import (
     _default_start,
     _init_solver,
     _root_solver,
 )
-from to_be_titled.types import FloatArray
-from to_be_titled.validation import is_valid_domain
+from hdlogistic.types import FloatArray
+from hdlogistic.validation import is_valid_domain
 
 OUTPUT_PATH = Path(__file__).resolve().parent / "data" / "true_reference_param_grid.npz"
 

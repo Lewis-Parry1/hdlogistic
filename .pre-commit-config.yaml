@@ -27,7 +27,7 @@ repos:
           types: [python]
           require_serial: true
           pass_filenames: false
-          files: ^src/to_be_titled/
+          files: ^src/hdlogistic/
 
       - id: pytest
         name: pytest

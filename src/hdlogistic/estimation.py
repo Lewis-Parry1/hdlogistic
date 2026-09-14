@@ -13,18 +13,18 @@ from statsmodels.genmod.generalized_linear_model import (  # pyright: ignore[rep
     GLM,
 )
 
-from to_be_titled.inference import (
+from hdlogistic.inference import (
     compute_aic,
     compute_deviance,
     compute_deviance_residuals,
     compute_likelihood,
     compute_sloe,
 )
-from to_be_titled.types import (
+from hdlogistic.types import (
     FloatArray,
 )
-from to_be_titled.utils import adjust_response, get_intercept_idx, has_constant_col
-from to_be_titled.validation import (
+from hdlogistic.utils import adjust_response, get_intercept_idx, has_constant_col
+from hdlogistic.validation import (
     ensure_column_vector,
     ensure_design_matrix,
     is_full_rank,

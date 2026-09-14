@@ -1,6 +1,6 @@
 import numpy as np
 
-from to_be_titled.types import FloatArray
+from hdlogistic.types import FloatArray
 
 
 def has_constant_col(x: FloatArray) -> bool:

@@ -3,7 +3,7 @@ import pytest
 from numpy.testing import assert_allclose
 from scipy.special import expit
 
-from to_be_titled.inference import (
+from hdlogistic.inference import (
     compute_likelihood,
     compute_sloe,
     compute_taus,

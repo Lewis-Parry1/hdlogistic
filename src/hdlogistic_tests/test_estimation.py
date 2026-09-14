@@ -4,13 +4,13 @@ import statsmodels.api as sm
 from numpy.testing import assert_allclose
 from scipy.special import expit
 
-from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
-from to_be_titled.inference import compute_deviance
+from hdlogistic.estimation import fit_mdypl, prepare_mdypl_data
+from hdlogistic.inference import compute_deviance
 
 
 class TestMDYPLEstimation:
     """Tests for `prepare_mdypl_data` and `fit_mdypl` in
-    `to_be_titled.estimation` with simple dataset."""
+    `hdlogistic.estimation` with simple dataset."""
 
     @pytest.fixture
     def simple_data(self):

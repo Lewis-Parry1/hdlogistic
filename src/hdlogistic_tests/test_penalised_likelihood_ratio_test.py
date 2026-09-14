@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
-from to_be_titled.penalised_likelihood_ratio_test import penalised_lrt
+from hdlogistic.estimation import fit_mdypl, prepare_mdypl_data
+from hdlogistic.penalised_likelihood_ratio_test import penalised_lrt
 
 X_DATA = np.array(
     [

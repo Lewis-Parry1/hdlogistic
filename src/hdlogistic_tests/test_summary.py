@@ -3,10 +3,10 @@ import pytest
 from numpy.testing import assert_allclose
 from scipy.special import expit
 
-from to_be_titled.estimation import fit_mdypl, prepare_mdypl_data
-from to_be_titled.inference import compute_aic, compute_likelihood, compute_sloe
-from to_be_titled.solvers import solve_state_equation
-from to_be_titled.summary import summary
+from hdlogistic.estimation import fit_mdypl, prepare_mdypl_data
+from hdlogistic.inference import compute_aic, compute_likelihood, compute_sloe
+from hdlogistic.solvers import solve_state_equation
+from hdlogistic.summary import summary
 
 X_DATA = np.array(
     [

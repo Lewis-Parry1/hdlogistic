@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 from scipy.special import expit
 
-from to_be_titled.state_equations import (
+from hdlogistic.state_equations import (
     _proximal_operator,  # pyright: ignore[reportPrivateUsage]
     se_no_intercept,
     se_with_intercept,
 )
-from to_be_titled.types import FloatArray
+from hdlogistic.types import FloatArray
 
 """
 These tests test the proximal operator to ensure that Newton's method

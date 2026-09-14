@@ -7,8 +7,8 @@ import numpy as np
 from scipy.special import expit
 from scipy.stats import norm
 
-from to_be_titled.estimation import MDYPLResults
-from to_be_titled.inference import (
+from hdlogistic.estimation import MDYPLResults
+from hdlogistic.inference import (
     compute_aic,
     compute_deviance,
     compute_deviance_residuals,
@@ -17,9 +17,9 @@ from to_be_titled.inference import (
     compute_taus,
     derive_gamma_from_nu,
 )
-from to_be_titled.solvers import solve_state_equation
-from to_be_titled.solvers.state_equations_solver import ConvergenceCode
-from to_be_titled.types import FloatArray
+from hdlogistic.solvers import solve_state_equation
+from hdlogistic.solvers.state_equations_solver import ConvergenceCode
+from hdlogistic.types import FloatArray
 
 
 @dataclass(frozen=True)

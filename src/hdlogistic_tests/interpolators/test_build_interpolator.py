@@ -10,12 +10,12 @@ from importlib.resources import files
 
 import numpy as np
 
-from to_be_titled.interpolators.build_interpolator import (
+from hdlogistic.interpolators.build_interpolator import (
     _build_rgi_pchip_interpolator,
 )
-from to_be_titled.types import FloatArray
+from hdlogistic.types import FloatArray
 
-GRID_PATH = files("to_be_titled") / "data" / "true_reference_param_grid.npz"
+GRID_PATH = files("hdlogistic") / "data" / "true_reference_param_grid.npz"
 
 
 def _load_grid() -> dict[str, FloatArray]:

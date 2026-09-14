@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.linalg import qr
 
-from to_be_titled.solvers.solver_types import SolverResult
-from to_be_titled.types import FloatArray
+from hdlogistic.solvers.solver_types import SolverResult
+from hdlogistic.types import FloatArray
 
 
 def _has_converged(result: SolverResult, tol: float = 1e-4) -> bool:
