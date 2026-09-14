@@ -1,10 +1,13 @@
 # hdlogistic
+## A Python Implentation of the Diaconis-Ylvisaker Prior Penalised Likelihood for Logistic Regression  
 
-[**hdlogistic**](https://github.com/Lewis-Parry1/hdlogistic) provides a Python implementation of R's [**brglm2**](https://github.com/ikosmidis/brglm2/) for estimating parameters of a logistic regression model using the Diaconis–Ylvisaker (DY) penalised likelihood [1] and provides the rescaled estimates in finite sample settings where the ratio of covariates to observations is large. It also offers subsequent inference procedures and tools for model comparison, both of which can be adjusted to account for a high dimensional regime.
+[**hdlogistic**](https://github.com/Lewis-Parry1/hdlogistic) provides a Python implementation of R's [**brglm2**](https://github.com/ikosmidis/brglm2/) for estimating parameters of a logistic regression model using the Diaconis–Ylvisaker (DY) prior penalised likelihood [1] and provides the rescaled estimates in finite sample settings where the ratio of covariates to observations is large. It also offers subsequent inference procedures and tools for model comparison, both of which can be adjusted to account for a high dimensional regime.
 
 In the context of logistic regression, the DY prior penalised likelihood yields an asymptotically smaller bias than the standard maximum likelihood estimator (MLE), guarantees finite parameter estimates [2, 4], and is computationally more efficient than other non-separable penalties, such as Jeffreys' invariant prior penalty [4]. For maximum DY prior penalised likelihood (MDYPL) estimation, the package provides a non-linear state equation solver for the auxiliary equations derived from the Approximate Message Passing (AMP) recursion constructed in Sterzinger & Kosmidis [3].
 
 In the high-dimensional setting where $p,n\to\infty$ such that $p/n\to\kappa\in (0,1)$, the MDYPL estimate, like the standard MLE, is asymptotically biased, exhibits inflated standard errors, and the likelihood ratio test (LRT) statistic converges to a rescaled chi-squared distribution. By solving the auxiliary system of equations from Sterzinger & Kosmidis [3], this package computes rescaled, asymptotically unbiased MDYPL estimates, adjusted standard errors, and valid confidence intervals, alongside a rescaled penalised LRT.
+
+<img width="2456" height="1202" alt="mdypl-vs-truth-1" src="https://github.com/user-attachments/assets/6c91ea0e-8083-4454-9675-9c44d9c23808" />
 
 ## Quick start
 
